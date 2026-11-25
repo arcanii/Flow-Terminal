@@ -115,7 +115,9 @@ All commands below run from the repo root. The scripts are in
    `v<old>-macos` to `v<ver>-macos` in `README.md`, both in the "Download for
    macOS" link at the top and in the macOS part of the Download section. Commit
    and push to `main`. Until then the links still open the previous release,
-   whose copies Sparkle then updates.
+   whose copies Sparkle then updates. Change them the same way in this
+   repository's own `README.md`, whose "Download for macOS" link and the logo
+   over it, at the top and under Install, open the release by its tag too.
 
 ## flowapp's apps
 

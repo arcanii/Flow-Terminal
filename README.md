@@ -6,6 +6,25 @@
 
 <p align="center"><i>A useful terminal emulator written in Rust with a liquid-glass look and Ai assistant (Claude, GPT or Gemini). One terminal across Linux, MacOS, and Windows (to rule them all).</i></p>
 
+<div align="center">
+<table>
+  <tr>
+    <td align="center" width="180">
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-macos"><img src="https://cdn.simpleicons.org/apple/A2AAAD" width="64" height="64" alt="Apple logo"></a><br>
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-macos"><b>Download for macOS</b></a>
+    </td>
+    <td align="center" width="180">
+      <a href="https://github.com/arcanii/Flow-releases/releases/latest"><img src="assets/readme/windows.svg" width="64" height="64" alt="Windows logo"></a><br>
+      <a href="https://github.com/arcanii/Flow-releases/releases/latest"><b>Download for Windows</b></a>
+    </td>
+    <td align="center" width="180">
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-linux"><img src="https://cdn.simpleicons.org/linux/FCC624" width="64" height="64" alt="Tux, the Linux logo"></a><br>
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-linux"><b>Download for Linux</b></a>
+    </td>
+  </tr>
+</table>
+</div>
+
 <p align="center">
   <a href="https://github.com/arcanii/Flow-releases#macos"><img src="https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fraw.githubusercontent.com%2Farcanii%2FFlow-releases%2Fmain%2Fappcast-macos.xml&query=%28%2F%2F%2A%5Blocal-name%28%29%3D%27enclosure%27%5D%29%5B1%5D%2F%40%2A%5Blocal-name%28%29%3D%27shortVersionString%27%5D&label=macOS&logo=apple&logoColor=white&color=000000&style=for-the-badge" alt="The newest Flow for macOS"></a>
   <a href="https://github.com/arcanii/Flow-releases#windows"><img src="https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fraw.githubusercontent.com%2Farcanii%2FFlow-releases%2Fmain%2Fappcast.xml&query=%28%2F%2F%2A%5Blocal-name%28%29%3D%27enclosure%27%5D%29%5B1%5D%2F%40%2A%5Blocal-name%28%29%3D%27shortVersionString%27%5D&label=Windows&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAyNCAyNCc%2BPHBhdGggZmlsbD0nI2ZmZicgZD0nTTEgMWgxMC41djEwLjVIMXpNMTIuNSAxSDIzdjEwLjVIMTIuNXpNMSAxMi41aDEwLjVWMjNIMXpNMTIuNSAxMi41SDIzVjIzSDEyLjV6Jy8%2BPC9zdmc%2B&color=0078D6&style=for-the-badge" alt="The newest Flow for Windows"></a>
@@ -21,7 +40,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/arcanii/Flow-releases#download"><b>Download Flow</b></a> ·
+  <a href="#install"><b>Download Flow</b></a> ·
   <a href="docs/manual/install.md"><b>Install</b></a> ·
   <a href="#documentation"><b>Documentation</b></a> ·
   <a href="CONTRIBUTING.md"><b>Contributing</b></a>
@@ -171,6 +190,25 @@ much the same on Windows, macOS and Linux?**
 
 ## Install
 
+<div align="center">
+<table>
+  <tr>
+    <td align="center" width="180">
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-macos"><img src="https://cdn.simpleicons.org/apple/A2AAAD" width="64" height="64" alt="Apple logo"></a><br>
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-macos"><b>Download for macOS</b></a>
+    </td>
+    <td align="center" width="180">
+      <a href="https://github.com/arcanii/Flow-releases/releases/latest"><img src="assets/readme/windows.svg" width="64" height="64" alt="Windows logo"></a><br>
+      <a href="https://github.com/arcanii/Flow-releases/releases/latest"><b>Download for Windows</b></a>
+    </td>
+    <td align="center" width="180">
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-linux"><img src="https://cdn.simpleicons.org/linux/FCC624" width="64" height="64" alt="Tux, the Linux logo"></a><br>
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-linux"><b>Download for Linux</b></a>
+    </td>
+  </tr>
+</table>
+</div>
+
 - **Windows 10/11 (x64):** `Flow-<version>-setup.exe` from the [latest
   release](https://github.com/arcanii/Flow-releases/releases/latest), or the
   portable zip beside it.
@@ -292,4 +330,6 @@ release's THIRD-PARTY-NOTICES.txt.
 
 Flow shows other companies' logos for its startup logo and its old machines'
 themes, as a historical showcase; they belong to their owners, and
-[Trademarks](docs/trademarks.md) names each one.
+[Trademarks](docs/trademarks.md) names each one. The download links carry
+Apple's, Microsoft's and Linux's own logos (Linux's is Tux) only to show which
+system each download is for.

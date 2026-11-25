@@ -137,7 +137,9 @@ Windows releases are in [macos/RELEASING.md](../macos/RELEASING.md) and
    `main`. Flow sees the update on its next daily check, or when someone
    picks **Check for Updates…** in About or Settings.
 6. **Update the README's Linux links** in that checkout, to the
-   `v<ver>-linux` release.
+   `v<ver>-linux` release, and the same in this repository's own `README.md`,
+   whose "Download for Linux" link and the logo over it, at the top and under
+   Install, open the release by its tag too.
 7. **Check the live feed**: `cargo test -p flow-linux updater -- --ignored`
    downloads what `appcast-linux-<arch>.xml` now offers, checks it against
    Flow's key and installs it into a scratch folder, as an update would,
