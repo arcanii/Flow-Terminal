@@ -1,0 +1,26 @@
+[package]
+name = "flow-linux"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Flow on Linux and other Unix systems: the window's name and icon, blur, the primary selection, updates and the Unix shells"
+
+# Everything is for Unix other than macOS, so elsewhere this crate is empty.
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+flow-core = { path = "../core" }
+winit.workspace = true
+log.workspace = true
+raw-window-handle.workspace = true
+arboard.workspace = true
+rfd.workspace = true
+png.workspace = true
+ureq.workspace = true
+base64.workspace = true
+ed25519-dalek.workspace = true
+dirs.workspace = true
+x11rb.workspace = true
+libc.workspace = true
+
+# tests/shells.rs and tests/prompt.rs read what the shells drew.
+[target.'cfg(all(unix, not(target_os = "macos")))'.dev-dependencies]
+alacritty_terminal.workspace = true

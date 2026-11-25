@@ -1,0 +1,1951 @@
+{
+  "language": {
+    "name": "English",
+    "model": "English"
+  },
+  "common": {
+    "on": "On",
+    "off": "Off",
+    "done": "Done",
+    "cancel": "Cancel",
+    "close": "Close",
+    "unknown": "unknown"
+  },
+  "title": {
+    "own": "On its own",
+    "admin": "Administrator",
+    "efficient": "🌱e-mode",
+    "efficient_battery": "🌱e-mode · battery",
+    "efficient_low_power": "🌱e-mode · low power",
+    "on_top": "on-top",
+    "add_key": "○ Add API key",
+    "auto": "Auto",
+    "guide": "Guide",
+    "ask": "✦ Ask  {keys}",
+    "ask_short": "✦ Ask",
+    "update": "↑ Update",
+    "restart": "↻ Restart to update",
+    "recording": "● {time}"
+  },
+  "terminal": {
+    "scrolled": " ↓ {count} lines below ",
+    "scrolled_one": " ↓ 1 line below ",
+    "caps_lock": "⇪ Caps Lock is on"
+  },
+  "panel": {
+    "steps": "Steps · {done} of {n} done",
+    "steps_more": "+{n} more",
+    "undo": "Undo",
+    "own": "on its own · {minutes} min left",
+    "copy": "Copy",
+    "run": "Run",
+    "copy_reply": "Copy reply",
+    "name": "{app} AI",
+    "auto": "auto",
+    "guide": "guide",
+    "tokens": "· {used} tokens",
+    "tokens_of_cap": "· {used} / {cap} tokens",
+    "hint_busy": "Esc stop",
+    "stop": "■ stop",
+    "hint_focus_mac": "Enter send · Tab mode · ⌃L clear · Esc back",
+    "hint_focus": "Enter send · Tab mode · Ctrl+L clear · Esc back",
+    "hint_type": "{keys} to type",
+    "placeholder": "Ask anything — e.g. \"find the 10 biggest files here\"",
+    "placeholder_approve": "Enter to run · E edit · S skip · or type feedback",
+    "placeholder_plan": "Enter lets it work · S asks each time · or type feedback",
+    "placeholder_busy": "{name} is working…",
+    "intro": "Tell me what you want to do in plain words. I'll suggest the commands (guide mode) or run them for you (auto mode, Tab to switch).",
+    "intro_no_key": "To start, add your {company} API key: click \"Add API key\" in the title bar, or open Settings ({keys}). Under Assistant you can also pick Claude, GPT or Gemini.",
+    "thought": "∴ thought for {secs}s",
+    "thinking": "∴ thinking… {secs}s",
+    "searching": "⌕ searching the web: {query}",
+    "more": " ↓ {count} more "
+  },
+  "card": {
+    "server_call": "{server} · {tool}",
+    "running_what": "{spinner} {what} · {secs}s",
+    "undone": "Put back as it was",
+    "queued": "queued",
+    "running": "{spinner} running… {secs}s",
+    "run": "Run ⏎",
+    "edit": "Edit E",
+    "skip": "Skip S",
+    "risk_low": "low risk",
+    "risk_medium": "medium risk",
+    "risk_high": "high risk",
+    "result": "exit {code} · {lines} lines · {secs}s",
+    "still_running": "still running after {secs}s — handed back to {name}",
+    "edited": "{command}  (edited by you)",
+    "skipped": "skipped",
+    "skipped_said": "skipped — “{feedback}”",
+    "invalid_input": "{tool} (invalid input)",
+    "done": "done",
+    "cleared": "The conversation was cleared.",
+    "stopped": "Stopped by the user.",
+    "tab_closed": "The terminal tab was closed.",
+    "session_closed": "The terminal session closed.",
+    "no_session": "No terminal session is running.",
+    "busy": "The terminal is busy with another program, so the command was not typed. Ask the user to finish or exit it first.",
+    "pane_taken": "Since this command was judged, the user has taken the pane it was to go to (something runs there, or is typed at its prompt), so Flow didn't type it over what they're doing. Run it again to have it judged where it would go now.",
+    "folder_moved": "Its pane's shell is in another folder now, so Flow judged the command again there.",
+    "folder_said": "Its pane's shell has said which folder it's in, so Flow judged the command again there.",
+    "folder_unsteady": "The shell of the pane this command was to run in kept saying it was in another folder, so Flow didn't type it: Flow judges a command in the folder it runs in.",
+    "pane_closed": "The pane this command was to run in was closed while it waited, so Flow judged it again for where it would go now.",
+    "letters_as_keys": "The command holds letters past ASCII, which the shell at this prompt may take as keys, not letters: bash's locale has just changed into one that isn't UTF-8, or Flow's hook doesn't run there (it isn't the shell Flow started, or bash's PROMPT_COMMAND is read-only). So the command was not typed. Where the locale has just changed, a command without such letters first (`true` will do) brings a prompt that takes them; else write them as bytes, $'\\xc3\\xbc' for ü.",
+    "elsewhere": "Flow didn't open it: the path isn't on one of this computer's own drives, and a file on another computer is never opened for the assistant, since opening it could hand that computer your sign-in. To give it to the assistant, copy it to this computer first.",
+    "args_edited": "Its arguments edited by you",
+    "read_resource": "{server} · read a resource",
+    "link_waits": "waiting for you to finish in your browser for {server}",
+    "try_again": "Try Again",
+    "give_up": "Give Up"
+  },
+  "key_dialog": {
+    "server_title": "Token for {server}",
+    "server_body": "Paste the token {server} gave you. Flow sends it to {server} alone, as Authorization: Bearer, and keeps it in {store}, never in a file. An empty box forgets the one kept.",
+    "server_keys_mac": "Enter to keep · ⌘V to paste · Esc to cancel",
+    "server_keys": "Enter to keep · Ctrl+V to paste · Esc to cancel",
+    "server_not_kept": "Couldn't keep the token: {error}",
+    "title": "Connect {name}",
+    "store_windows": "Windows Credential Manager",
+    "store_mac": "your macOS Keychain",
+    "store_other": "your system keyring",
+    "starts_with": " (it starts with {prefix})",
+    "body": "Paste your {company} API key{starts}. It is checked with {company} and kept in {store}, never in a file. Get one at {console}. For another provider, pick it under Assistant in Settings first.",
+    "checking": "Checking with {company}…",
+    "keys_mac": "Enter to save · ⌘V to paste · Esc to skip for now",
+    "keys": "Enter to save · Ctrl+V to paste · Esc to skip for now",
+    "not_a_key": "That doesn't look like an {company} API key ({prefix}…).",
+    "not_a_key_plain": "That doesn't look like a {company} API key.",
+    "not_accepted": "That key was not accepted by {company}. Check it and try again.",
+    "could_not_check": "Could not check the key: {error}"
+  },
+  "settings": {
+    "theme_font": {
+      "label": "Its font",
+      "hint": "The machine's own font. Off, Flow's, with the rest of the theme as it is."
+    },
+    "theme_crt": {
+      "label": "Its tube",
+      "hint": "The machine's screen, curved and scanned as a CRT. Off, flat glass."
+    },
+    "theme_colors": {
+      "label": "Its colors",
+      "hint": "The machine's own colors, programs' sixteen among them, chosen to read on its screen. Off, Flow's colors."
+    },
+    "theme_frame": {
+      "label": "Its window frame",
+      "hint": "The shell window's frame round each pane, as its desktop drew it: a title bar with the tab's name, three lines and depth gadgets that bring the window in front of the others and send it behind them, a sizing gadget in the corner, and an outline. Off, the text alone."
+    },
+    "theme_sound": {
+      "hint": "One of the machine's sounds, while Sound's Machines is on.",
+      "hum": "Tube hum",
+      "keys": "Key clicks",
+      "fan": "Fan",
+      "disk": "Disk drive",
+      "drive": "Empty drive's clicks",
+      "chime": "Startup chime",
+      "tone": "Start beep",
+      "clatter": "Printing",
+      "margin": "Margin bell",
+      "punch": "Tape punch",
+      "printer": "Printer",
+      "bell": "Its own bell"
+    },
+    "cursor_speed": {
+      "label": "Cursor speed",
+      "hint": "How fast the cursor glides to where it goes: slower feels heavier, faster keeps up. Each theme sets its own, a teletype's heavier than a PC's. With Cursor glide off it still steps along as you type."
+    },
+    "efficient": {
+      "label": "Efficient mode",
+      "hint": "For real work: pauses the liquid, CRT, effects and theme sounds, and holds the turning logo still. Your settings come back when it's off.",
+      "hint_battery": "On while the computer runs on battery (Efficient on battery). Switch it off and it stays off until it's plugged in or Flow quits.",
+      "hint_low_power_mac": "On while the Mac is in Low Power Mode (Efficient on battery). Switch it off and it stays off until Low Power Mode ends or Flow quits.",
+      "hint_low_power": "On while energy saver is on (Efficient on battery). Switch it off and it stays off until energy saver goes off or Flow quits."
+    },
+    "efficient_on_battery": {
+      "label": "Efficient on battery",
+      "hint_mac": "Efficient mode comes on while the Mac is on battery or in Low Power Mode. Turned off then, it stays off until that ends or Flow quits.",
+      "hint_windows": "Efficient mode comes on while the computer is on battery or energy saver is on. Turned off then, it stays off until that ends or Flow quits.",
+      "hint": "Efficient mode comes on while the computer runs on battery. Turned off then, it stays off until it's plugged in or Flow quits."
+    },
+    "title": "Settings",
+    "collapse_all": "Collapse all",
+    "expand_all": "Expand all",
+    "more_up": "▴ more",
+    "more_down": "▾ more",
+    "keys": "↑↓ choose · ←→ change · Enter toggle · Esc close",
+    "search": {
+      "placeholder": "Search  {keys}",
+      "none": "No setting has “{query}” in its name, its words or its key in config.toml.",
+      "keys": "Type to search · ↑↓ choose · ←→ change · Enter go to it · Esc clear"
+    },
+    "header": {
+      "theme_details": "Theme details",
+      "general": "General",
+      "theme": "Theme",
+      "liquid": "Liquid",
+      "glass": "Glass",
+      "text": "Text and cursor",
+      "crt": "CRT",
+      "assistant": "Assistant",
+      "skills": "Skills",
+      "outside_apps": "Outside apps",
+      "terminal": "Terminal",
+      "keys": "Keys",
+      "sound": "Sound",
+      "about": "About",
+      "apps": "Apps",
+      "recording": "Recording",
+      "mcp_servers": "MCP servers"
+    },
+    "section": {
+      "hint": "Enter or a click shows or hides this section's settings; ← hides them and → shows them. A section stays as you leave it.",
+      "count": "{n} settings"
+    },
+    "scope": {
+      "pane": "this pane",
+      "tab": "this tab",
+      "new_tabs": "new tabs",
+      "all": "all tabs"
+    },
+    "on": {
+      "new_tabs": "New tabs"
+    },
+    "language": {
+      "label": "Language",
+      "hint": "Flow's menus, settings and messages. Automatic follows your system's language. The assistant answers in it too.",
+      "auto": "Automatic"
+    },
+    "theme": {
+      "label": "Theme",
+      "hint": "Flow's own look, one after an old machine (its colors, cursor and screen, and fonts of its time where you have them), or your own. An old machine, or your own, also starts new tabs with its start screen and gives their shells its prompt; your own keeps the colors, fonts and CRT you set, with a start screen, prompt and sounds you set below, which a preset file saves too. Themes you save under a name come last.",
+      "flow": "Flow",
+      "home": "Home computer",
+      "workstation": "Flow notaSun Workstation",
+      "graphics": "Graphics workstation",
+      "green": "Green screen",
+      "amber": "Amber screen",
+      "teletype": "Teletype",
+      "school": "School computer",
+      "pc": "Personal computer",
+      "instruments": "Flow Instruments Home Computer",
+      "amiga": "Flow notanAmiga CLI",
+      "own": "Your own"
+    },
+    "theme_real_numbers": {
+      "label": "Its real numbers",
+      "hint": "Shows this computer's own Ethernet address (with the host ID from it) and serial number in the start screen, in place of made-up ones, which otherwise stay the same on this computer. They identify it, so leave this off for pictures you share. On Linux the serial stays made up, since only root may read it."
+    },
+    "theme_start": {
+      "label": "Start screen",
+      "hint": "New tabs start with the machine's start screen, typed out at the speed of its line."
+    },
+    "theme_prompt": {
+      "label": "Machine's prompt",
+      "hint": "The shells in new tabs take the machine's prompt (READY., %, $) in place of your own."
+    },
+    "own_start": {
+      "label": "Start screen",
+      "hint": "New tabs start with it. ^ at a line's start centers the line; {version}, {os}, {chip}, {memory}, {mb}, {kb}, {bytes} and {shell} stand for what they say.",
+      "empty": "None"
+    },
+    "own_prompt": {
+      "label": "Prompt",
+      "hint": "The shells in new tabs take it in place of their own: {cwd} is the folder, {n} the command's number, \\n a new line. Empty keeps the shell's own.",
+      "empty": "The shell's own"
+    },
+    "own_baud": {
+      "label": "Typed at",
+      "hint": "How fast the start screen is typed out, in baud (bits a second, ten to a letter): a teletype's 300, a terminal's 1200 or 2400, or all at once.",
+      "now": "At once"
+    },
+    "own_sounds": {
+      "label": "Sounds",
+      "hint": "What your machine sounds like, with Machines' sounds on under Sound: a tube's hum and its keys' clicks; a video terminal's sharper clicks and its beep; a tube with a disk drive seeking as it starts, with a fan or without; with a floppy drive seeking as it starts and as its disk goes in, and clicking while it's empty; with a chord as it starts; a sound chip's beep as it starts and its honk for the bell; with a printer printing a command's output; or a teletype clattering as it types, its bell near a line's end, its carriage at each return and its paper tape punch as output comes."
+    },
+    "saved_theme": {
+      "label": "Your themes",
+      "hint": "Save as theme… keeps what's worn now under a name: the colors (programs' sixteen among them), fonts, cursor, glass, liquid and CRT, with a start screen, prompt and sounds where they're set. It comes after the built-in themes, under Theme and in the new-tab picker; a name used before is saved over. Chosen here, the rows above type its start screen and prompt, leaving your own as it is. Export… writes the one chosen as a theme package, a .tar.gz file that flowapp install puts among the themes on another computer, its fonts named but not carried. Delete removes the one chosen, leaving its colors, fonts and CRT on under your own theme. A preset file saved while one is worn moves it too.",
+      "save": "Save as theme…",
+      "export": "Export…",
+      "export_title": "Export the Theme as a Package",
+      "export_kind": "Flow theme package",
+      "delete": "Delete"
+    },
+    "editing": {
+      "keys_lines_mac": "Enter new line · ⌘Enter done · ⌘V paste · Esc cancel",
+      "keys_lines": "Enter new line · Ctrl+Enter done · Ctrl+Shift+V paste · Esc cancel",
+      "keys_line_mac": "Enter done · ⌘V paste · Esc cancel",
+      "keys_line": "Enter done · Ctrl+Shift+V paste · Esc cancel",
+      "more": "+{n} more"
+    },
+    "screen_refresh": {
+      "label": "Screen refresh",
+      "hint": "How often Flow draws. Display keeps to your screen's rate; lower saves power. Unlimited doesn't wait for the screen: text shows sooner, at the most power.",
+      "display": "Display",
+      "unlimited": "Unlimited",
+      "rate": "{rate} Hz"
+    },
+    "on_top": {
+      "label": "Always on top",
+      "hint": "Keeps Flow's window in front of every other window, as the title bar's on-top does, dropped down by the hotkey too. Off, other windows can come in front of it.",
+      "none_here": "Not available on Wayland",
+      "hint_none_here": "Wayland lets no program keep its own window on top. Your desktop's window menu has Always on Top: right-click Flow's title bar."
+    },
+    "hotkey": {
+      "label": "Hotkey",
+      "hint": "A key that brings Flow forward from any app, and puts it away again while it's in front. Off takes none.",
+      "hint_failed": "Flow couldn't take this key: another app has it. Pick another.",
+      "hint_failed_linux": "Flow couldn't take this key. Wayland lets no program take a key for the whole desktop, nor an X11 one under it (XWayland); an X11 session does, where another program may have it.",
+      "none_here": "Not available on Wayland",
+      "hint_none_here": "Wayland lets no program take a key for the whole desktop, nor an X11 one under it (XWayland, which hears a key only while one of its windows has the keys), so Flow has no hotkey here. An X11 session has one.",
+      "press": "Press a key…",
+      "hint_press_mac": "Press the key to be the hotkey, held with ⌃, ⌥ or ⌘ (an F key works alone). A key one of Flow's commands has is taken from it; the system's, such as ⌘Q, aren't taken. Esc keeps the one before.",
+      "hint_press_windows": "Press the key to be the hotkey, held with Ctrl, Alt or the Windows key (an F key works alone). A key one of Flow's commands has is taken from it. Esc keeps the one before.",
+      "hint_press_linux": "Press the key to be the hotkey, held with Ctrl, Alt or Super (an F key works alone). A key one of Flow's commands has is taken from it. Esc keeps the one before.",
+      "hint_refused_mac": "Flow can't take that key as the hotkey. Hold ⌃, ⌥ or ⌘ with a letter, a digit, `, Space or an F key, or press an F key alone. Esc keeps the one before.",
+      "hint_refused_windows": "Flow can't take that key as the hotkey. Hold Ctrl, Alt or the Windows key with a letter, a digit, `, Space or an F key, or press an F key alone. Esc keeps the one before.",
+      "hint_refused_linux": "Flow can't take that key as the hotkey. Hold Ctrl, Alt or Super with a letter, a digit, `, Space or an F key, or press an F key alone. Esc keeps the one before."
+    },
+    "drop_down": {
+      "label": "Drop down",
+      "hint_mac": "The hotkey drops Flow's window over the top of the screen the pointer is on, in front and on every Space, and puts it away again (Always on top keeps it in front). Off, Flow comes forward where it was.",
+      "hint": "The hotkey drops Flow's window over the top of its screen, in front, and puts it away again (Always on top keeps it in front). Off, Flow comes forward where it was."
+    },
+    "drop_down_height": {
+      "label": "Drop-down height",
+      "hint": "How much of the screen the window dropped down takes, from its top.",
+      "third": "A third",
+      "half": "Half",
+      "two_thirds": "Two thirds",
+      "all": "All"
+    },
+    "drop_down_slide": {
+      "label": "Slide",
+      "hint": "The window slides down from above the screen, and back up as it's put away. Off, or in efficient mode, it shows and goes at once.",
+      "hint_linux": "The window slides down from above the screen, and back up as it's put away. Off, or in efficient mode, it shows and goes at once, as it always does on Wayland, which lets no program move its window."
+    },
+    "drop_down_hides": {
+      "label": "Put away when unfocused",
+      "hint": "The window dropped down is put away once another app has the keys, as the hotkey would put it away. Off, it stays until the hotkey."
+    },
+    "drop_down_over_full_screen": {
+      "label": "Over full-screen apps",
+      "hint": "The window drops down over an app in full screen too, without leaving its Space. While it's down, Flow's Dock icon and menu bar go, and ⌘Tab passes it by; they come back as it's put away."
+    },
+    "liquid_style": {
+      "label": "Liquid style",
+      "hint": "Clouds of swirling ink, water with ripples and sunlight, thick oil with a rainbow sheen, or rain on the window. None is plain glass, with nothing moving."
+    },
+    "water_view": {
+      "label": "Water view",
+      "hint": "Above: looking down into the water. Below: underwater, with bubbles when you type."
+    },
+    "sunlight": {
+      "label": "Sunlight",
+      "hint": "How bright the sun is: glints and caustics above, light shafts below."
+    },
+    "electricity": {
+      "label": "Electricity",
+      "hint": "Lightning flickering between the clouds. Higher strikes more often.",
+      "hint_rain": "Lightning in the storm outside, lighting up the night, then its thunder: sooner and louder the nearer it strikes. It comes with heavy rain; higher strikes more often."
+    },
+    "flow_speed": {
+      "label": "Flow speed",
+      "hint": "How fast the liquid moves and swirls. Lower is calmer.",
+      "value": "{speed}× {feel}",
+      "very_slow": "very slow",
+      "slow": "slow",
+      "normal": "normal",
+      "fast": "fast"
+    },
+    "flow_amount": {
+      "label": "Flow amount",
+      "hint": "How much the liquid stirs on its own when you're not moving the mouse."
+    },
+    "rain_amount": {
+      "label": "Rain",
+      "hint": "How hard it rains, from a drizzle to a downpour that runs down the glass in sheets. Drops also land where you type, and the mouse wipes them away.",
+      "drizzle": "Drizzle",
+      "rain": "Rain",
+      "heavy": "Heavy rain",
+      "downpour": "Downpour"
+    },
+    "ribbons": {
+      "label": "Light ribbons",
+      "hint": "Brightness of the light bands drifting across the glass."
+    },
+    "palette": {
+      "label": "Palette",
+      "hint": "Colors used for the clouds.",
+      "hint_rain": "Colors of the lights outside the window."
+    },
+    "text_ripple": {
+      "label": "Text ripple",
+      "hint": "How far terminal text rides the liquid, in pixels. 0 keeps text still."
+    },
+    "opacity": {
+      "label": "Glass opacity",
+      "hint": "Lower lets more of your desktop show through."
+    },
+    "liquid": {
+      "label": "Liquid effect",
+      "hint": "Off freezes the liquid where it is and stops its animation, which saves power. For no liquid at all, pick None above."
+    },
+    "reactions": {
+      "label": "Reactions",
+      "hint": "The glass answers the terminal: rings and splashes when a command ends, a tank while a program reports progress, the liquid leaning toward the assistant, and tabs that glow when a long command finishes behind them."
+    },
+    "program_effects": {
+      "label": "Programs' effects",
+      "hint": "Programs can set off lightning, splashes, ripples and currents in the liquid where they draw (OSC 7731), as Flow Rogue's spells and blows do."
+    },
+    "backdrop": {
+      "label": "Backdrop",
+      "hint_mac": "The blur behind the window.",
+      "hint": "The blur behind the window. Mica and Acrylic need Windows 11.",
+      "hint_linux": "The blur behind the window, where the desktop offers one, as KDE Plasma does. Elsewhere, as on GNOME, the glass is clear."
+    },
+    "font": {
+      "label": "Font",
+      "hint": "Terminal and panel typeface, from the monospaced fonts on this computer. Symbols it lacks come from other fonts."
+    },
+    "font_size": {
+      "label": "Font size",
+      "hint": "Terminal and panel text size, with what the window then holds and each character's size under it. {bigger} and {smaller} also work.",
+      "grid": "{cols} × {rows} characters of {w} × {h} pixels",
+      "grid_scaled": "{cols} × {rows} characters of {w} × {h} px ({pw} × {ph} pt)"
+    },
+    "fit_screen": {
+      "label": "Fit window to",
+      "hint": "Resizes the window, once, to hold this many characters at this text size: a terminal's, the PC's, a home computer's or your own.",
+      "hint_machine": "Resizes the window, once, to hold this many characters at this text size, the {machine}'s screen first."
+    },
+    "fit_text": {
+      "label": "Fit text to",
+      "hint": "Sets the text size, once, that fills the window as it is with this many characters, as near as whole points come."
+    },
+    "text_color": {
+      "label": "Text color",
+      "hint": "Terminal text that programs don't color themselves. Click the value, or press Enter, to pick any color."
+    },
+    "phosphor": {
+      "label": "Phosphor",
+      "hint": "Everything in one color, as on a monochrome monitor: programs' colors, pictures, 3D models and Flow's own title bar and panels, each as bright as the monitor showed it, white the phosphor at full. Off is full color; the green and amber screens wear their own. Click the value, or press Enter, to pick any color."
+    },
+    "cursor_color": {
+      "label": "Cursor color",
+      "hint": "The cursor and its glow. Click the value, or press Enter, to pick any color."
+    },
+    "background": {
+      "label": "Background",
+      "hint": "The glass's tint behind the terminal, under any liquid; programs that ask are told it. Click the value, or press Enter, to pick any color."
+    },
+    "startup_logo": {
+      "label": "Startup logo",
+      "hint": "Each tab shows a logo beside Flow's version, the computer and the shell, as old workstations did, in the tab's own colors. Chip maker shows Intel's or AMD's for the computer's chip, and the Flow notaSun Workstation and Graphics workstation themes show their makers' own. From the next tab opened or restarted.",
+      "flow": "Flow",
+      "apple": "Apple",
+      "windows": "Windows",
+      "linux": "Distribution",
+      "chip": "Chip maker"
+    },
+    "preset_file": {
+      "label": "Preset file",
+      "hint": "Saves the look to a JSON file: the liquid, glass, glow, CRT, colors, cursor and font. Loading one changes only what it sets, so it can hold just a few.",
+      "save": "Save…",
+      "load": "Load…"
+    },
+    "cursor_shape": {
+      "label": "Cursor shape",
+      "hint": "A block, an underline or a vertical bar. Programs can still change it while they run, as Vim does in insert mode, and go back to this one."
+    },
+    "cursor_blink": {
+      "label": "Cursor blink",
+      "hint": "The cursor blinks while Flow is in front, and stays lit as you type. Programs can still ask for a steady or a blinking cursor."
+    },
+    "cursor_glide": {
+      "label": "Cursor glide",
+      "hint": "The cursor glides along as you type. Off, it steps to each character at once and glides only further, such as to the next prompt. Without a GPU it always steps."
+    },
+    "glow": {
+      "label": "Glow",
+      "hint": "How strongly the cursor, tabs, buttons and dialogs glow. A tab whose command finished behind it glows whatever this says."
+    },
+    "crt_preset": {
+      "label": "Preset",
+      "hint": "Ready-made looks to start from. Save as… below keeps your own under a name.",
+      "custom": "Custom",
+      "subtle": "Subtle",
+      "classic": "Classic",
+      "arcade": "Arcade",
+      "phosphor": "Phosphor",
+      "television": "Television",
+      "monitor": "Monitor"
+    },
+    "crt": {
+      "label": "Strength",
+      "hint": "How strongly the old-monitor look shows, over any liquid style. Off turns it off; the rows below tune each part."
+    },
+    "scanlines": {
+      "label": "Scanlines",
+      "hint": "How dark every other line is. 50% is half brightness."
+    },
+    "interlace": {
+      "label": "Interlace",
+      "hint": "The lit and dim lines swap each frame, as on a tube. It draws every frame while Flow is in front, which uses more power."
+    },
+    "phosphor_glow": {
+      "label": "Phosphor glow",
+      "hint": "The light that bright text spreads over the lines."
+    },
+    "phosphor_decay": {
+      "label": "Phosphor decay",
+      "hint": "How long the phosphor glows after the picture changes, leaving a fading trace. Like Interlace, it draws every frame.",
+      "value": "{ms} ms"
+    },
+    "grille": {
+      "label": "Grille",
+      "hint": "The fine stripes of red, green and blue phosphor. A monochrome tube, under a Phosphor, has none."
+    },
+    "vignette": {
+      "label": "Vignette",
+      "hint": "Darker toward the corners, as at the edge of a tube."
+    },
+    "curvature": {
+      "label": "Curvature",
+      "hint": "How much the picture bulges, like a tube's glass. Clicks and selections follow the curve."
+    },
+    "crt_saved": {
+      "label": "Your presets",
+      "hint": "Save as… keeps the look above under a name, to pick from Preset; a name used before is replaced. Delete removes the one in use.",
+      "save": "Save as…",
+      "delete": "Delete"
+    },
+    "provider": {
+      "label": "Provider",
+      "hint": "Who answers: Anthropic's Claude, OpenAI's GPT or Google's Gemini. Each needs its own API key, and switching starts a new conversation."
+    },
+    "model": {
+      "label": "Model",
+      "hint_anthropic": "Opus is the most capable; Sonnet and Haiku answer faster and cost less.",
+      "hint_openai": "Astra is the most capable; Sol balances speed and cost; Luna is the fastest and cheapest.",
+      "hint_gemini": "Argon is the most capable; Flash and Flash-Lite answer faster and cost less."
+    },
+    "effort": {
+      "label": "Effort",
+      "hint": "How hard the model thinks before answering. Higher is slower and costs more.",
+      "hint_gemini": "How hard the model thinks before answering. Higher is slower and costs more. Gemini's top level is high."
+    },
+    "mode": {
+      "label": "Mode",
+      "hint": "Guide: you approve every step. Auto: the assistant runs commands; those it or Flow's rules find risky still ask. The rules are a check by pattern, not a sandbox."
+    },
+    "web_search": {
+      "label": "Web search",
+      "hint": "Let the assistant look things up online, such as install steps or docs."
+    },
+    "memory": {
+      "label": "Memory",
+      "hint": "Keeps a journal of the assistant's tasks, and facts it's told to remember, on this computer, sent with each new conversation. What looks like a password, a token or a key is left out."
+    },
+    "memory_kept": {
+      "label": "Remembered",
+      "value": "{facts} facts, {tasks} tasks",
+      "hint": "Open shows the facts in your text editor, to change as you like. Clear, pressed twice, forgets the facts and the journal.",
+      "open": "Open",
+      "clear": "Clear"
+    },
+    "instructions": {
+      "label": "Your instructions",
+      "hint": "Your standing instructions to the assistant, in a text file of your own: sent with every conversation, followed where they don't get round Flow's approvals.",
+      "value": "{n} lines",
+      "none": "None yet",
+      "open": "Open"
+    },
+    "skills": {
+      "label": "Your skills",
+      "hint": "Playbooks the assistant reads when a task matches one, each a Markdown file in this folder, or kept by the assistant when you ask. Each has a switch below: one switched off isn't listed for the assistant.",
+      "value": "{n} skills",
+      "open": "Open"
+    },
+    "skill_package": {
+      "label": "Skills from {name}",
+      "value": "{on} of {n} on",
+      "all_on": "All on",
+      "all_off": "All off",
+      "hint": "The skills that came with {name}: {skills}. Each is listed below with a switch, off until you turn it on, so installing an app never changes what the assistant reads; All on and All off turn them all at once. Flow's approvals stand over them as over your own."
+    },
+    "mcp_enabled": {
+      "label": "Let outside apps connect",
+      "hint": "Lets apps such as Claude Desktop, Claude Code or Cursor use Flow through flow-mcp, as far as you allow each: the first time one calls, a card asks what it may do. Off, Flow doesn't listen for them at all; nothing listens on the network either way."
+    },
+    "mcp_connect": {
+      "label": "Connect an app",
+      "hint": "flow-mcp is at {path}, which an app's MCP config runs. Copy for Claude Code copies the command that adds it there; Copy JSON copies an mcpServers entry for Claude Desktop, Cursor and others.",
+      "none": "flow-mcp isn't beside this Flow",
+      "copy_code": "Copy for Claude Code",
+      "copy_json": "Copy JSON"
+    },
+    "mcp_app": {
+      "hint": "{app}, started by {path}. Forget, and it asks again the next time it calls.",
+      "remembered": "remembered",
+      "off": "remembered (outside apps are off)",
+      "forget": "Forget"
+    },
+    "mcp_kind": {
+      "read": "  Read tabs",
+      "tabs": "  Open and close tabs",
+      "settings": "  Change settings",
+      "hint_read": "Whether {app} may list your tabs and read what their panes show, and read Flow's help.",
+      "hint_tabs": "Whether {app} may open tabs and panes of its own, close those, and bring any pane forward. Your own tabs it never closes.",
+      "hint_settings": "Whether {app} may change what flow-settings may: the look, sound, the window. The assistant's settings and your themes stay closed."
+    },
+    "mcp_commands": {
+      "label": "  Run commands",
+      "hint": "Whether {app} may run commands, in panes of its own beside yours, never in your shells: not at all, asking you each time, or without asking. High-risk ones always ask."
+    },
+    "skill": {
+      "hint_from": "From {package}: {description}"
+    },
+    "ai_pane": {
+      "label": "Where it works",
+      "hint": "Where the assistant's commands run: your pane while it's free (at its prompt, nothing typed), else a pane of its own beside it; or always one of its own."
+    },
+    "helpers": {
+      "label": "Helpers",
+      "hint": "Lets the assistant hand parts of a task to helpers, each in a pane of its own, working at the same time. Guide mode asks for each."
+    },
+    "helper_model": {
+      "label": "Helpers' model",
+      "hint": "The model the helpers use: a smaller one costs less.",
+      "same": "The assistant's"
+    },
+    "own": {
+      "label": "Working on its own",
+      "hint": "Lets the assistant ask to work through a task on its own. Let it work, on its plan's card, runs its commands without asking, within the limits below, but for the few Flow's rules recognize by pattern as needing you."
+    },
+    "own_minutes": {
+      "label": "Its time",
+      "hint": "The longest a task on its own may take: twice what the assistant expects, and no more than this."
+    },
+    "own_tokens": {
+      "label": "Its tokens",
+      "hint": "The most tokens a task on its own may use. The Token cap still stops it."
+    },
+    "token_cap": {
+      "label": "Token cap",
+      "hint": "The assistant stops before the next request once usage reaches this. Clear the usage or raise the cap to go on."
+    },
+    "token_usage": {
+      "label": "Token usage",
+      "value": "{used} tokens",
+      "value_of_cap": "{used} of {cap} tokens",
+      "hint": "Since {date}: {input} in, {output} out, {reads} cache reads, {writes} cache writes, {requests} requests. Clear starts counting from zero.",
+      "clear": "Clear"
+    },
+    "api_key": {
+      "label": "API key",
+      "hint": "Your {company} key is stored in the system credential store.",
+      "hint_none": "No {company} key yet. Add one to use the assistant.",
+      "change": "Change…",
+      "remove": "Remove",
+      "add": "Add key…"
+    },
+    "default_shell": {
+      "label": "Default shell",
+      "hint": "The shell for the first tab and new ones ({keys}). The + after the tabs opens any other."
+    },
+    "reopen_tabs": {
+      "label": "Reopen tabs at start",
+      "hint": "When Flow starts, the tabs open when it last quit come back, each with its shell, its theme and its folder. Restart always brings them back."
+    },
+    "option_as_meta": {
+      "label": "Option as Meta",
+      "hint": "Option+key sends Esc+key for shell and editor shortcuts, instead of typing characters like ƒ and ©."
+    },
+    "mouse_reporting": {
+      "label": "Mouse reporting",
+      "hint": "Programs that ask for the mouse, such as games, editors and htop, get its clicks, drags and wheel. Hold Shift to select text over them."
+    },
+    "click_moves_cursor": {
+      "label": "Click to move the cursor",
+      "hint": "A click on the line you're typing at the shell's prompt moves the cursor there, as the arrow keys would. Anywhere else a click selects as always."
+    },
+    "scrollbar": {
+      "label": "Scrollbar",
+      "hint": "A bar along each pane's right edge to jump through the scrollback: drag it, or click where to go. While scrolling it shows while you're scrolled back, the wheel turns or the pointer is at the edge, then fades."
+    },
+    "keys_reset": {
+      "label": "All keys",
+      "hint": "Puts every key back as Flow has it.",
+      "button": "Reset All"
+    },
+    "key": {
+      "change": "Change",
+      "add": "Add Key",
+      "press_add": "Press a key to add…",
+      "hint_add_mac": "Press the key to add, held with ⌃, ⌥ or ⌘ (an F key works alone): the command takes it besides the keys it has. Esc keeps them as they are.",
+      "hint_add_windows": "Press the key to add, held with Ctrl or Alt (an F key works alone): the command takes it besides the keys it has. Esc keeps them as they are.",
+      "hint_add_linux": "Press the key to add, held with Ctrl or Alt (an F key works alone): the command takes it besides the keys it has. Esc keeps them as they are.",
+      "reset": "Reset",
+      "cancel": "Cancel",
+      "swap": "Swap",
+      "take": "Take It",
+      "keep": "Keep Mine",
+      "default": "default {key}",
+      "press": "Press a key…",
+      "taken": "{key} is {other}'s",
+      "hint": "Enter or Change, then press the key it's to be: Esc keeps it, Backspace leaves it none. Add Key gives a command another key besides. The keys inside Flow's own screens (Esc, Enter, the arrows) stay as they are.",
+      "hint_fixed": "Quitting is the system's key on the Mac, the same in every app.",
+      "hint_press_mac": "Press the key, held with ⌃, ⌥ or ⌘ (an F key works alone). Esc keeps the key it has, Backspace leaves it none.",
+      "hint_press_windows": "Press the key, held with Ctrl or Alt (an F key works alone). Esc keeps the key it has, Backspace leaves it none.",
+      "hint_press_linux": "Press the key, held with Ctrl or Alt (an F key works alone). Esc keeps the key it has, Backspace leaves it none.",
+      "hint_tabs": "Press a digit from 1 to 9 held with the modifiers all nine are to take. Esc keeps them, Backspace leaves none.",
+      "hint_panes": "Press an arrow held with the modifiers all four are to take. Esc keeps them, Backspace leaves none.",
+      "refused_typing_mac": "That key would be typed: hold ⌃, ⌥ or ⌘ with it (an F key works alone).",
+      "refused_typing": "That key would be typed: hold Ctrl or Alt with it (an F key works alone).",
+      "refused_help": "F1 alone opens help for the screen in front: hold a modifier with it, or press another.",
+      "refused_system": "That key is the system's, and never reaches Flow, or quits it: press another.",
+      "refused_hotkey": "That's the Hotkey under Window, which the system takes before Flow: press another.",
+      "hint_swap": "Swap gives {other} this one's key, Take It leaves {other} without it, and Keep Mine (Esc) keeps them as they are.",
+      "hint_take": "Take It leaves {other} without it, and Keep Mine (Esc) keeps them as they are."
+    },
+    "notify_after": {
+      "label": "Notify when done",
+      "hint_mac": "A command that ran at least this long and finishes while Flow isn't in front posts a notification; a click on it brings Flow and the tab forward. macOS asks once whether Flow may.",
+      "hint_windows": "A command that ran at least this long and finishes while Flow isn't in front shows a Windows notification saying so, whose click brings Flow forward with that tab in front.",
+      "hint": "A command that ran at least this long and finishes while Flow isn't in front shows a desktop notification, and marks Flow's window as wanting you."
+    },
+    "history": {
+      "label": "Command history",
+      "hint_mac": "Keeps the commands run in Flow's tabs on this Mac, with their folder, exit code and time, to find by any words in them ({keys}). Lines that start with a space, or look like they set a password, a token or a key, are left out.",
+      "hint": "Keeps the commands run in Flow's tabs on this computer, with their folder, exit code and time, to find by any words in them ({keys}). Lines that start with a space, or look like they set a password, a token or a key, are left out."
+    },
+    "history_kept": {
+      "label": "Kept commands",
+      "value": "{n} commands",
+      "hint": "The commands the history keeps, each counted once however often it ran. Clear, pressed twice, forgets them all.",
+      "clear": "Clear"
+    },
+    "about": {
+      "hint": "Version {version}. Updates are checked automatically in installed release builds.",
+      "hint_linux": "Version {version}. Flow installed from a release with its install.sh updates itself, from About.",
+      "about": "About…",
+      "check_updates": "Check for Updates…"
+    },
+    "restart": {
+      "label": "Restart",
+      "hint": "Closes every tab, ending what runs in them, reads config.toml again and opens each tab again, with its shell, its theme and its folder, as Flow does when it starts.",
+      "button": "Restart Flow"
+    },
+    "update_checks": {
+      "label": "Update checks",
+      "hint": "Once a day, Flow asks GitHub whether a newer release is out, and says so in the title bar. Installing waits for you, in About."
+    },
+    "options": {
+      "mcp_commands": {
+        "off": "Off",
+        "ask": "Ask each time",
+        "allowed": "Without asking"
+      },
+      "ai_pane": {
+        "yours": "Your pane while it's free",
+        "own": "A pane of its own"
+      },
+      "cursor_shape": {
+        "block": "Block",
+        "underline": "Underline",
+        "bar": "Vertical bar"
+      },
+      "style": {
+        "clouds": "Clouds",
+        "water": "Water",
+        "oil": "Oil",
+        "rain": "Rain",
+        "none": "None"
+      },
+      "water_view": {
+        "above": "Above",
+        "below": "Below"
+      },
+      "backdrop": {
+        "acrylic": "Acrylic",
+        "mica": "Mica",
+        "blur": "Blur",
+        "none": "None"
+      },
+      "palette": {
+        "aurora": "Aurora",
+        "ocean": "Ocean",
+        "ember": "Ember",
+        "mono": "Mono"
+      },
+      "effort": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "xhigh": "Xhigh",
+        "max": "Max"
+      },
+      "mode": {
+        "guide": "Guide",
+        "auto": "Auto"
+      },
+      "scrollbar": {
+        "scrolling": "While scrolling",
+        "always": "Always",
+        "never": "Never"
+      },
+      "bell": {
+        "system": "Alert sound",
+        "flow": "Flow's bell",
+        "off": "Off"
+      },
+      "own_sounds": {
+        "quiet": "Quiet",
+        "tube": "Tube",
+        "terminal": "Video terminal",
+        "disk": "Disk drive",
+        "fan": "Disk drive and fan",
+        "floppy": "Floppy drive",
+        "chime": "Startup chord",
+        "tones": "Sound chip",
+        "printer": "Printer",
+        "teletype": "Teletype"
+      },
+      "apps_check": {
+        "off": "Off",
+        "daily": "Daily",
+        "weekly": "Weekly"
+      },
+      "record_quality": {
+        "smaller": "Smaller file",
+        "balanced": "Balanced",
+        "sharp": "Sharp",
+        "lossless": "Lossless"
+      },
+      "record_size": {
+        "points": "Points",
+        "pixels": "Every pixel"
+      },
+      "mcp_approval": {
+        "ask": "Ask each time",
+        "read_only": "Read-only without asking",
+        "allowed": "Without asking"
+      }
+    },
+    "sound": {
+      "label": "Sound",
+      "hint": "Flow's own sounds: its cues, the sounds of the liquid's effects, and programs' notes. They're made as they play, not recorded."
+    },
+    "sound_volume": {
+      "label": "Volume",
+      "hint": "How loud Flow's sounds are, the bell included when it's Flow's."
+    },
+    "bell": {
+      "label": "Bell",
+      "hint": "What a program's bell (Ctrl+G, a Tab with nothing to complete) does. A bell in a tab behind makes it glow too. Flow's rings as an old machine's own under its theme, with Machines' sounds on."
+    },
+    "bell_flash": {
+      "label": "Bell flash",
+      "hint": "The glass flashes when a program's bell rings, whether it's heard or not."
+    },
+    "sound_cues": {
+      "label": "Cues",
+      "hint": "A chime when a long command ends while you're elsewhere (unless a notification tells of it), or the assistant finishes a task; a low tone when a command fails; a ding when the assistant waits for your answer."
+    },
+    "effect_sounds": {
+      "label": "Effects' sounds",
+      "hint": "The liquid's effects that programs ask for sound as they look: drops, splashes, thunder and a rush of air, from where they happen."
+    },
+    "program_sounds": {
+      "label": "Programs' sounds",
+      "hint": "Notes programs play (DECPS, as the VT520 did), and Flow's sounds they ask for by name."
+    },
+    "liquid_sounds": {
+      "label": "Liquid's sounds",
+      "hint": "The liquid's own, quietly, from where they happen: rain tapping on the glass, the clouds' thunder, bubbles below the water."
+    },
+    "machine_sounds": {
+      "label": "Machines' sounds",
+      "hint": "An old machine's own while its theme is on: a tube's hum and its keys' clicks, the green and amber terminals' sharper clicks, a disk drive seeking as the home computer or the PC starts, the graphics workstation's chord as it starts, the PC's fan, the workstation's printer as output comes, or a teletype clattering as it types, its bell near a line's end, its carriage at each return and its punch as output comes. Flow's bell rings as the machine's own: the teletype's bell, a terminal's or the PC's beep."
+    },
+    "apps": {
+      "install": "Install",
+      "upgrade": "Upgrade",
+      "remove": "Remove",
+      "installing": "Installing…",
+      "removing": "Removing…",
+      "installed": "{version}, up to date",
+      "newer": "{version}; {latest} is out",
+      "held": "{version}; {latest} needs Flow {flow}",
+      "bundled": "{version}, comes with Flow",
+      "not_here": "Not made for this computer",
+      "needs_flow": "Not installed; {latest} needs Flow {flow}",
+      "absent": "Not installed; {latest}",
+      "hint": "{summary}. In a tab: flowapp info {name}. {signed}",
+      "hint_themes": "A package of themes: {summary}. Once installed, they're in Theme and the new-tab picker. {signed}",
+      "hint_skills": "A package of skills for the assistant: {summary}. Once installed, its skills are listed in the Skills section under Skills from {name}, each off until you turn it on. {signed}",
+      "signed_installed": "Signed by {who} (key {key}) on {date}.",
+      "signed_installed_undated": "Signed by {who} (key {key}).",
+      "signed_and_checked": "{signed} Checked with Flow's key as it was installed, {date}.",
+      "signed_unnoted": "The catalog says {who} (key {key}) signed this version on {date}. Nothing noted it as it was installed.",
+      "signed_unnoted_undated": "The catalog says {who} (key {key}) signed this version. Nothing noted it as it was installed.",
+      "signed_offered": "Its download was signed by {who} (key {key}) on {date}.",
+      "signed_offered_undated": "Its download is signed by {who} (key {key}).",
+      "signed_own": "Not signed: installed from a file of your own.",
+      "signed_with_flow": "It came with Flow.",
+      "signed_unknown": "Nothing says who signed it.",
+      "off_not_signed": "not signed",
+      "off_unknown_key": "unknown key",
+      "marked": "{text} · {mark}"
+    },
+    "apps_at_start": {
+      "label": "Check apps at start",
+      "hint": "Each time Flow starts, it reads flowapp's catalog afresh, as flowapp update does, and says if any app you have has a newer version. It never upgrades one by itself."
+    },
+    "apps_check": {
+      "label": "Check apps",
+      "hint": "How often Flow reads flowapp's catalog by itself, at a start or as it comes to the front, to say when an app you have has a newer version. It never upgrades one by itself."
+    },
+    "apps_catalog": {
+      "label": "Catalog",
+      "hint": "The list of flowapp's apps, which this section and flowapp go by. Check now reads it afresh, as flowapp update does in a tab.",
+      "check": "Check now",
+      "reading": "Reading…",
+      "never": "Never read",
+      "read": "Read {ago}"
+    },
+    "theme_gallery": {
+      "label": "Theme gallery",
+      "hint": "The packages of themes in flowapp's catalog, each with a look at its themes before you install it, and Install and Wear.",
+      "browse": "Browse…"
+    },
+    "record_quality": {
+      "label": "Quality",
+      "hint": "How a recording of the terminal is kept: higher qualities keep the moving liquid clean and the letters crisp, in a larger file. Lossless keeps every pixel as drawn, but a moving liquid makes it very large: it suits a still terminal or plain glass. Takes effect from the next recording."
+    },
+    "record_size": {
+      "label": "Size",
+      "hint": "The window's size in points, or its every pixel: on a Retina screen that's twice as wide and tall, sharper letters in a file about four times larger, with fewer frames a second when everything moves."
+    },
+    "record_countdown": {
+      "label": "Countdown",
+      "hint": "Seconds counted down before a recording starts, so the note that it's starting is gone from the file. Off starts at once, with the note in the file."
+    },
+    "own_sizes": {
+      "label": "Your sizes",
+      "hint": "Screens of your own for both Fit rows, as columns × rows: 132x43, 40x24. Enter keeps them, Esc puts back what was there.",
+      "empty": "None yet: type 132x43, 40x24"
+    },
+    "mcp_servers": {
+      "label": "Servers",
+      "value": "{n} servers",
+      "value_problems": "{n} servers · {problems} not read",
+      "add": "Add server…",
+      "open": "Open file",
+      "hint": "The MCP servers the assistant may use, kept in {file} in the form Claude Desktop, Claude Code and Cursor write (mcpServers), so a config can be pasted in. Add server… asks for a name, then its command or URL. A server in the file starts only once you Connect it.",
+      "value_one": "1 server"
+    },
+    "mcp_server": {
+      "off": "off",
+      "connecting": "connecting…",
+      "failed": "couldn't connect",
+      "new": "type its command or URL",
+      "tools": "{on} of {n} tools on",
+      "connect": "Connect",
+      "disconnect": "Disconnect",
+      "token": "Token…",
+      "remove": "Remove",
+      "hint": "{server}: Connect starts it (a command) or reaches it (a URL), and lists its tools below, each off until you turn it on.",
+      "hint_new": "{server}: type its command, as npx -y some-mcp-server, or its URL, below.",
+      "hint_failed": "{server} couldn't be reached: {why} Connect tries it again.",
+      "needs_sign_in": "needs you to sign in",
+      "signing_in": "signing in…",
+      "hint_sign_in": "{server} needs you to sign in before Flow can use it: Sign in, below, opens its sign-in in your browser.",
+      "hint_signing_in": "{server}'s sign-in is open in your browser; Flow connects once it's done.",
+      "hint_prompts": "Its prompts, typed in the assistant's panel: {prompts}.",
+      "sign_in": "Sign in",
+      "cancel_sign_in": "Cancel",
+      "sign_out": "Sign out",
+      "client_id": "Client ID…"
+    },
+    "mcp_server_how": {
+      "label": "  Command or URL",
+      "empty": "npx -y some-mcp-server, or https://…",
+      "hint": "How Flow reaches {server}: a command it starts, with its arguments, or a URL it posts to (Streamable HTTP). Enter keeps it in the servers' file."
+    },
+    "mcp_approval": {
+      "label": "  Approval",
+      "hint": "Whether the assistant's calls of {server}'s tools wait for your yes: each time, only for tools it doesn't mark read-only, or never. Guide mode always asks."
+    },
+    "mcp_server_tools": {
+      "label": "  Tools",
+      "value": "{on} of {n} on",
+      "all_on": "All on",
+      "all_off": "All off",
+      "hint": "{server}'s tools, each with a switch below: off until you turn it on, so connecting a server never changes what the assistant may do. All on and All off turn them all at once."
+    },
+    "mcp_server_tool": {
+      "hint": "{server}: {description}",
+      "hint_read_only": "{server}, read-only: {description}",
+      "no_description": "(it says nothing of what it does)"
+    },
+    "mcp_server_auth": {
+      "label": "  Sign-in",
+      "signing_in": "signing in…",
+      "needed": "needed",
+      "signed_in": "signed in",
+      "none": "not signed in",
+      "hint": "{server}: Sign in opens its sign-in in your browser, and Flow keeps what it gives in your system's credential store; Sign out forgets it. Client ID… is for a server that wants Flow registered by hand, at {redirect}. Token… keeps a bearer token of your own instead.",
+      "hint_client": "Its client ID: {id}."
+    },
+    "mcp_server_resources": {
+      "label": "  Its resources",
+      "hint": "Whether the assistant may list and read {server}'s {n} resources (files, records, pages it offers), as its Approval says. Off until you turn it on."
+    }
+  },
+  "history": {
+    "title": "Command history",
+    "placeholder": "Search by any words in a command…",
+    "filter": {
+      "all": "All",
+      "folder": "This folder",
+      "failed": "Failed"
+    },
+    "off": "Command history is off. Turn it on in Settings ({keys}) to keep the commands you run.",
+    "empty": "No commands kept yet. Those run in Flow's tabs from now on will show here.",
+    "none": "Nothing found.",
+    "runs": "{n} runs",
+    "keys_mac": "↑↓ choose · Enter put at the prompt · Tab filter · ⌘⌫ forget · ⌘⇧⌫ forget all found · Esc close",
+    "keys": "↑↓ choose · Enter put at the prompt · Tab filter · Shift+Del forget · Ctrl+Shift+Del forget all found · Esc close",
+    "forget_all_again": "Press again to forget every command this search finds ({n})",
+    "ago": {
+      "now": "just now",
+      "minutes": "{n} min ago",
+      "hours": "{n} h ago",
+      "days": "{n} d ago",
+      "months": "{n} mo ago",
+      "years": "{n} yr ago"
+    }
+  },
+  "find": {
+    "placeholder": "Find in the scrollback",
+    "count": "{n} of {total}",
+    "count_more": "{n} of {total}+",
+    "none": "No matches",
+    "bad": "Bad pattern",
+    "placeholder_pattern": "Find a pattern (regular expression)"
+  },
+  "palette": {
+    "placeholder": "Type to find a command, setting, theme or page",
+    "nothing": "Nothing matches",
+    "kind_command": "Command",
+    "kind_setting": "Setting",
+    "kind_theme": "Theme",
+    "kind_help": "Help",
+    "kind_new_tab": "New tab",
+    "hint": "↑↓ choose · Enter do it · Esc close"
+  },
+  "ask_why": {
+    "button": "✦ Ask why · exit {exit}",
+    "shown": "Why did `{command}` fail (exit {exit}), and how do I fix it?"
+  },
+  "help": {
+    "footer": "↑↓ scroll · Tab, Enter links · Esc back · F1 or {help} close",
+    "flow": {
+      "title": "Flow",
+      "body": "Each of Flow's own screens has a page of help like this one: press **F1** while it's open (the command history, Settings and its color picker, the assistant's panel, the key dialog), or **{help}** anywhere. A link opens its page: click it, or choose it with Tab and press Enter. Esc goes back to the page before, and on the first page closes help, as the same key does at once. In the terminal, F1 is the program's: many use it for help of their own.\n\n# Keys\n- Every key here can be changed: [Flow's keys](help:keys) lists them all as they're bound, and Settings' **Keys** changes them.\n- {split_right} splits the pane in front in two side by side, and {split_down} one above the other; {pane_move} and the arrows move between panes, a click gives one the keys, and {close_tab} closes the pane in front first, as does the ✕ at the top right of the pane under the pointer (or a theme's frame's close box). Each pane wears a theme of its own, which Settings on it changes.\n- {new_tab} opens a tab with the default shell (the **+** in the title bar [lists every shell](help:shells)), {close_tab} closes it, and {pick_tab} shows tab 1 to 9.\n- {copy} copies what's selected, and {paste} pastes.\n- {bigger}, {smaller} and {reset} change the font's size.\n- {history} searches the [command history](help:history).\n- {find} [finds words in the scrollback](help:find).\n- Scrolled back, a pill at the terminal's top right says how many lines are below: click it, or press {scroll_bottom}, to go back down; {scroll_top} goes to the top. {previous_command} and {next_command} go from one command run to the next, each marked on the scrollbar where its prompt was (a failed one in red). The scrollbar along the right edge goes anywhere in between: drag it, or click where to go. Settings' **Scrollbar** (under Terminal) shows it while scrolling, always or never.\n- {assistant} opens the [assistant's panel](help:assistant), and closes it.\n- {settings} opens [Settings](help:settings).\n- {palette} opens the [command palette](help:palette): every command, setting, theme and page, found by typing.\n- {efficient} turns efficient mode on and off, as **🌱e-mode** in the title bar does: the liquid, the CRT, effects and the theme's sounds pause for real work.\n- **on-top** in the title bar keeps Flow's window in front of every other window, and turns that off again (Settings' **Always on top**; on the Mac, **Window → Float on Top**). [Settings](help:settings)' Keys can give it a key.\n- {record} records the terminal to an animated WebP, the liquid and the tube in it, while a clock in the title bar runs; {record} again, or a click on the clock, stops it, and the system's save panel asks where to keep it.\n- {restart} restarts the tab in front: its shell ends and starts again in its place, greeting you with the startup logo as Flow does when it starts, and the other tabs stay as they are. While a program runs in it, it asks first: press {restart} again to end it and restart. Settings' **Restart** restarts all of Flow.\n- A click on the Flow logo shows [About Flow](help:about).\n\n# The mouse\nOver a program that takes the mouse (an editor, a game, `htop`), hold Shift to select, open the menu or scroll back.\n\nAt the shell's prompt, a click on the line you're typing moves the cursor there, as the arrow keys would; anywhere else a click selects. Settings' **Click to move the cursor** turns it off.\n\nA link a program writes (OSC 8, such as an app's name in `flowapp list`) is underlined under the pointer, and where it goes shows at the terminal's foot: hold {jump} and click to open it. Flow opens web and mail links, and shows a link to a file on this computer in its folder, never running it.\n\n# Pages\nIn a tab, `flow-help` prints every page, and `flow-help settings` one of them.\n- [Flow's keys](help:keys)\n- [Command history](help:history)\n- [Find in the scrollback](help:find)\n- [The command palette](help:palette)\n- [The assistant](help:assistant)\n- [Settings](help:settings)\n- [Picking a color](help:picker)\n- [The theme gallery](help:gallery)\n- [The API key](help:key)\n- [A 3D model from a file](help:model)\n- [A new tab](help:shells)\n- [Flow's apps](help:apps)\n- [The flow command](help:command)\n- [Outside apps](help:outside)\n- [A server asks](help:server_ask)\n- [About Flow](help:about)\n- [Checking for updates](help:updates)\n- [Legal](help:legal)"
+    },
+    "keys": {
+      "title": "Flow's keys",
+      "intro": "Every key Flow takes, as it's bound now. Settings' **Keys** changes any of them: press Enter on one (or click Change), then the key it's to be; Esc keeps it as it was, and Backspace leaves it none. **Add Key** gives a command another key beside those it has. Only the keys you change are kept, under `[keys]` in config.toml. A key the shell would otherwise get, such as Ctrl and a letter, is said so as Flow takes it. More in [Settings](help:settings).",
+      "default": "default {key}",
+      "fixed_title": "Inside Flow's screens",
+      "fixed": "These stay as they are.\n- **F1** opens help for the screen in front; over the terminal it's the program's.\n- **Esc** closes what's open, **Enter** does what it offers first, and Tab and the arrows move through it.\n- {find_pattern} in the find bar searches by a pattern.\n- {new_conversation} in the assistant's panel starts a new conversation, and Tab there changes its mode.\n- {forget} in the command history forgets the command chosen, and {forget_all} every one found.\n- {word} and {word_delete} move and delete by word where you type, and {jump} with the arrows by line.\n- Shift+Page Up and Shift+Page Down scroll back a page, as Page Up and Page Down do alone on the Mac outside a full-screen program.\n- Off the Mac, Ctrl+C copies while something's selected (otherwise it's the shell's), Ctrl+Insert copies, and Ctrl+V and Shift+Insert paste.\n- {jump} and a click opens a link.\n- {quit} quits Flow, as every app does."
+    },
+    "history": {
+      "title": "Command history",
+      "body": "{history} opens the command history over the tab in front (on the Mac, **Edit → Search Command History…** does too, as does the menu a right click opens), and Esc closes it.\n\n# Finding a command\nType any words in a command, in any order and any case: every command holding them all shows, the most recently run first, each once with how often it ran. Any three letters in a row find one too, in any script, so `uil` finds `cargo build`.\n\n# Filters\nTab steps through them: **All**, **This folder** (the folder the tab is in), **Failed** (commands that ended in an error) and the tab's shell.\n\n# Using one\n↑↓ choose, and Enter or a click puts the command at the prompt, in place of what's typed there, to run or change first. Nothing runs until you press Enter at the prompt. A control character in it (Esc, Ctrl+C, Ctrl+O and the like), which the shell or the terminal would take as a key, is left out; a line break stays, and so does a tab where the shell takes a paste whole (zsh, a newer bash), but not where it doesn't (macOS's own bash, BusyBox's ash, cmd), which takes a tab as a key too. A command holding letters past ASCII isn't put at all where the shell may take them as keys, not letters (bash just after its locale changed into one that isn't UTF-8, or a shell where Flow's hook doesn't run): a note says so.\n\n# Forgetting\n{forget} forgets the command chosen. {forget_all}, pressed twice, forgets every command the search finds, so the folder filter with no words forgets a folder's commands.\n\n# What's kept\nEach command run in Flow's tabs, whatever the shell, with its folder, how it ended and when. Commands [the assistant](help:assistant) ran wear its ✦; it looks in the history only when you ask after a command you ran before. Never kept: a line that starts with a space, or one that looks like it sets a secret (a password, a token or a key).\n\n[Settings](help:settings)' **Command history** turns it off, and **Kept commands** says how many there are, with **Clear**, pressed twice, to forget them all."
+    },
+    "find": {
+      "title": "Find in the scrollback",
+      "body": "{find} opens the find bar at the terminal's top right (on the Mac, **Edit → Find…** does too). It searches the tab's text: its screen and everything scrolled off it. Esc closes it.\n\n# Finding\nType what to look for. It's found as written, letters and signs alike, and in any case unless you type a capital letter. Every match is lit, the one chosen brighter, and the bar says which of how many it is. If you've selected a few words in the terminal when you open it, they're looked for at once.\n\n# Patterns\nThe bar's `.*`, or {find_pattern}, looks for what you type as a pattern, a regular expression: `build \\d+` finds every build and its number, `took|failed` either word. It's lit while it's on, and \"Bad pattern\" takes the count's place while what's typed isn't one. A capital letter still asks for its case. Click it, or press {find_pattern} again, to look for text as written.\n\n# Moving between matches\n↑ or Enter goes to the match before, further up the scrollback, and ↓ or Shift+Enter to the one after; {find_next} and {find_previous} do too. Past the first or the last it goes round. The terminal scrolls to show each one. The matches are marked down the pane's scrollbar too, the one chosen taller, and a click on a mark scrolls there.\n\n# While it's open\nThe matches follow what's printed. A click in the terminal gives the terminal the keys back, and the bar stays showing its matches; a click on the bar, or {find} again, gives them back to the bar. In another tab it searches that tab for the same."
+    },
+    "palette": {
+      "title": "The command palette",
+      "body": "{palette} opens the command palette over everything (on the Mac, **View → Command Palette…** does too), and Esc closes it.\n\n# Finding\nType a few letters of what you want, in order and in any case: `nt` finds **New Tab**, `opa` the glass's **Opacity**, and a setting is found by its section too, so `glass opa` finds it as well. A setting is found by any words about it as well, as Settings' search finds it: what its hint says, its choices (`amber` finds **Phosphor**) and its key in config.toml (`fx.crt`), after what's found by name. A letter that starts a word, or follows the last one found, counts most, so the best match comes first. What you chose lately comes first before anything's typed, and ahead of others that match as well.\n\n# What's in it\n- **Commands:** everything in Flow's menus, with its keys: tabs, copy and paste, find, the history, text size, efficient mode, recording the terminal, the assistant and its key, Settings, help, About, restart and quit.\n- **Settings:** every row, which opens [Settings](help:settings) at it.\n- **Themes:** every theme, which the tab in front puts on, as Settings' Theme row does.\n- **Help:** every page of help.\n- **New tab:** a tab in each shell, as the [new-tab picker](help:shells) opens one.\n\n# Choosing\n↑ and ↓ choose, Page Up and Page Down by eight, and the wheel scrolls. Enter, or a click, does what's chosen and closes the palette."
+    },
+    "assistant": {
+      "title": "The assistant",
+      "body": "Say what you want in your own words, and Enter sends it. The assistant can run commands in the tab in front, read the screen, and read and write files; it sees your system, the shell, its folder and the screen's last lines.\n\n# Guide and auto\nTab switches between them, and the panel's header says which is on.\n- **Guide:** every command, file read and file write waits for your yes.\n- **Auto:** it runs commands itself, but what it rates high risk still waits, and so does what Flow's own rules flag: deleting, `sudo`, restarting, piping a download into a shell or sending data to another machine, force-pushes, a command that reads or names a file that looks like a secret, reading such a file, and overwriting a file.\n\nFlow's rules are a check by pattern, not a sandbox: they read a command as it's written, and many of the ways a program's name is spelled or wrapped read as that program (`/bin/rm`, `\\r\\m`, `'rm'`, `env rm`, `sh -c \"rm …\"`); they ask about any whose program they can't read for certain (a variable, `$(…)`, a glob such as `/bin/r?`, what `xargs` or `eval` runs), a shell handed its program from elsewhere (`… | sh`), and a line the shell would change before it runs (a control character in it, `!!`). So a command built from a variable asks, however harmless; written out, it runs as any other. A command can still do what its words don't say (a script, `python -c`, a path built as it runs), so in auto mode, and while it works on its own, the assistant can run commands the rules don't recognize as risky. Guide mode asks before every one.\n\nIn either mode, a file on another computer (`\\\\server\\share\\…`; on Windows, any path but a drive's) is never read or written for it: it's refused without asking, as a link or a folder a program printed could lead the assistant there, and on Windows merely opening it hands that computer your sign-in. On Windows a command naming such a path waits for your yes, in auto mode too.\n\n# A command waiting\nEnter runs it, **E** edits it first, and **S** skips it. Type something and press Enter to decline it and say why.\n\n# Files\nDrop a file on the panel to give it to the assistant with your next message: a picture (PNG, JPEG, GIF, WebP), a PDF, a text file, or a Word, Excel or PowerPoint file. **Attach** at the input's end picks files the same way, and pasting a picture (a screenshot) into the panel adds it too. Each waits as a chip over the input, ✕ taking it off, until you press Enter, with words or without. A large picture is made smaller first. A file dropped on the terminal types its path there instead, quoted for the shell.\n\nA file that looks like a secret (a key, a `.env`, what's under `.ssh`) waits on its orange chip until you click it. The assistant's `read_file` reads pictures, PDFs and Office files too, asking as it asks for any file. Only a file's name goes into the assistant's memory, never what's in it.\n\n# Copying and running\nUnder a block of code in a reply, **Copy** copies it, and for commands **Run** runs them in the tab in front, as if typed there; a command rated high risk, or several lines where the shell can't take them as written, is put at the prompt instead, for you to check and run with Enter. A shell session's output lines don't run. A line that's nothing but something in backticks, such as a file's name or a command, has a small **Copy** at its end, and so has the card of a command the assistant ran or is waiting to run. Over a reply, **Copy reply** copies all of it. A drag over the conversation selects its words, to copy as in the terminal.\n\n# Ask why\nWhen a command you ran fails (anything but Ctrl+C's stop), **✦ Ask why** shows at the terminal's foot once the shell's prompt is back. Click it, or choose **Ask Why It Failed** (the Assistant menu on the Mac, or the [command palette](help:palette)), and the panel opens and asks why it failed and how to fix it, with the end of what it printed. The assistant suggests; it runs nothing unless you say. It goes once the next command starts. cmd says nothing of how a command ended, so it never shows there.\n\n# Where it works\nThe assistant types its commands into your pane while it's free. While your shell is busy, or you've typed something at its prompt, it opens a pane of its own beside yours, labelled **Assistant**, and works there; [Settings](help:settings)' **Where it works** can have it always use its own. A new conversation closes that pane. Which pane a command goes to is settled as Flow judges it, in the folder that pane's shell is in, and it goes there: one you say yes to runs where it was going when its card showed, and never over what you've started or typed in your pane since.\n\n# When a command asks something\nA command of the assistant's that stops at a question (a password, `[Y/n]`, \"Press any key\") waits for you rather than timing out: its tab comes to the front, the panel says what's asked, and a notification does while Flow is behind other windows. Answer it in the terminal, not in the panel. The assistant reads what the terminal shows: a password's prompt usually shows nothing of what you type, but whatever the program does show of your answer is in the output it reads.\n\n# Waiting, undo and Flow itself\n- For a long build or a service coming up, the assistant can wait without spending tokens: Flow watches for the command to finish, for some text in its output or a file, and tells it then.\n- A file the assistant writes is kept as it was first: **Undo** on its card puts it back (or takes away a file it made), `/undo` puts back everything the task changed, and you can ask it to undo its changes.\n- It reads Flow's own help, and changes Flow's settings through what `flow-settings` may change: ask it to make the text bigger, or to wear another theme.\n- A long conversation has its older turns summed up as it fills, so it goes on; the panel says when.\n\n# The task's steps\nFor a task of several steps, the assistant shows them in a strip at the top of the panel as it goes: ✓ done, ◌ under way, ○ still to come. Working on its own starts the strip from its plan, and the memory keeps it with the task, so a task carried on after a restart shows where it was.\n\n# Your instructions and skills\nSettings' **Your instructions** opens a text file of your own, sent with every conversation: your standing rules and tastes for the assistant (\"always use winget\", \"keep answers short\"), followed where they don't get round Flow's approvals. **Skills** opens a folder of playbooks, each a Markdown file (or a folder with a `SKILL.md`) beginning with its `name` and `description`, which the assistant reads when a task matches one. Ask it to keep a procedure that worked as a skill, and it writes one there. `/skills` lists them. Settings' **Skills** section, under the assistant's, has a switch for each skill, and one switched off isn't listed for the assistant. Packages `flowapp` installs may bring skills too (`flow-skills`, Flow's own, or an app's for its commands): they're listed there under **Skills from** and the package's name, as `package:name`, each with a switch of its own, off until you turn it on (**All on** and **All off** turn them all).\n\n# Helpers\nFor several things to look into at once, the assistant can hand parts of a task to helpers: each works in a pane of its own (**Helper 1**, **Helper 2**), its card in the panel saying what it does and how many tokens it has used, and reports back. At most 3 work at once. A helper that only looks runs only what Flow rates low risk; one that may change things never runs what's high risk, or under working on its own, what that doesn't let. Helpers never ask you anything. Guide mode asks before each helper; auto mode asks only for one that may change things. Their panes close when the assistant's turn ends, and Esc stops them. [Settings](help:settings)' **Helpers** and **Helpers' model** set them.\n\n# Working on its own\nFor a task of several steps, the assistant may ask to work through it on its own: a card shows its plan, what it asks for (administrator rights, a restart), and how long and how many tokens it may take. **Let it work** (Enter) lets it run its commands without asking until the task is done or its time or tokens run out; **Ask each time** (S) keeps asking. Even then it asks before a command needing what it wasn't let do, before a few things Flow always asks about (erasing disks, deleting a whole drive or home folder, turning off the system's protections, changing accounts and passwords, reading credential stores), before a command whose program Flow can't read from it (`$(…)`, `… | sh`), and before reading, writing or naming files that look like secrets. Flow tells these by pattern, not by watching what a command does, so one it doesn't recognize runs without asking. On the Mac and Linux it runs `sudo -v` first, so you type your password once, in the terminal; a command waiting for a password says so in the panel, and with a notification while Flow is behind other windows. On Windows, administrator rights open Flow again as administrator, in a window of its own, where the task carries on. Esc, or a click on **On its own** in the title bar, stops it. [Settings](help:settings)' **Working on its own**, **Its time** and **Its tokens** set it.\n\n# Memory\nFlow keeps a journal of each task on this computer: what you asked, each command the assistant ran with its folder, exit code and the end of its output, and the files it read or wrote. The assistant looks there before trying something again, and keeps lasting facts worth remembering (your computer's GPU, how you install software) in a text file of its own. A new conversation starts with those facts and the last tasks. Nothing that looks like a password, a token or a key is kept.\n\nBefore it restarts the computer, it saves where the task stands, and Flow starts again by itself after the restart and offers the task at the foot of the panel: **Carry on** takes it up where it was (Enter in an empty input does the same), and **Not now** leaves it. A task left unfinished in the last week is offered too, once the panel opens. [Settings](help:settings)' **Memory** turns it all off, and **Remembered** opens the facts in your text editor or clears everything. `/memory` lists what's remembered.\n\n# MCP servers\nThe assistant can use apps that have an MCP server (a notes app, an issue tracker, a database), calling their tools as it runs commands. [Settings](help:settings)' **MCP servers** lists them from `mcp-servers.json` beside config.toml, written as Claude Desktop, Claude Code and Cursor write theirs, so a config can be pasted in (**Open file**). **Add server…** asks for a name, then its command (which Flow starts) or its URL (Streamable HTTP), typed in place. A server starts only once you **Connect** it, and each of its tools is off until you turn it on, so neither the file nor connecting ever changes what the assistant may do. **Approval**, for each server: **Ask each time**, **Read-only without asking** (tools it marks read-only run, the rest ask) or **Without asking**; guide mode always asks. A call's card names the server and the tool, with its arguments: **Run** (Enter), **Edit** (E, its arguments as JSON) or **Skip** (S). Esc gives a call up, and the server is told.\n\nA remote server that needs you to sign in says so: its **Sign-in** row's **Sign in** opens its sign-in in your browser, and Flow keeps what it gives in your system's credential store, refreshing it as it runs out (**Sign out** forgets it). Where the server wants Flow registered by hand, **Client ID…** takes the ID you registered; **Token…** keeps a bearer token of your own instead.\n\n**Its resources**, off until you turn it on, lets the assistant list and read what a server offers to be read (files, records, pages), asking as its Approval says. A server's prompts are ready-made requests: type `/<server>:<prompt>` in the panel, with what it needs after it, and its text goes to the assistant as your message. `/mcp` lists the servers, what each offers and its prompts. A server may also ask you something as it works: see [a server asks](help:server_ask).\n\n# Keys\n- Esc stops the assistant, clears what's typed, or goes back to the terminal.\n- {new_conversation} starts a new conversation.\n- {assistant} opens and closes the panel.\n- `/clear`, `/auto`, `/guide`, `/usage`, `/memory`, `/undo`, `/skills`, `/mcp`, `/settings`, `/about`, `/key` and `/forget` do what they say (`/key` opens the [key dialog](help:key)).\n\nThe header counts the tokens used; once they reach [Settings](help:settings)' **Token cap**, the assistant stops before its next request."
+    },
+    "settings": {
+      "title": "Settings",
+      "body": "↑↓ choose a setting and ←→ change it (Shift moves a slider faster), or use the mouse; the wheel scrolls the list. What you change shows at once, and is saved when Settings closes. The line at the foot says what the chosen setting does.\n\n# Searching\nThe field at the end of the row of tabs finds a setting by any words about it: its name, what the line at the foot says of it, its choices (amber finds Phosphor) or its key in config.toml (fx.crt), in English as well as in the language Flow is in. Press {find}, or click the field, or just type a letter. Every section is searched, closed ones too: the list shows what's found, the best first, each with its section beside it and the words you typed lit. ↑↓ choose, ←→ change the one chosen there and then, and Enter, or a click on its name, goes to it in its place. Esc empties the field, and then closes Settings.\n\n# Tabs\nSettings opens on the tab in front. The row under its title names each open tab, then **New tabs**: click one, or use the tab shortcuts ({pick_tab}, and the keys that go to the next tab and the one before), and that tab comes to the front behind Settings. The look's sections (Theme, Theme details, Liquid, Glass, Text and cursor, and CRT) say **this tab** and change that tab alone, which keeps its look across quitting and Restart; on **New tabs** they change the look new tabs open with. The other sections say **all tabs**: they're Flow's, wherever Settings is.\n\n# Sections\nThe settings come in sections (General, Theme, Theme details, Liquid, Glass, Text and cursor, CRT, Assistant, Skills, Outside apps, MCP servers, Terminal, Apps, Sound and About), and ↑↓ reach their headers too. Enter or a click on a header closes its section, leaving a count of the settings it hides, and opens it again; ← closes it and → opens it. A section stays as you leave it, so the ones you don't change can stay out of the way; Theme details, the CRT, Apps and Sound start closed. **Collapse all** and **Expand all**, beside Settings' ✕, close every section or open them all, so you can open just the one you want.\n\n# Presets\n**Preset file** saves the look (the liquid, glass, glow, CRT, colors, cursor and font) to a file, and loads one, which changes only what it sets. The CRT keeps presets of its own: pick one under **Preset**, or save its parts as they are under a name of yours.\n\n# The CRT\n**Strength** turns the tube on, and each of its parts has a row: **Scanlines**, **Interlace**, **Phosphor glow**, **Phosphor decay** (its afterglow), **Grille**, **Vignette** and **Curvature**.\n\n# Font size\n**Font size** says what the window holds at it, in characters, and each character's size, as {bigger} and {smaller} do when they change it. **Fit window to**, under it, resizes the window to hold 80 × 24, 80 × 25 or 40 × 25 characters at that size, an old machine's theme putting its own screen first. It resizes it just this once: Flow still opens at the size config.toml gives. Where the screen is too small, the window holds what fits; where the window can't be that small, a toast says from what text size it could. **Fit text to** is the other way round: the window stays, and the text takes the largest whole size at which it holds the screen chosen.\n\n# Colors\nA color's row opens a [color picker](help:picker), with help of its own (F1).\n\n# Theme\nAn old machine's colors, fonts, glass and CRT, with its start screen and prompt (the Flow notanAmiga CLI's first asks for its Workbench disk, which any key puts in, its empty drive clicking until then); or your own theme, after them in the list, whose start screen and prompt you type in place:\n- Enter or a click starts typing, with the caret where you click. The arrows, Home and End move ({jump} with them goes to the ends), and {word} with ← or → goes by words; {word_delete} deletes one.\n- In the start screen, Enter makes a new line. {done}, Tab or a click elsewhere is done, and Esc puts back what was there.\n- A line starting with `^` is centered, `{tall}` makes it double height and `{wide}` double width; `{red}`, `{on-blue}` and the like color it in teletext's colors, `{#d5524d}` and `{on-#d5524d}` in any other, and `{plain}` goes back; `{paper-white}` (or any other color) is the page's, which the lines after it start on and a `{clear}` fills the screen with, until `{paper-plain}`. `{disk}` alone on its line is Kickstart 1.3's picture of a hand holding out the Workbench disk. A centered `{logo}` alone on its line puts the startup logo in the middle, four lines tall. `{wait}` alone on its line waits for the tab's first key (which goes to it, not the shell), `{clear}` clears the screen and `{foot}` goes to its last line.\n- `{version}`, `{os}`, `{chip}`, `{memory}` and `{shell}` stand for what they say, and `{cwd}` in the prompt for the folder.\n\n**Theme details**, while an old machine's theme is worn, turns each part of it on or off: its start screen, its prompt, its font, its tube, its colors (programs' sixteen among them, chosen to read on its screen), on the workstations its real numbers (this computer's own Ethernet address and serial in place of made-up ones, which stay the same on it), and each of its sounds, such as the PC's fan. **Cursor speed** sets how fast the cursor glides, and each theme sets its own as it's chosen.\n\n**Save as theme…**, under Theme (and in the [new-tab picker](help:shells), and on the Mac in the View menu), keeps what's worn now under a name you type: the colors (programs' sixteen among them), fonts, cursor, glass, liquid and CRT, with a start screen, prompt and sounds where they're set. It comes after the built-in themes and your own, here and in the picker, and is worn as they are. Chosen here, its start screen and prompt are typed here as your own's are, which changes it and leaves your own as it is. A name already taken is saved over, as the box says. **Export…** writes the one chosen as a theme package, a `.tar.gz` file that `flowapp install` puts among the themes on another computer ([Flow's apps](help:apps)), its fonts named but not carried. **Theme gallery**, under it, shows the packages of themes in flowapp's catalog before you install them ([the theme gallery](help:gallery)). **Apps**, further down, lists flowapp's apps with Install, Upgrade and Remove ([Flow's apps](help:apps)). **Delete** removes the one chosen, leaving its colors, fonts and CRT on under your own theme, and a preset file saved while one is worn moves it too.\n\n# Efficient mode\n**Efficient mode**, first in General, or **🌱e-mode** in the title bar ({efficient}), pauses the liquid, the CRT, effects and the theme's sounds, holds a turning startup logo still, and moves the cursor and shows start screens at once. Your settings stay as they are and come back when it's off.\n\n**Efficient on battery**, under it, turns efficient mode on while the computer runs on battery or saves power (the Mac's Low Power Mode, Windows' energy saver), and off again when that ends, unless you turned it on yourself. Meanwhile the title bar reads **🌱e-mode · battery** (or **· low power**). Switch efficient mode off then and it stays off until that ends or Flow quits.\n\n# Hotkey\n**Hotkey**, in General, takes a key for the whole system (one of **{hotkeys}**) that brings Flow forward from any app and puts it away again while it's in front. While it's **{assistant}**, that key is the hotkey's and no longer opens the assistant's panel. **Press a key…**, last among them, takes the next key you press instead: a letter, a digit, **`**, Space or an F key, held with ⌃, ⌥ or ⌘ on the Mac (Ctrl, Alt, or the Windows key or Super elsewhere), or an F key alone. The hotkey set is let go meanwhile, so it can be pressed too, and Esc keeps it.\n\nWith **Drop down** on, it drops the window over the top of the screen, in front, as a Quake console does (on the Mac on every Space, until the hotkey puts it away); off, Flow comes forward where it was. Either way, it stays in front of other windows only while **Always on top** (the title bar's **on-top**) is on. While it drops, **Drop-down height** says how much of the screen it takes, from a third to all of it; **Slide** has it slide down from above the screen and back up (at once in efficient mode, and on Wayland); **Put away when unfocused** puts it away once another app has the keys; and on the Mac, **Over full-screen apps** drops it over an app in full screen too, Flow's Dock icon and menu bar going while it's down. Where the key can't be taken, the line at the foot says why; on Linux it works on X11, not on Wayland.\n\n# Notifications\n**Notify when done**, under Terminal, has a command that ran at least that long (30 s at first) and finishes while Flow isn't in front tell you so: on the Mac a notification under the tab's name, whose click brings Flow forward with that tab in front; on Windows a notification the same way (where Windows has them off for Flow, its taskbar button flashes until you come back instead); on Linux a desktop notification. Flow plays no cue of its own for it then. Off sends none.\n\n# Restart\n**Restart**, at the end, starts Flow afresh without quitting it: every tab closes, ending what runs in them, config.toml is read again, and each tab opens again with its shell, its theme and its folder, greeting you as Flow does when it starts, with the startup logo and a theme's start screen. The window, the assistant's conversation and the [command history](help:history) stay. {restart} restarts only the tab in front. Under Terminal, **Reopen tabs at start** brings back the tabs open when Flow last quit, in the same way.\n\n# From the shell\nIn a tab, `flow-settings` lists these settings by their names in config.toml, and gets, sets and resets them (`flow-settings --help`); Flow applies and saves each change, and says so. The assistant's settings, your own theme and the themes you saved are Settings' alone."
+    },
+    "picker": {
+      "title": "Picking a color",
+      "body": "The square picks how strong and how light the color is, and the bar beside it its hue: click or drag in either. ←→ move the hue and ↑↓ the brightness (with Shift, further), or type a hex value such as `#41FF6E`. Enter or **Done** keeps the color, and Esc puts back the one before. Each color row in [Settings](help:settings) opens it."
+    },
+    "gallery": {
+      "title": "The theme gallery",
+      "body": "The gallery shows the packages of themes in flowapp's catalog, and those you've installed, before you install them. Settings' **Theme gallery**, under Theme, opens it; Esc closes it.\n\n# Looking\nChoose a package on the left, and its themes come beside it: Flow fetches the package (a few kilobytes), checks it against the catalog and Flow's own key, and reads it as an install would, installing nothing. Choose a theme to see its look: its screen in its colors, the first lines of its start screen and its prompt, its sixteen colors, its font and whether it has a tube. The words are in Flow's own font until it's installed. ↑↓ choose in the list that has the keys, and ← and → (or Tab) move between the packages and the themes.\n\n# Installing and wearing\n**Install** installs the package, as `flowapp install` does in a tab ([Flow's apps](help:apps)), and its themes come into Settings' Theme row and the new-tab picker at once. Once it's installed, **Wear** wears the theme chosen, as the Theme row does, and **Upgrade** comes where a newer version is out. Enter does the first button. A package that needs a newer Flow says so, and waits for Flow to be updated."
+    },
+    "key": {
+      "title": "The API key",
+      "body": "The assistant needs a key from the provider chosen in [Settings](help:settings): Anthropic's Claude, OpenAI's GPT or Google's Gemini. Paste it ({dialog_paste}) and press Enter: it's checked with the provider by a free call, then kept in the system's store for passwords (the Keychain, Credential Manager or the Secret Service), never in a file. Esc closes this without one; Flow works as a terminal without any key.\n\nEach provider keeps its own key, and `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `GEMINI_API_KEY` in the environment takes its place. {key} changes the key later, and `/forget` in the [assistant's panel](help:assistant) removes it."
+    },
+    "model": {
+      "title": "A 3D model from a file",
+      "body": "A program in one of the tabs asked Flow to show a file as a 3D model. That means reading a file the program chose, so Flow asks first, naming the tab and the file. **Allow** (Enter) reads it and shows the model; **Don't Allow** (Esc) doesn't. A relative path is from the shell's folder. Only a file on this computer is asked about: a path beginning with two slashes or backslashes (another computer's, `\\\\server\\share\\…`), and on Windows any path but a drive's (`C:\\…`), isn't asked about or read, since on Windows opening a file on another computer would hand that computer your sign-in.\n\nA model the program sends itself, rather than naming a file, doesn't ask."
+    },
+    "about": {
+      "title": "About Flow",
+      "body": "The card shows Flow's version and its build, over a cube of its own rolling in 3D. Esc, Enter, Space or a click outside it closes it. **Release notes**, beside the version, opens its release's page on GitHub, with what's new in it; a Flow built from source opens the list of releases. **Resources**, beside **Release notes**, shows what each tab uses (its programs, their memory and CPU, its scrollback, its pictures and what they take on the GPU), Flow's own memory and CPU, what the window takes on the GPU and the frames drawn each second, read about once a second while it's open; resting the pointer on a tab, or bringing it to the front with the keys, shows the same for that tab in a card under it. Esc closes it.\n\n**Restart Flow** closes every tab and opens each again, with its shell, its theme and its folder, as Flow does when it starts, after reading config.toml again, without quitting ([Settings](help:settings)' **Restart** does the same; {restart} restarts only the tab in front). **Legal** says whose the logos Flow shows are, on a [page of its own](help:legal). **Arcanii**, in the credits under the tagline, opens the GitHub page of Arcanii, who make Flow.\n\n# Updates\n- **On the Mac and Windows**, Flow's updater checks by itself and offers a new version when there is one; on the Mac, **Check for Updates…** in the Flow menu asks now.\n- **On Linux**, a Flow installed by its `install.sh` updates itself from this card: its button checks, installs and restarts. A Flow from the .deb opens the release's page instead. Whether it checks once a day by itself is [asked once](help:updates), and changed later in Settings' **Update checks**.\n\nEvery update is signed with Flow's own key, and one that isn't is never installed."
+    },
+    "updates": {
+      "title": "Checking for updates",
+      "body": "Flow can look once a day for a newer release, reading its list of releases on GitHub, and say so in the title bar when there is one.\n\n**Check Automatically** (Enter) looks once a day, when Flow starts and when it comes to the front; **Don't Check** (Esc) leaves it to you, in [About](help:about). Nothing is installed until you say so in About, and only an update signed with Flow's own key. [Settings](help:settings)' **Update checks** changes your answer later.\n\nOnce an update you started is in place (put there by Flow, or by apt in its own tab for the .deb) and About isn't open, a card asks whether to restart into it: **Restart Now** (Enter) closes this window and opens the new Flow with your tabs as they are, each in its folder, ending any program still running in one; **Later** (Esc) leaves it to About or the title bar's ↻."
+    },
+    "shells": {
+      "title": "A new tab",
+      "body": "The **+** after the tabs opens a tab at once with the default shell, in the theme Settings has, as {new_tab} does. The **…** beside it opens this picker, to choose both: the shells Flow found on this computer on the left, every theme on the right (Flow's, the old machines', your own and those you saved), the default shell and Settings' theme chosen to start with.\n- ↑↓, or the wheel over a list, choose in it, and ←→ (or Tab) go between the two. A list longer than the window has room for shows what fits around its choice.\n- Enter, or **Open tab**, opens a tab with the shell and the theme chosen; a click chooses, and a second click on what's chosen opens it.\n- **Save as theme…** keeps what the window wears now, the tab in front's theme if it has one, under a name you type over [Settings](help:settings), to choose here and there.\n- Anything else closes the picker, and the key does what it would have.\n\nA tab in a theme of its own says so in its name, and the window wears that theme while the tab is in front: its colors, fonts, glass and CRT, its start screen and prompt, and its machine's sounds. Programs in it are told its colors when they ask. [Settings](help:settings) opens on the tab in front, and its look's sections change that tab alone; on **New tabs** they change the look the **+** opens with.\n\n[Settings](help:settings)' **Default shell** picks which shell + opens. {pick_tab} shows tab 1 to 9, and {close_tab} closes the one in front (the last closes Flow)."
+    },
+    "outside": {
+      "title": "Outside apps",
+      "body": "Outside apps (Claude Desktop, Claude Code, Cursor) can use Flow through **flow-mcp**, the MCP server Flow carries, as far as you allow each one.\n\n# Connecting\nTurn on Settings' **Let outside apps connect**, under Outside apps. Off, Flow doesn't listen for them at all, and either way nothing listens on the network: flow-mcp reaches Flow through a socket (a pipe on Windows) only you can open. Each end asks the system who is at the other first: Flow closes a connection from another user unread, and flow-mcp sends nothing to anything but your own Flow, telling the app so. **Connect an app**, under it, gives flow-mcp's path, with **Copy for Claude Code** (the `claude mcp add` command to paste in a terminal) and **Copy JSON** (an `mcpServers` entry for Claude Desktop, Cursor and others). When an app calls and Flow isn't running, flow-mcp starts it.\n\n# What an app may do\nThe first time an app calls, a card asks what it may do: read your tabs and panes (and Flow's help), open, close and bring forward tabs and panes, change Flow's settings, and run commands. Switch each with a click or 1 to 4; Enter allows, and Esc denies, so it may do nothing and isn't asked again. Flow knows each app by its name and the program that started flow-mcp: another program giving the same name is asked about anew. Settings' Outside apps lists each one, a switch for each thing it may do, and **Forget**, to be asked again.\n\nThis keeps apps from doing what you didn't mean them to. A program already running as you could do anything anyway.\n\n# Commands\nAn app runs commands only in panes of its own: one Flow opens beside yours, labeled with its name, or the tabs and panes it opened. It may read your panes, but it never types into your shells nor closes your tabs. **Run commands** is **Off**, **Ask each time** (a card shows the command: Enter runs it, Esc skips it) or **Without asking**. A command Flow's rules rate high risk (deleting, sudo, erasing a disk, turning off the system's protections, sending data to another machine, naming a file that looks like a secret) always asks, whatever the app may do. The rules go by pattern, not a sandbox, so **Without asking** runs what they don't recognize.\n\n# Settings\nAn app allowed to change settings changes what `flow-settings` may ([Settings](help:settings)): the look, in the tab in front, and the sound and the window, for every tab. The assistant's settings and your themes stay closed to it."
+    },
+    "apps": {
+      "title": "Flow's apps",
+      "body": "`flowapp`, in any tab, installs Flow's apps and keeps them up to date as Homebrew keeps its formulae: Flow Rogue, Flow Mines, Flow Invaders, and `flow-sdk`, the SDK for C and Python with its demos. Flow itself carries none of them, so `flowapp install flow-rogue` is how a game comes.\n\n# Keeping up to date\n- `flowapp update` reads the catalog of apps and says which have a newer version.\n- `flowapp upgrade` installs those, or only the ones named (`flowapp upgrade flow-rogue`).\n- `flowapp outdated` says again what's newer, from the catalog last read.\n\n`upgrade` and `install` read the catalog again before they download, since one read before a release can name a download that's gone; offline, they go by the one last read and say so. `list`, `outdated`, `info` and `search` go by the one last read: `info` says when that was, and the others say so once it's a day old.\n\nAn app's download can need a newer Flow than yours, as the catalog says: `install` refuses it and `upgrade` leaves it until Flow is updated, saying which Flow it needs, and `outdated` and `info` say so too.\n\nWhat flowapp installs goes in a folder of your own, `apps/` beside config.toml, which every tab's PATH has, so a tab already open runs it too. Flow carried Flow Rogue and Flow Mines itself until 0.1.33, and an update from such a Flow keeps them: its first start installs them with flowapp (or the next, if it was offline). A copy an older Flow left counts as installed, at its own version, and upgrading it puts the newer one ahead of it.\n\n# Installing and removing\n- `flowapp install <app>` installs one (`flowapp install flow-sdk`), and says where the SDK's library, C header and Python package are.\n- `flowapp remove <app>` takes off one flowapp installed; your saves and settings stay.\n- `flowapp list` says what you have and its versions, `flowapp info <app>` what an app is, and `flowapp search` (with words, or none) the apps there are.\n\nIn a terminal these are tables, a newer version in green, and a download shows how far it's got on one line, with a ✓ once it's checked. Piped, they're plain lines that a script can read, and with `--json` (`flowapp list --json`) they're JSON.\n\n# Ahead of the system's commands\nWhat flowapp installs comes after the system's commands on the PATH, so an app's `ls` never takes the place of the system's unasked. `flowapp first <app>` puts an app's programs (or one, by its name, or `<app>/<program>` where two apps have one of that name) ahead of them in Flow's tabs, and `flowapp last <app>` (or `--all`) puts the system's first again. The tab you ran it in goes by it at its next prompt, and another tab open now once its prompt comes back.\n\nEach can say where and how:\n- `--shell zsh,bash` puts it first in those shells alone, `--except powershell` in all but that one. The shells are `zsh`, `bash` (every bash, Git Bash's too), `sh`, `powershell`, `cmd` and `busybox`. A later choice takes an earlier one's place in the shells it names, and leaves the rest.\n- `--here` puts it first (or, with `last`, takes it out) in this tab alone, until the tab closes.\n- `--prompt` puts it first at the prompt alone, as an alias, so scripts run from a tab keep the system's command; without it, it's first on the PATH, which scripts find too. cmd has no hook at its prompt, so it isn't first there.\n- `--take` says what of the shell's own it takes away while it's first, and gives back after: `builtin` (bash's and zsh's `echo`, `printf`, `pwd`; not `cd` or `export`, which no program can do the work of), `alias` (PowerShell's own, and those your startup files make in bash, zsh and BusyBox, such as `ls --color=auto`), `function` (PowerShell's `mkdir`), `applet` (BusyBox's), or `none`. By default it takes PowerShell's alias and BusyBox's applet, nothing else. cmd's own commands (`dir`, `type`) nothing puts aside.\n\n`flowapp first` alone lists, for each shell, each name first there, how, what it took away, and what of the shell's own still comes ahead of it (`--json` for scripts). Your own aliases and functions it can't see: `type <name>` in a tab says what runs there (`Get-Command <name> -All` in PowerShell). A BusyBox tab follows a change once `flowapp` runs in it.\n\n# Themes\nA package of themes installs as an app does (`flowapp install flow-core-themes`, Flow's own machines, kept up to date), and its themes come in Settings' Theme row and the new-tab picker once Flow is in front again; one with a built-in machine's name takes that one's place. `flowapp install mine.tar.gz` installs a package of your own from its file. A theme is only colors, fonts, pictures and words to type, never a program, so one of your own needs no signature, and one holding a program is refused.\n\n# Skills\nA package of skills installs as one of themes does (`flowapp install flow-skills`, Flow's own skills for its [assistant](help:assistant)), and an app may carry skills beside its programs. They're listed in Settings' Skills section, each off until you turn it on there, so installing an app never changes what the assistant reads; the install says so. `flowapp install mine.tar.gz` installs a package of your own: a `skills.json` naming it and its version, and a `skills/` folder of skills.\n\n# In Settings\nSettings' Apps lists them too: each app and package of themes or skills you have or the catalog offers, with Install, Upgrade and Remove (pressed twice) that do what flowapp would. Catalog says when the catalog was read, and Check now reads it again. Check apps at start and Check apps (daily or weekly) have Flow read it by itself and say when an app you have has a newer version; it never upgrades one by itself. The first start of a newer Flow reminds you to check them.\n\nThe app chosen ends its hint saying who signed it, as `flowapp info` does, and a row adds **not signed** for a package of your own, or **unknown key** for a key Flow doesn't know; one Flow signed stays as it is. An app that introduces itself (below) does so in a tab of its own once Settings has installed it.\n\n# Safety\nThe catalog is in Flow's public releases, beside its own updates, and before anything is put in place each download's size and checksum are checked against the catalog's, and its signature against Flow's own key; one that doesn't match is never unpacked.\n\n`flowapp list` and `search` say who signed each download, the first digits of the key's fingerprint and when it was signed, as the catalog says: Flow's key, `f186 6b49`. `flowapp info <app>` gives the whole fingerprint, when flowapp checked the download, and on the Mac who signed its programs, as `codesign` says; then the lines that check the signature with OpenSSL 3 or later alone, trusting nothing of flowapp's. `flowapp verify` (or `flowapp verify <app>`) fetches what you have again, checks it, and looks at every file installed against it: a file changed or gone is said, and so is one added since, which doesn't count.\n\n# flowapp itself\nflowapp is in the catalog too, with a version of its own (`flowapp --version`), so a newer one comes out without a new Flow. `flowapp outdated` offers it and `flowapp upgrade` installs it like any app; from then on it runs in Flow's tabs in place of the one your Flow carries, and `flowapp remove flowapp` goes back to that one. Whichever is newer runs, so a later Flow that carries a newer flowapp runs its own. A tab opened before the upgrade may still run the old one: open a new tab, or in bash or zsh type `hash -r`.\n\n# An app introducing itself\nAn app's download can hold a `flowapp.json` naming one of its own programs to run once it's installed, so what runs is covered by Flow's signature, never by the catalog. `flowapp install` runs it after a fresh install alone, in a terminal alone (never from a script, a pipe or the assistant), and not for an upgrade; `flowapp hello <app>` runs it again. flow-say asks whether to fetch its voice, a download of its own, asking how to address you meanwhile, then greets you aloud as Flow, by your name and the time of day (\"Good afternoon, Alex. I am Flow.\") or in another of its greetings."
+    },
+    "command": {
+      "title": "The flow command",
+      "body": "`flow`, in one of Flow's tabs, opens a new tab in the Flow that tab belongs to and types a command there: `flow ssh -N -L 7445:127.0.0.1:7445 me@host` keeps a tunnel open in a tab of its own while you go on in this one.\n\nThe new tab is like the one you typed it in: the same shell, the same theme, and the folder `flow` ran in. It opens right after that tab and comes to the front, and the command is typed once its shell waits at its prompt, as if you'd typed it there: it goes into the command history, and the shell stays when it ends. `flow` alone opens a tab at its prompt.\n\n# Options\n- `--split` opens a pane beside the one you typed it in, in its tab, rather than a tab.\n- `--behind` opens it without coming to the front, so the keys stay where they are.\n- `--close` closes it once the command ends well. A failure leaves it open, so its error can be read, and so does stopping it with Ctrl+C. cmd can't say how a command ended, so there it closes whenever the command ends.\n- `--shell <name>` and `--theme <name>` pick another shell or theme, by its id or its name (`flow --shell bash --theme green htop`).\n- `--window` starts a Flow of its own for the command (below).\n\nThe first word that isn't an option begins the command, and `--` ends the options, for a command that begins with `-`.\n\n# Words and quotes\nEach word goes to the new shell as the shell you typed it in gave it to `flow`, after it expanded its own variables, globs and quotes. A plain word goes as it is; any other is quoted, so the new shell expands nothing in it again, not even cmd's `%NAME%`. A word holding a control character (a tab, a line break, Esc, Ctrl+C and the like) is refused, since typed at a prompt it would be a key, not a letter: put a command that needs one in a script. Letters past ASCII go as letters: Flow's bash hook has bash's line editor take them as letters, not keys, in a locale that isn't UTF-8 too. Where the new shell hasn't shown Flow's prompt when the command is typed, or bash's hook says its prompt may take them as keys (its locale has just changed) or can't run before its prompts (a read-only `PROMPT_COMMAND`), they go into zsh and bash as their bytes (`$'\\xc3\\xbc'` for ü). A word holding a `~` is quoted, since bash expands one after a `=` (`--prefix=~/x`).\n\n# A Flow of its own\n`flow --window <command>`, or `flow` run outside Flow's tabs (another terminal, a script, a shortcut), starts a new Flow with that one tab, a guest beside the Flow you have. It opens none of your saved tabs and saves none, takes no hotkey, doesn't listen for outside apps and doesn't check for updates, all of which stay the first Flow's. It quits when its last tab closes.\n\n# Only from Flow's own tabs\nAnything that prints in a tab could print the question `flow` asks, a file you `cat` or a remote host over ssh among them. So each pane has a secret of its own, which only programs started in it have, and Flow opens a tab only for a question that carries the asking pane's secret. Any other it doesn't answer at all, not even to say no, since its answer would be typed at the prompt. So where nothing answers, `flow` says the secret it sent may be another pane's; through tmux or screen, which don't pass Flow's questions on, nothing answers either.\n\nAnother program called `flow` that comes earlier on the PATH (the JavaScript type checker's, say) runs instead of Flow's."
+    },
+    "legal": {
+      "title": "Legal",
+      "body": "The logos and pictures Flow can show in its startup logo and its old machines' [themes](help:settings) belong to their owners:\n- **Intel** and its logo: Intel Corporation.\n- **AMD** and its logo: Advanced Micro Devices, Inc.\n- **Sun Microsystems** and its emblem: Oracle Corporation, which acquired Sun.\n- **SGI** (Silicon Graphics) and its cube: Hewlett Packard Enterprise, which acquired SGI.\n- **Amiga** and its Boing Ball, with Kickstart, Workbench and Topaz: Amiga Corporation, which holds the Amiga's marks since Commodore.\n- The **Kickstart 1.3** picture of a hand holding out the Workbench disk, on the Flow notanAmiga CLI's first screen as it was: Amiga Corporation.\n- **Apple** and its logo: Apple Inc.\n- **Windows** and its logo: Microsoft Corporation.\n- **Vulkan** and its logo: the Khronos Group Inc.; **OpenGL** and its logo: Hewlett Packard Enterprise, used under license by the Khronos Group; **Metal** and its logo: Apple Inc.; **DirectX**, **Direct3D** and DirectX's wordmark: Microsoft Corporation. Beside the startup logo, they name the graphics API Flow draws with.\n- A **Linux distribution's** logo, read from your own system: its project or company.\n- The **X Window System** (X11): The Open Group. Its X, from Wikimedia Commons, is in the public domain.\n- **Wayland's** logo: Kristian Høgsberg's, under the MIT License, also in the public domain.\n\nOn Linux, About's version line shows the X or Wayland's logo only to say which window system Flow's window is on; neither project endorses Flow.\n\n# Fair use\nThey are shown here under fair-use principles, for illustrative and encyclopedic purposes only: to show the computers of their time. They are not used for advertising, merchandise or commercial promotion.\n\nTheir use doesn't mean that Flow is endorsed by, sponsored by or connected with these companies, and Flow is not a product that competes with their software or services.\n\nWe only hope to give a feeling of nostalgia to people who remember those times, and a warm, fuzzy feeling for the memorabilia."
+    },
+    "server_ask": {
+      "title": "A server asks",
+      "body": "An MCP server the assistant uses (see [the assistant](help:assistant)) may ask you something while it works, and the card in front names it. Flow sends what you answer to that server alone, never to the assistant's model itself, though the server may put it in what its tool hands back.\n\n# A form\nIts fields come in the server's order, those it needs marked *. Tab and Shift+Tab, or ↑ and ↓, go from field to field and on to the buttons. Type in a field of text or numbers; Space turns a switch over and picks the option you're on; ← and → move along a field's options. Enter goes on to the next field, and on the last one sends, as Ctrl+Enter or ⌘Enter does from anywhere. **Send** checks each field first, as the server asked (its length, its form, a number's range), and says under a field what's wrong. **Decline** says no; Esc puts the card away without an answer.\n\nA prompt run from the panel (`/<server>:<prompt>`) asks this way for what it needs that you didn't type after its name.\n\n# A link\nA server may ask you to open a page (to sign in to something of its own, say). The card shows the whole address, its host lit, and warns where the host may pass for another or the page isn't HTTPS. **Open in Browser** opens it in your own browser; Flow never opens it unless you say, and never reads it. **Decline** says no.\n\nWhere a call can't go on until you've been there, its card in the panel waits for you, with **Try Again** and **Give Up**; Flow makes the call again once the server says you're done."
+    }
+  },
+  "keys": {
+    "none": "no key",
+    "go_to_tab": "Go to Tab 1–9",
+    "move_between_panes": "Move Between Panes",
+    "group": {
+      "tabs": "Tabs and panes",
+      "text": "Text and the scrollback",
+      "find": "Find, history and the palette",
+      "assistant": "The assistant",
+      "flow": "Flow"
+    }
+  },
+  "flow_help": {
+    "all": "every page of Flow's help",
+    "one": "the pages named, such as settings",
+    "list": "the pages' names and titles",
+    "more": "flow-help <page> prints one page, and flow-help --list names them all.",
+    "unknown": "flow-help: no page is named \"{name}\". The pages: {pages}."
+  },
+  "model_ask": {
+    "title": "Show a 3D model from a file?",
+    "body": "A program in the {tab} tab wants Flow to read this file and show it as a 3D model:",
+    "allow": "Allow",
+    "deny": "Don't Allow",
+    "keys": "Enter allows · Esc doesn't",
+    "not_a_file": "not a regular file on this computer"
+  },
+  "update_ask": {
+    "title": "Check for updates automatically?",
+    "body": "Once a day, Flow can ask GitHub whether a newer release is out, and tell you in the title bar. Nothing is installed until you say so in About. Settings › Update checks changes this later.",
+    "yes": "Check Automatically",
+    "no": "Don't Check",
+    "keys": "Enter check automatically · Esc don't check"
+  },
+  "restart_ask": {
+    "title": "Flow {version} is installed",
+    "body": "Restart now to use it: this window closes, the new Flow opens, and your tabs come back as they are, each in its folder. Later, About or the title bar's ↻ restarts it.",
+    "busy": "A program still runs in a tab: restarting now ends it.",
+    "now": "Restart Now",
+    "later": "Later",
+    "keys": "Enter restarts now · Esc later"
+  },
+  "picker": {
+    "hint": "Type a hex value · ←→ hue · ↑↓ brightness"
+  },
+  "banner": {
+    "memory": "{gb} GB memory"
+  },
+  "preset": {
+    "kind": "Flow preset",
+    "file_name": "Flow preset.json",
+    "save_title": "Save the Look as a Preset",
+    "load_title": "Load a Preset",
+    "empty": "it sets nothing a preset holds"
+  },
+  "crt_name": {
+    "title": "Save CRT preset",
+    "placeholder": "Name",
+    "hint": "Enter saves · Esc cancels",
+    "save": "Save",
+    "over": "Saves over your preset “{name}” · Esc cancels"
+  },
+  "theme_name": {
+    "title": "Save as theme",
+    "placeholder": "Name",
+    "hint": "Enter saves · Esc cancels",
+    "save": "Save",
+    "over": "Saves over your theme “{name}” · Esc cancels"
+  },
+  "about": {
+    "version": "Version {version}",
+    "version_on": "Version {version} · {windowing}",
+    "restart": "Restart Flow",
+    "legal": "Legal",
+    "release_notes": "Release notes",
+    "keys": "Keys",
+    "tagline": "A liquid-glass terminal with Claude built in.",
+    "credits": "Credits: {name}",
+    "check_updates": "Check for Updates…",
+    "update": {
+      "checking": "Looking for a newer Flow…",
+      "up_to_date": "Flow is up to date.",
+      "available": "Flow {version} is out.",
+      "installing": "Installing Flow {version}…",
+      "installed": "Flow {version} is installed: restart Flow to use it.",
+      "checking_button": "Checking…",
+      "install": "Install Update",
+      "installing_button": "Installing…",
+      "restart": "Restart Flow",
+      "copy_command": "Copy Command",
+      "show_tab": "Show Its Tab"
+    }
+  },
+  "update": {
+    "check_failed": "Couldn't check for updates: {error}",
+    "no_release": "There's no Flow release for this computer ({arch}) yet.",
+    "download_failed": "Couldn't download Flow {version}: {error}",
+    "not_signed": "The download of Flow {version} isn't signed with Flow's key, so it wasn't installed.",
+    "install_failed": "Couldn't install Flow {version}: {error}",
+    "not_writable": "Flow {version} is out, but this copy is in {folder}, where Flow can't write. Install it as you installed this one.",
+    "deb": "Flow {version} is out. Its page is open in your browser: download {file} there, then run this in a tab to install it, and restart Flow:",
+    "in_tab": "Flow {version} is downloaded and checked. Its tab installs it with apt: type your password there when sudo asks, and Flow offers to restart once it's in place."
+  },
+  "program_settings": {
+    "unreadable": "Flow couldn't read what was asked.",
+    "restart_busy": "A program is running in another tab or pane, so Flow didn't restart: only you can now, with Settings' Restart.",
+    "not_offered": "Flow's settings tool can't restart Flow or start a tab afresh, since both end what runs there.",
+    "restart_asked": "{tab}: a program asked to restart Flow, which would end what runs in another tab or pane. Settings' Restart does it, if you want.",
+    "unknown": "There's no setting {key}.",
+    "closed": "Programs can't see or change {key}; Settings can.",
+    "wrong_kind": "{key} takes {kind}.",
+    "wrong_value": "{key} can't take that value.",
+    "not_taken": "{key} takes {takes}.",
+    "takes": {
+      "one_of": "{choices} or {last}",
+      "range": "a number from {from} to {to} (Settings steps by {step})",
+      "color": "a color written as #RRGGBB",
+      "color_or_none": "a color written as #RRGGBB, or \"\" for none"
+    },
+    "changed": "{tab}: a program set {key} to {value}",
+    "reset_all": "{tab}: a program put the settings back to their defaults",
+    "kind": {
+      "switch": "true or false",
+      "number": "a number",
+      "list": "a list",
+      "text": "text"
+    }
+  },
+  "flowapp": {
+    "usage": "Flow's apps, kept up to date from the shell: its games, its SDK, its themes and skills for its assistant.\n\n  flowapp update            reads the catalog of apps, and says what's newer\n  flowapp upgrade [app…]    installs what's newer of what you have\n  flowapp install <app…>    installs an app or a package of themes or skills\n  flowapp install <file.tar.gz>  installs a package of themes or skills of your own\n  flowapp remove <app…>     takes off an app flowapp installed\n  flowapp list              what you have, and its versions\n  flowapp outdated          what has a newer version\n  flowapp info <app>        what an app is\n  flowapp search [word…]    the apps there are\n  flowapp verify [app…]     fetches what you have again and checks it's as downloaded\n  flowapp hello <app>       has an app introduce itself again, where it can (flow-say says hello aloud)\n  flowapp first [app…]      puts an app's programs ahead of the system's commands of their names, in Flow's tabs (alone: says what's first in each shell, and what still comes ahead)\n  flowapp last <app…>       puts the system's first again (--all for every one)\n\nfirst and last take a program by its name too, or <app>/<program> where two apps have one of that name, and:\n  --shell <shell,…>         in these shells alone (zsh, bash, sh, powershell, cmd, busybox)\n  --except <shell,…>        in every shell but these\n  --here                    in this tab alone, until it closes\n  --prompt                  (first) at the prompt alone, so scripts keep the system's command\n  --take <what,…>           (first) what of the shell's own it takes away: alias, builtin, function, applet, or none (by default PowerShell's alias and BusyBox's applet)\n\nWith --json, update, list, outdated, info, search and first print what they list as JSON, for scripts.\n\nFlow carries none of them: install the ones you want (an update from a Flow that carried Flow Rogue and Flow Mines installs those). Every download is checked against the catalog and Flow's own signature before it's put in place. list and search say who signed each, with which key and when, info how to check that yourself with OpenSSL, and verify whether what's installed is still as downloaded. An app new here may introduce itself once it's installed in a tab, as its download says (flow-say asks first, since its voice is a download of its own). Themes come in Settings' Theme row and the new-tab picker once Flow is in front again; a package of your own isn't signed, but a theme is only colors, fonts and words, never a program. A package's skills for the assistant stay off until Settings' Skills section turns them on.",
+    "updated": "The catalog has {n} apps.",
+    "up_to_date": "Everything is up to date.",
+    "to_upgrade": "flowapp upgrade installs them.",
+    "installing": "Installing {name} {version}…",
+    "installed": "Installed {name} {version}.",
+    "fetching_again": "Downloading {name} {version} again…",
+    "fetched_again": "Downloaded {name} {version} again.",
+    "first_none": "Nothing flowapp installed comes ahead of the system's commands. flowapp first <app> puts an app's programs first, in Flow's tabs.",
+    "no_program": "No app or program it installed is called {name}.",
+    "put_first_over": "{name} comes first {where}, ahead of {path}.",
+    "put_first": "{name} comes first {where}.",
+    "first_open_tabs": "This tab goes by it from now on, and another tab open now once its prompt comes back (Enter there will do).",
+    "not_first": "{name} wasn't first {where}.",
+    "put_last_over": "{name} no longer comes first {where}: {path} does again.",
+    "put_last": "{name} no longer comes first {where}.",
+    "can_go_first": "{names} share their names with the system's commands, which still come first: flowapp first {app} puts them ahead in Flow's tabs.",
+    "installed_file": "Installed {name} {version}, a package of your own (signed by no one: it holds no programs).",
+    "bad_name": "“{name}” isn't a name an app or package can have: it's at most 64 lowercase letters, digits, - and _, starting with a letter or digit, and none of flowapp's own folders (bin, first, previews) nor a name Windows keeps for a device (con, nul, com1…).",
+    "bad_version": "“{version}” isn't a version {name} can have: it's at most 64 letters, digits, ., -, _ and +, neither starting nor ending with a dot, and before its first dot no name Windows keeps for a device (con, nul…).",
+    "bad_program": "{name}: “{program}” isn't a program's name: a program is a file in the app's bin/ folder.",
+    "name_is_flows": "{name} is the name of one of Flow's own, flowapp itself or an app or package of its catalog, so a package of your own can't take it: it would take that one's place. Give yours another name in its themes.json or skills.json.",
+    "name_taken": "{name} is taken: {other} is installed, and on a Mac or Windows the two would share a folder.",
+    "own_in_the_way": "{name} here is a package of your own, installed from a file, so the catalog's {name} won't install over it. Remove yours first (flowapp remove {name}, or Remove in Settings → Apps), then install it.",
+    "catalogs_in_the_way": "{name} here was installed from the catalog, so a package of your own won't take its place. Give yours another name in its themes.json or skills.json, or remove {name} first (flowapp remove {name}).",
+    "own_programs": "it holds programs (a bin/ folder), which only the catalog's apps may: a package of your own is themes or skills alone.",
+    "cant_take_away": "{path} couldn't be taken away ({error}), so nothing was unpacked over it: delete it yourself, then try again.",
+    "theme_is_flows": "its theme “{id}” has the id of one of Flow's own themes, so it would take that one's place, under its name. Give yours another id in its themes.json.",
+    "theme_taken": "its theme “{id}” has the id of one {other} brings, so it would take that one's place, under its name. Give yours another id in its themes.json, or remove {other} first (flowapp remove {other}).",
+    "themes_heading": "Themes",
+    "skills_heading": "Skills",
+    "skills_off": "It has {n} skills for Flow's assistant, each off until you turn it on in Settings → Skills (Skills from {name}).",
+    "skills_on": "It has {n} skills for Flow's assistant, {on} of them on.",
+    "already": "{name} {version} is installed already.",
+    "its_lib": "Its library: {dir}",
+    "its_include": "Its C header: {dir}",
+    "its_python": "Its Python package: {dir} (for PYTHONPATH)",
+    "removed": "Removed {name}.",
+    "comes_with_flow": "{name} comes with Flow, which keeps it; flowapp removes only what it installed.",
+    "not_installed": "{name} isn't installed.",
+    "introduces": "{name} introduces itself:",
+    "no_hello": "{name} has nothing to introduce itself with.",
+    "hello_ended": "{program} ended with exit code {code}.",
+    "hello_stopped": "{program} was stopped before it ended.",
+    "none_installed": "No apps are installed. flowapp search lists them, and flowapp install installs one.",
+    "no_download_of": "There's no download of {name} for {platform} yet.",
+    "needs_flow": "{name} {version} needs Flow {needs} or later, and this is Flow {flow}. Update Flow first (Check for Updates… in About), then install it again.",
+    "held_back": "{name} {version} needs Flow {needs} or later, and this is Flow {flow}: it'll upgrade once Flow is updated.",
+    "no_such_app": "There's no app called {name}: flowapp search lists them.",
+    "nothing_found": "No app matches.",
+    "unreadable": "the catalog at {place} doesn't read.",
+    "offline": "The catalog didn't read ({error}), so this goes by the one read {ago}.",
+    "stale": "This is from the catalog read {ago}: flowapp update reads it again.",
+    "download_gone": "The download of {name} isn't where the catalog says ({error}). The catalog may be out of date, as it can be for a few minutes after a release: flowapp update reads it again.",
+    "head_app": "App",
+    "head_installed": "Installed",
+    "head_latest": "Latest",
+    "head_size": "Size",
+    "head_about": "What it is",
+    "head_download": "Download",
+    "head_needs": "Needs",
+    "head_programs": "Programs",
+    "head_release": "Release",
+    "head_catalog": "Catalog",
+    "from_flow": "comes with Flow",
+    "with_flow": ", comes with Flow",
+    "not_installed_yet": "not installed",
+    "read_ago": "read {ago}",
+    "download_for": "{size} for {platform}",
+    "none_for": "none for {platform} yet",
+    "needs": "Flow {needs} or later",
+    "needs_newer": "Flow {needs} or later (this is {flow})",
+    "of_size": "{got} of {size}",
+    "per_second": "{size}/s",
+    "checked": "{size}, its checksum and signature checked",
+    "where_all": "in Flow's tabs",
+    "where_only": "in Flow's {shells} tabs",
+    "where_except": "in Flow's tabs but its {shells} ones",
+    "where_here": "in this tab",
+    "put_first_prompt": "{name} comes first at the prompt {where}; scripts still run {path}.",
+    "put_first_prompt_none": "{name} comes first at the prompt {where}, and not in scripts.",
+    "first_instead": "  It takes the place of {app}'s {name} {where}.",
+    "ahead_builtin": "  In {shell}, its own builtin {name} still comes first: --take builtin puts it aside.",
+    "ahead_alias": "  In {shell}, its own alias {name} (for {of}) still comes first: --take alias puts it aside.",
+    "ahead_function": "  In {shell}, its own function {name} still comes first: --take function puts it aside.",
+    "ahead_applet": "  In {shell}, its applet {name} still comes first: --take applet puts it aside.",
+    "ahead_own": "  In {shell}, {name} is the shell's own command, which comes first and which nothing can put aside: run the program by its path there.",
+    "no_prompt_hook": "  {shell} has no hook at its prompt, so {name} isn't first there.",
+    "prompt_nowhere": "{shells} has no hook at its prompt, so --prompt puts nothing first there.",
+    "not_a_program_builtin": "{name} is part of {shell} itself, working on the shell's own state, so no program can take its place. --take builtin puts aside only the builtins a program can stand in for: {names}.",
+    "two_apps": "{apps} each have a program called {name}: name the one you mean, as {example}.",
+    "no_such_shell": "There's no shell called {name}: --shell and --except take {names}.",
+    "shell_and_except": "--shell and --except can't both be given.",
+    "here_outside": "--here works only in one of Flow's tabs.",
+    "here_and_shell": "--here is this tab's own shell, so it takes no --shell or --except.",
+    "bad_take": "--take takes alias, builtin, function, applet or none, not {name}.",
+    "bad_option": "{option} isn't one of flowapp {command}'s options: flowapp --help says them.",
+    "first_needs_name": "flowapp first needs the names of what to put first: an app, a program, or <app>/<program>.",
+    "first_here_now": "This tab goes by it from its next prompt; the other tabs don't change.",
+    "user_aliases": "Your own aliases and functions aren't seen from here: type <name> in a tab says what runs there (Get-Command <name> -All in PowerShell).",
+    "head_shell": "Shell",
+    "head_command": "Command",
+    "head_how": "How",
+    "head_took": "Took away",
+    "head_ahead": "Still ahead",
+    "how_path": "PATH, scripts too",
+    "how_prompt": "prompt alone",
+    "ahead_cell_builtin": "builtin",
+    "ahead_cell_which": "zsh's which, handing it plain uses",
+    "ahead_cell_alias": "alias for {of}",
+    "ahead_cell_function": "function",
+    "ahead_cell_applet": "applet",
+    "ahead_cell_own": "the shell's own",
+    "shell_here": "{shell}, this tab",
+    "last_needs_name": "flowapp last needs the names of what to take out from first (an app, a program, or <app>/<program>), or --all.",
+    "head_signed": "Signed",
+    "head_signed_by": "Signed by",
+    "head_signed_on": "Signed on",
+    "head_checked": "Checked",
+    "head_code_signed": "Code signed",
+    "signer_flow": "Flow",
+    "signer_unknown": "an unknown key",
+    "signed_cell": "{who} {key} · {date}",
+    "signed_undated": "{who} {key}",
+    "signed_by_key": "{who} (key {key})",
+    "signed_by_key_on": "{who} (key {key}), {date}",
+    "not_signed": "not signed",
+    "checked_on": "with Flow's key as it was installed, {date}",
+    "code_files_one": "1 file",
+    "code_files": "{count} files",
+    "code_adhoc": "ad hoc, by no one · {files}",
+    "code_unsigned": "not code-signed · {files}",
+    "check_yourself": "Check its signature yourself, with OpenSSL 3 or later (the Mac's own openssl can't; on Windows, Git Bash's can):",
+    "check_fingerprint": "Flow's key's fingerprint is {key}, which the second line must print.",
+    "check_says": "The last line says “Signature Verified Successfully” for a download Flow signed.",
+    "verify_ok": "{name} {version}: signed by {signed}; all {n} of its files are as downloaded.",
+    "verify_ok_one": "{name} {version}: signed by {signed}; its file is as downloaded.",
+    "verify_differs": "{name} {version}: signed by {signed}, but {n} of its files aren't as downloaded:",
+    "verify_differs_one": "{name} {version}: signed by {signed}, but one of its files isn't as downloaded:",
+    "verify_by_catalog": "flowapp didn't note which download this came from, so it was checked against the catalog's download of {version}.",
+    "verify_changed": "changed: {file}",
+    "verify_missing": "missing: {file}",
+    "verify_added": "{n} files added since it was installed, which don't count:",
+    "verify_added_one": "1 file added since it was installed, which doesn't count:",
+    "verify_more": "and {n} more",
+    "verify_own_file": "{name} {version}: installed from a file of your own, which no one signed, so there's nothing to check it against.",
+    "verify_no_download": "{name} {version}: flowapp didn't note which download this came from, and the catalog no longer has {version}, so there's nothing to check it against until it's upgraded.",
+    "verify_with_flow": "{name} {version} comes with Flow, and was checked with Flow's own update.",
+    "verify_failed_one": "1 app didn't check out.",
+    "verify_failed": "{n} apps didn't check out.",
+    "code_files_at": "{files} · signed {at}"
+  },
+  "outside": {
+    "host_unknown": "a program the system didn't name",
+    "folder_not_own": "{folder} isn't a folder of yours, so Flow won't listen there",
+    "use_title": "{app} wants to use Flow",
+    "use_body": "{app}, started by {host}, asks through flow-mcp to use Flow. Choose what it may do; Settings → Outside apps changes it later. This keeps apps from doing what you didn't mean them to: a program already running as you could do anything anyway.",
+    "command_title": "{app} wants to run a command",
+    "command_body": "{app} asks to run this in a pane of its own beside yours, never in one of your shells:",
+    "allow": "Allow",
+    "deny": "Deny",
+    "run": "Run",
+    "skip": "Skip",
+    "high_risk": "High risk: read it before you run it.",
+    "use_keys": "Enter allow · Esc deny · 1–4 switch",
+    "command_keys": "Enter run · Esc skip",
+    "kind": {
+      "read": "Read your tabs and panes, and Flow's help",
+      "tabs": "Open, close and bring forward tabs and panes",
+      "settings": "Change Flow's settings: the look, sound, the window",
+      "commands": "Run commands in panes of its own, asking you each time"
+    }
+  },
+  "flow_mcp": {
+    "usage": "Flow as an MCP server, so an outside app (Claude Desktop, Claude Code, Cursor) can use Flow as far as you allow.\n\nAn app's MCP config runs flow-mcp; it isn't run by hand. Turn on Settings → Outside apps in Flow, then add it to the app:\n\n  Claude Code:     claude mcp add flow -- <the path below>\n  Claude Desktop:  an entry named flow under mcpServers, its command the path below\n\nThe first time the app calls, Flow asks you what it may do: read your tabs, open and close tabs, change Flow's settings, run commands in panes of its own. Settings → Outside apps changes or forgets that later. Where Flow isn't running, flow-mcp starts it.\n\nflow-mcp's path:"
+  },
+  "flow_settings": {
+    "usage": "Flow's settings, seen and changed from the shell, in one of Flow's tabs.\n\n  flow-settings                    every setting a program may see, with its value\n  flow-settings get <key>          one of them, such as fx.style\n  flow-settings set <key> <value>  changes one: rain, 16, true, \"#00ff00\", '[\"VT323\", \"Menlo\"]'\n  flow-settings reset <key>        puts one back to its default (reset all: every one)\n  flow-settings reset terminal     starts this tab afresh: its screen, scrollback and modes\n  flow-settings restart            restarts Flow, as Settings' Restart does, while no other tab or pane runs a program\n\nFlow answers only programs run in its own tabs, which carry the tab's key (FLOW_TAB_KEY), and anything else not at all. Flow saves each change and says so. The look's settings, the theme among them, are this tab's, as Settings opened on it has them; the rest are Flow's, for every tab. The assistant's settings, your own theme and the themes you saved are Settings' alone.",
+    "takes": "What each setting takes, as Flow says (where Settings offers choices or a range):",
+    "no_key": "flow-settings: this shell has no tab key (FLOW_TAB_KEY), so it asked nothing: Flow answers only programs run in its own tabs, which have one. sudo and env -i leave it out, and ssh doesn't carry it.",
+    "no_answer": "flow-settings: Flow didn't answer. tmux and screen don't pass Flow's questions on, so from inside one nothing reaches it. Or the key here (FLOW_TAB_KEY) is another's, since Flow answers only what carries this pane's own: another pane's, or one an ssh session or a script brought along. Or this terminal isn't one of Flow's tabs, though it was started from one.",
+    "reset_all": "Every setting a program may change is back to its default."
+  },
+  "flow_command": {
+    "usage": "Opens a tab in the Flow this tab belongs to, like this one (its shell, its theme, this folder), and types a command there once its shell waits at its prompt.\n\n  flow [options] [--] <command> [args…]   a new tab that runs the command\n  flow [options]                          a new tab here, at its prompt\n  flow --window [options] <command>       a Flow of its own for it\n\n  --split          a pane beside this one, rather than a tab\n  --behind         opens without coming to the front\n  --close          closes once the command ends well (a failure leaves it open to read)\n  --shell <name>   another shell, by its id or its name (zsh, bash, powershell, cmd…)\n  --theme <name>   another theme, by its id or its name\n  --window         a new Flow with that one tab, beside the one running\n\nThe first word that isn't an option begins the command, and -- ends the options. Each word goes to the new shell as this shell gave it to flow, quoted so it isn't expanded again. A word holding a control character (a tab, a line break, Esc) is refused: typed, it would be a key. flow returns once the tab is open, before its command runs. Outside Flow's tabs (another terminal, a script, a shortcut) it starts a Flow of its own, as --window does: one that keeps no saved tabs, hotkey, outside apps or updates of its own.",
+    "needs_value": "{option} needs a name after it. See flow --help.",
+    "unknown_option": "there's no option {option}. See flow --help, and put -- before a command that begins with -.",
+    "unreadable": "Flow couldn't read what was asked.",
+    "no_shell": "Flow has no shell {shell}. Its shells: {shells}.",
+    "no_theme": "Flow has no theme {theme}. Its themes: {themes}.",
+    "no_room": "There's no room to split this pane: a half would be too small.",
+    "not_opened": "The tab didn't open: its shell couldn't start.",
+    "could_not_start": "Flow couldn't be started: {error}",
+    "no_answer": "Flow didn't answer. tmux and screen don't pass Flow's questions on, so from inside one nothing reaches it. Or the key here (FLOW_TAB_KEY) is another's, since Flow answers only what carries this pane's own: another pane's, or one an ssh session or a script brought along. Or this terminal isn't one of Flow's tabs, though it was started from one.",
+    "control": "Word {word} of the command holds a control character, {character} (such as a tab, a line break, Esc or Ctrl+C), which Flow would type into the new tab as a key, not a letter, so it types none. Put a command that needs one in a script, and run that."
+  },
+  "resources": {
+    "title": "Resources",
+    "measuring": "Measuring…",
+    "wsl": "Programs in WSL are out of Windows' sight",
+    "programs": "Programs: {count}",
+    "programs_busiest": "Programs: {count} · busiest: {name}",
+    "memory_cpu": "Memory {memory} · CPU {cpu}",
+    "held": "Scrollback {scrollback} · Pictures {pictures} · GPU {gpu}",
+    "flow": "Flow itself",
+    "fps": "Frames drawn in the last second: {fps}.",
+    "fps_gpu": "Frames drawn in the last second: {fps}, each {ms} ms on the GPU, which was busy with them {busy} of the time.",
+    "fps_untimed": "Frames drawn in the last second: {fps}. This GPU can't say how long it takes over them, so Flow shows what it holds there.",
+    "column": {
+      "tab": "Tab",
+      "programs": "Programs",
+      "memory": "Memory",
+      "cpu": "CPU",
+      "scrollback": "Scrollback",
+      "pictures": "Pictures",
+      "gpu": "GPU memory"
+    }
+  },
+  "tab_picker": {
+    "shell": "Shell",
+    "theme": "Theme",
+    "open": "Open tab",
+    "save": "Save as theme…"
+  },
+  "resume": {
+    "steps": "{done} of {n} steps done",
+    "shown": "Carry on: {ask}",
+    "left": "Left for now. The journal keeps what was done, so ask about it any time.",
+    "after_restart": "After the restart: {ask}",
+    "unfinished": "Left unfinished: {ask}",
+    "next": "Next: {next}",
+    "carry_on": "Carry on",
+    "later": "Not now"
+  },
+  "memory": {
+    "off": "The assistant's memory is off (Settings, Assistant).",
+    "no_facts": "Nothing remembered yet.",
+    "facts": "Remembered ({n}):",
+    "tasks": "Last tasks:",
+    "status": {
+      "left": "left",
+      "working": "working",
+      "restart": "waiting for a restart",
+      "done": "done"
+    }
+  },
+  "own": {
+    "card_title": "Work on its own: {goal}",
+    "admin": "administrator rights",
+    "restart": "a restart",
+    "and": " and ",
+    "asks_for": "Asks for {what}",
+    "limits": "Up to {time} and {tokens} tokens",
+    "let": "Let it work",
+    "each_time": "Ask each time",
+    "started": "Working on its own for up to {time}. Esc, or a click on On its own, stops it.",
+    "notify_asks": "The assistant needs your yes to go on.",
+    "password": "A command waits for your password: type it in the terminal. The assistant reads what the terminal shows: a password's prompt usually shows nothing of what you type, but whatever the program does show of it is in the output the assistant reads.",
+    "resume": "On its own: {minutes} min left",
+    "minutes": "{n} min",
+    "hours": "{n} h",
+    "hours_minutes": "{h} h {m} min",
+    "ended": {
+      "done": "Done working on its own.",
+      "time": "Stopped working on its own: its time ran out. From here it asks you again.",
+      "tokens": "Stopped working on its own: its tokens ran out. From here it asks you again.",
+      "stopped": "Stopped working on its own. From here it asks you again.",
+      "cleared": "Stopped working on its own."
+    },
+    "asks": {
+      "admin": "It asks you: this needs administrator rights, which you didn't give.",
+      "restart": "It asks you: this restarts the computer, which you didn't let it.",
+      "always": "It asks you: Flow always asks before this, whatever it's let do.",
+      "unclear": "It asks you: Flow can't tell from the command what it runs.",
+      "secret": "It asks you: this reads, writes or names a file that may hold secrets.",
+      "plan": "It asks you: a new plan.",
+      "server": "It asks you: you chose that this server's calls ask first."
+    }
+  },
+  "pane": {
+    "assistant": "Assistant",
+    "helper": "Helper {n}"
+  },
+  "ask": {
+    "question": "A command asks: {question} Answer it in the terminal."
+  },
+  "helper": {
+    "card": "Helper {n}: {task}",
+    "looks": "Only looks · {tokens} tokens",
+    "changes": "May change things · {tokens} tokens",
+    "running": "running {command}"
+  },
+  "skills": {
+    "list": "Skills ({n}):",
+    "none": "No skills yet. Settings' Skills opens their folder, or ask the assistant to keep a procedure that worked as one.",
+    "off": "From {name}, off: {names}. Settings → Skills turns each on.",
+    "switched_off": "Switched off: {names}."
+  },
+  "tray": {
+    "tip": "Flow is put away. {key} or a click brings it back",
+    "tip_no_key": "Flow is put away. A click brings it back",
+    "show": "Show Flow",
+    "quit": "Quit Flow"
+  },
+  "toast": {
+    "server_token_kept": "The token for {server} is kept.",
+    "server_token_forgot": "The token for {server} is forgotten.",
+    "mcp_forgot": "Forgot {app}: it asks again the next time it calls",
+    "mcp_failed": "Outside apps can't connect: {error}",
+    "undone": "Put back {file} as it was",
+    "apps_kept": "Kept {apps}: Flow no longer carries its games, so flowapp installed the ones it had. flowapp list shows them.",
+    "apps_passed_over": "Left out {apps}, which Flow used to carry: {others}, installed here, has its name but for its case. Remove that, then install {apps} (flowapp install, or Settings → Apps).",
+    "apps_kept_passed_over": "Kept {apps}, which Flow used to carry, but left out {left}: {others}, installed here, has its name but for its case. Remove that, then install {left}.",
+    "efficient_on": "Efficient mode: the liquid, CRT, effects and theme sounds are paused.",
+    "restart_running": "A program is running in a tab. Choose Restart Flow again to end it and restart Flow.",
+    "restart_tab_running": "A program is running in this tab. Press {keys} again to end it and start the tab afresh.",
+    "efficient_off": "Efficient mode off: everything is back as set.",
+    "on_top_on": "On top: Flow's window stays in front of every other.",
+    "on_top_off": "On top off: other windows can come in front of Flow's again.",
+    "on_top_none_here": "Wayland lets no program keep its own window on top. Right-click Flow's title bar for your desktop's Always on Top.",
+    "efficient_battery": "On battery: efficient mode is on until the computer is plugged in.",
+    "efficient_low_power_mac": "Low Power Mode: efficient mode is on while it lasts.",
+    "efficient_low_power": "Energy saver: efficient mode is on while it lasts.",
+    "efficient_plugged_in": "Plugged in: efficient mode is off, everything is back as set.",
+    "efficient_low_power_off_mac": "Low Power Mode off: efficient mode is off, everything is back as set.",
+    "efficient_low_power_off": "Energy saver off: efficient mode is off, everything is back as set.",
+    "tab_busy": "A program is running in this tab: Run once it's back at the prompt.",
+    "check_then_run": "At the prompt: check it, then press Enter to run it.",
+    "block_holds_a_key": "This block holds a control character, {character}, which would be typed as a key, not a letter, so Flow typed none of it. Copy it instead, if it's what you want.",
+    "letters_as_keys": "This holds letters past ASCII, {character} among them, which the shell at this prompt may take as keys, not letters: bash's locale has just changed, or Flow's hook doesn't run there. So Flow typed none of it. Run a command without them first (`true` will do), then try again, or copy it instead.",
+    "page_failed": "Flow couldn't open the release's page.",
+    "could_not_start": "Could not start {shell}: {error}",
+    "copied": "Copied",
+    "copy_failed": "Couldn't put it on the clipboard",
+    "clear_later": "Clear the buffer once the assistant's command has finished",
+    "auto_mode": "Auto mode: the assistant runs commands itself (high-risk ones still ask)",
+    "guide_mode": "Guide mode: you approve every step",
+    "conversation_cleared": "Conversation cleared",
+    "still_working": "{name} is still working — Esc to stop",
+    "only_commands": "Only commands and MCP servers' calls can be edited",
+    "connected_session": "Connected (key kept for this session only — keychain unavailable)",
+    "connected": "{name} connected ✓",
+    "usage_cleared": "Token usage cleared",
+    "history_forgot": "Forgot what the search found ({n} runs)",
+    "history_cleared": "Command history cleared",
+    "memory_cleared": "The assistant's memory is cleared",
+    "memory_clear_again": "Press Clear again to forget {facts} facts and {tasks} tasks",
+    "history_clear_again": "Press Clear again to forget all {n} commands",
+    "model_failed": "Couldn't show the 3D model: {error}",
+    "theme_new_tabs": "New tabs start as the machine did",
+    "theme_own": "Your own theme: type its start screen and prompt under Theme",
+    "updates_mac": "Updates work in the released Flow.app (Sparkle isn't loaded in this build)",
+    "updates": "Updates work in the installed release (WinSparkle isn't loaded in this build)",
+    "provider_answers": "{name} answers from now on",
+    "provider_needs_key": "Add your {company} API key to use {name}",
+    "key_removed": "API key removed from this computer",
+    "key_not_removed": "Could not remove the key: {error}",
+    "exited": "{shell} exited",
+    "crt_saved": "Saved the “{name}” preset",
+    "crt_deleted": "Deleted the “{name}” preset",
+    "theme_saved": "Saved the “{name}” theme",
+    "theme_saved_over": "Saved over the “{name}” theme",
+    "theme_deleted": "Deleted the “{name}” theme",
+    "theme_exported": "Exported the “{name}” theme to “{file}”, for flowapp install",
+    "theme_not_exported": "Could not export the “{name}” theme: {error}",
+    "preset_saved": "Saved the look to “{file}”",
+    "preset_not_saved": "Could not save “{file}”: {error}",
+    "preset_loaded": "Took on the look in “{file}”",
+    "preset_not_loaded": "Could not load “{file}”: {error}",
+    "software": "No GPU found: the liquid pauses while you type and the CRT holds still, so typing stays quick",
+    "update_found": "Flow {version} is out: install it from About",
+    "updates_linux": "Updates come to Flow installed from a release (its install.sh)",
+    "relaunch_failed": "Couldn't start the new Flow: quit and open it again",
+    "config_kept": "Flow kept the settings in use, since config.toml couldn't be read: {error}",
+    "font_size": "{size} pt: {grid}",
+    "fit": "The window holds {cols} × {rows} characters",
+    "fit_screen": "Only {cols} × {rows} fit on this screen at this text size",
+    "fit_small": "The window can't be that small: it holds {cols} × {rows} at this text size",
+    "fit_small_at": "The window can't be that small: it holds {cols} × {rows} at this text size, and {want} from {size} pt",
+    "fit_text_small": "The window is too small for {want} even at {size} pt, where it holds {cols} × {rows}: make it bigger, or fit the window instead",
+    "fit_kept": "The desktop keeps the window's size (it may be tiled): it holds {cols} × {rows}",
+    "fit_full_screen": "Leave full screen to fit the window",
+    "fit_maximized": "The window stayed maximized, so it can't be fitted: restore it first",
+    "sizes_outside": "Left out {sizes}: a size runs from {least} to {most}",
+    "sizes_stray": "Left out what isn't a size: type columns × rows, as 132x43",
+    "sizes_both": "Left out {sizes}, and what isn't columns × rows: a size runs from {least} to {most}",
+    "link_failed": "Flow couldn't open {uri}.",
+    "elevated_opens_nothing": "This Flow runs as administrator, so it opens nothing in another program, which would run as administrator too. Open it from your usual Flow.",
+    "reveal_failed": "Flow couldn't show {path}: it isn't there.",
+    "hotkey_failed": "Flow couldn't take {key} for the whole system: another app has it.",
+    "hotkey_failed_linux": "Flow couldn't take {key}: Wayland lets no program take a key for the whole desktop, nor an X11 one under it (XWayland), and in an X11 session another program may have it.",
+    "no_room_to_split": "No room to split: each half needs at least 20 columns and 5 rows",
+    "app_failed": "Couldn't change {name}: {error}",
+    "skills_off": "It has {n} skills for the assistant, each off until you turn it on in Settings → Skills.",
+    "app_newer": "A newer {apps} is out: flowapp upgrade, or Settings → Apps",
+    "apps_newer": "{n} apps have newer versions ({apps}): flowapp upgrade, or Settings → Apps",
+    "apps_up_to_date": "Every app you have is up to date",
+    "apps_check_failed": "Couldn't read flowapp's catalog: {error}",
+    "apps_after_update": "Flow is now {version}. Your apps may have newer versions too: flowapp update, or Settings → Apps",
+    "app_remove_again": "Press Remove again to remove {name} (your saves stay)",
+    "recording_started": "Recording the terminal. {keys} stops it and asks where to save it.",
+    "hotkey_took": "{key} is the Hotkey now, so {name} no longer has it.",
+    "key_shells": "{key} is {name} now, so the shell and its programs no longer get it.",
+    "recording_shows_names": "Recording the terminal. Your prompt shows your user or computer name, which will be in the recording. {keys} stops it.",
+    "recording_saved": "Saved the recording as {name}.",
+    "recording_discarded": "The recording wasn't saved.",
+    "recording_failed": "The recording couldn't be saved: {why}",
+    "recording_limit": "Recordings stop after {minutes} minutes.",
+    "recording_unavailable": "This computer's graphics can't hand Flow its frames back, so the terminal can't be recorded here.",
+    "recording_countdown": "Recording the terminal in {seconds}… {keys} calls it off.",
+    "recording_countdown_names": "Recording the terminal in {seconds}… Your prompt shows your user or computer name, which will be in the recording. {keys} calls it off.",
+    "recording_cancelled": "Recording called off.",
+    "server_remove_again": "Press Remove again to remove {server}.",
+    "server_removed": "{server} is removed.",
+    "server_added": "{server} is added: Connect starts it.",
+    "server_bad_name": "A server is named with letters, digits, - and _ alone.",
+    "server_taken": "There is a server called {server} already.",
+    "server_bad_line": "That isn't a command or a URL Flow understands.",
+    "servers_not_saved": "Couldn't save the servers' file: {error}",
+    "args_not_json": "That isn't a JSON object of the tool's arguments",
+    "server_client_id_kept": "{server}'s client ID is kept: sign in to use it.",
+    "server_client_id_cleared": "{server} has no client ID now: Flow registers itself when you sign in.",
+    "server_signing_in": "Finish signing in to {server} in your browser.",
+    "server_signed_in": "Signed in to {server}.",
+    "server_signed_out": "Signed out of {server}.",
+    "server_needs_sign_in": "{server} needs you to sign in: Settings → MCP servers.",
+    "server_sign_in_failed": "Couldn't sign in to {server}: {why}"
+  },
+  "notify": {
+    "finished": "Finished after {took}",
+    "failed": "Failed with exit code {code} after {took}",
+    "seconds": "{s} s",
+    "minutes": "{m} min",
+    "minutes_seconds": "{m} min {s} s",
+    "hours": "{h} h",
+    "hours_minutes": "{h} h {m} min",
+    "server_asks": "{server} asks you something"
+  },
+  "link": {
+    "opens_mac": "⌘-click opens {uri}",
+    "opens": "Ctrl+click opens {uri}",
+    "reveals_mac": "⌘-click shows {path} in the Finder",
+    "reveals": "Ctrl+click shows {path} in its folder"
+  },
+  "notice": {
+    "undone": "Put back {n} files as they were.",
+    "nothing_to_undo": "Nothing this task changed is kept to put back.",
+    "summed_up": "Older turns summed up, to keep room.",
+    "key_help": "{name} needs your {company} API key. Add it under Assistant in Settings ({keys}), where you can also pick Claude, GPT or Gemini.",
+    "usage": "{total} tokens since {date} ({cap}): {input} in, {output} out, {reads} cache reads, {writes} cache writes, {requests} requests.",
+    "no_cap": "no cap",
+    "cap": "cap {cap}",
+    "token_cap": "Token cap of {cap} reached. Clear the usage or raise the cap in Settings ({keys}).",
+    "stopped": "Stopped.",
+    "key_problem": "API key problem: {message}",
+    "add_key": "Add your {company} API key to use the assistant.",
+    "continuing_with": "Continuing with {model}",
+    "declined": "{name} declined this request ({reason}).",
+    "policy": "policy",
+    "cut_off": "The answer was cut off before it finished.",
+    "many_steps": "Stopped after many steps; ask me to continue if needed.",
+    "prompt_unknown": "{server} has no prompt {prompt}, or isn't connected. /mcp lists its prompts.",
+    "prompt_getting": "Getting {server}'s prompt {prompt}…",
+    "prompt_empty": "{server}'s prompt {prompt} came back empty.",
+    "prompt_failed": "{server}'s prompt {prompt} failed: {why}",
+    "mcp_none": "No MCP servers yet: Settings → MCP servers adds them.",
+    "mcp_title": "MCP servers:",
+    "mcp_connected": "{on} of {tools} tools on, {resources} resources, {prompts} prompts"
+  },
+  "error": {
+    "rate_limited": "Rate limited by the API. Wait a moment and try again.",
+    "overloaded": "{name} is overloaded right now. Try again shortly.",
+    "rejected": "The API rejected the request: {message}",
+    "forbidden": "This key is not allowed to do that: {message}",
+    "server": "The API had a server error. Try again.",
+    "unreachable": "Could not reach {host} ({message})",
+    "gemini_tool_call": "Gemini sent a tool call it couldn't finish. Try asking again.",
+    "gemini_stopped": "Gemini stopped early ({reason}). Try asking again.",
+    "could_not_start": "{app} could not start:\n\n{error}"
+  },
+  "date": {
+    "short": "{mon} {day}",
+    "mon": {
+      "1": "Jan",
+      "2": "Feb",
+      "3": "Mar",
+      "4": "Apr",
+      "5": "May",
+      "6": "Jun",
+      "7": "Jul",
+      "8": "Aug",
+      "9": "Sep",
+      "10": "Oct",
+      "11": "Nov",
+      "12": "Dec"
+    }
+  },
+  "menu": {
+    "efficient": "Efficient Mode",
+    "on_top": "Float on Top",
+    "save_theme": "Save as Theme…",
+    "about": "About {app}",
+    "check_updates": "Check for Updates…",
+    "settings": "Settings…",
+    "services": "Services",
+    "hide": "Hide {app}",
+    "hide_others": "Hide Others",
+    "show_all": "Show All",
+    "quit": "Quit {app}",
+    "restart": "Restart {app}",
+    "shell": "Shell",
+    "new_tab": "New Tab",
+    "new_shell_tab": "New {shell} Tab",
+    "previous_tab": "Show Previous Tab",
+    "next_tab": "Show Next Tab",
+    "close_tab": "Close Tab",
+    "restart_tab": "Restart Tab",
+    "split_right": "Split Right",
+    "split_down": "Split Down",
+    "close_window": "Close Window",
+    "edit": "Edit",
+    "copy": "Copy",
+    "paste": "Paste",
+    "select_all": "Select All",
+    "clear_buffer": "Clear Buffer",
+    "scroll_to_bottom": "Scroll to Bottom",
+    "scroll_to_top": "Scroll to Top",
+    "previous_command": "Previous Command",
+    "next_command": "Next Command",
+    "search_history": "Search Command History…",
+    "find": "Find…",
+    "find_next": "Find Next",
+    "find_previous": "Find Previous",
+    "palette": "Command Palette…",
+    "emoji": "Emoji & Symbols",
+    "view": "View",
+    "bigger": "Bigger",
+    "smaller": "Smaller",
+    "actual_size": "Actual Size",
+    "full_screen": "Enter Full Screen",
+    "assistant": "Assistant",
+    "ask": "Ask {ai}",
+    "new_conversation": "New Conversation",
+    "ask_why": "Ask Why It Failed",
+    "guide_mode": "Guide Mode",
+    "auto_mode": "Auto Mode",
+    "change_key": "Change API Key…",
+    "remove_key": "Remove API Key",
+    "window": "Window",
+    "minimize": "Minimize",
+    "zoom": "Zoom",
+    "bring_all": "Bring All to Front",
+    "help": "Help",
+    "help_item": "{app} Help",
+    "releases": "{app} Releases",
+    "record": "Record the Terminal"
+  },
+  "gallery": {
+    "title": "Theme gallery",
+    "install": "Install",
+    "upgrade": "Upgrade",
+    "wear": "Wear",
+    "reading": "Reading its themes…",
+    "failed": "Couldn't read its themes: {error}",
+    "none": "No packages of themes yet. Check now reads the catalog.",
+    "check": "Check now",
+    "installed": "{version} installed",
+    "newer": "{version} installed; {latest} is out",
+    "available": "Not installed; {latest}",
+    "needs_flow": "{latest} needs Flow {flow}",
+    "font": "Font: {font}",
+    "font_own": "Flow's own font",
+    "tube": "With a tube",
+    "no_tube": "No tube",
+    "colors": "Colors",
+    "hint": "↑↓ choose · ←→ packages and themes · Enter {act} · Esc close"
+  },
+  "access": {
+    "server_token": "Token for {server}",
+    "steps": "Steps, {done} of {n} done; now: {now}",
+    "window": "{tab} — {app}",
+    "title_bar": "Title bar",
+    "tabs": "Tabs",
+    "new_tab_choose": "New tab in a shell or theme…",
+    "done": "a long command finished",
+    "failed": "a long command failed",
+    "key": "{provider} API key",
+    "pane": "{tab}, pane {n} of {count}",
+    "conversation": "Conversation",
+    "ask_input": "Message to the assistant",
+    "edit": "Edit",
+    "skip": "Skip",
+    "settings_on": "Settings for",
+    "find_pattern": "Regular expression",
+    "packages": "Packages",
+    "back": "Back",
+    "links": "Pages",
+    "stop_recording": "Stop recording",
+    "to_bottom": "back to the bottom",
+    "search_settings": "Search settings",
+    "close_pane": "Close Pane"
+  },
+  "recording": {
+    "save_title": "Save the Recording",
+    "save_kind": "Animated WebP"
+  },
+  "server_name": {
+    "title": "Add MCP server",
+    "placeholder": "Its name, as notes or my-tracker",
+    "hint": "Letters, digits, - and _ · Enter goes on · Esc cancels",
+    "save": "Next",
+    "over": "There is a server called “{name}” already · Esc cancels"
+  },
+  "oauth": {
+    "not_https": "Its sign-in isn't over HTTPS, which Flow needs: {url}",
+    "unreachable": "Its sign-in couldn't be reached: {why}",
+    "no_metadata": "Flow couldn't find where to sign in to it ({url} says nothing of it).",
+    "wrong_issuer": "Its sign-in service calls itself {issuer}, not {expected}, so Flow won't use it.",
+    "no_pkce": "Its sign-in doesn't offer PKCE (S256), which Flow needs to sign in safely.",
+    "registration_failed": "Flow couldn't register itself with its sign-in: {why}",
+    "not_covered": "Its sign-in is for {resource}, not this server, so Flow won't use it.",
+    "port_taken": "Port {port}, which the sign-in comes back to, is in use. Close what holds it and try again.",
+    "needs_client_id": "Its sign-in doesn't let apps register themselves. Register Flow there with the address {redirect}, then type its client ID with Client ID….",
+    "stopped": "Signing in was cancelled.",
+    "timed_out": "No sign-in came back within five minutes.",
+    "token_failed": "Its sign-in gave no token: {why}",
+    "denied": "The sign-in was refused: {why}",
+    "wrong_state": "this isn't the sign-in Flow started",
+    "page_done": "You're signed in to {server}. You can close this tab and go back to Flow.",
+    "page_failed": "Signing in to {server} didn't work: {why}"
+  },
+  "server_ask": {
+    "title": "{server} asks",
+    "prompt_title": "/{server}:{prompt} needs",
+    "link_title": "{server} asks you to open a link",
+    "send": "Send",
+    "decline": "Decline",
+    "open": "Open in Browser",
+    "run_prompt": "Run",
+    "cancel": "Cancel",
+    "keys_form": "Tab next · Space switch · ←→ choose · Enter go on · Esc cancel",
+    "keys_link": "Tab chooses · Enter presses · Esc cancels",
+    "warn_lookalike": "Its address may pass for another (letters from other alphabets): look closely before opening it.",
+    "warn_plain": "This link isn't HTTPS: what you send there could be read on the way.",
+    "required": "This one is needed.",
+    "too_short": "At least {n} letters.",
+    "too_long": "At most {n} letters.",
+    "not_email": "This isn't an email address.",
+    "not_uri": "This isn't an address (a URI).",
+    "not_date": "A date, as 2026-11-16.",
+    "not_date_time": "A date and time, as 2026-11-16T09:15:00Z.",
+    "not_pattern": "This isn't in the form it asks for.",
+    "not_number": "A number.",
+    "not_integer": "A whole number.",
+    "out_of_range": "From {min} to {max}.",
+    "pick_between": "Pick from {min} to {max}."
+  },
+  "client_id_name": {
+    "title": "Client ID",
+    "placeholder": "The ID you registered for Flow; empty, Flow registers itself",
+    "hint": "Enter keeps it · Esc cancels",
+    "save": "Keep",
+    "over": ""
+  },
+  "attach": {
+    "button": "Attach",
+    "dialog_title": "Files for the assistant",
+    "remove": "Remove {name}",
+    "confirm": "Send {name} anyway",
+    "secret": "looks like a secret: click to send it",
+    "secret_waits": "A file that looks like a secret waits on its chip: click the chip to send it, or ✕ to take it off.",
+    "reading": "reading…",
+    "drop_assistant": "Drop here for the assistant",
+    "drop_path": "Drop here to type its path",
+    "pasted": "Pasted picture {n}",
+    "too_many": "At most {most} files go with a message.",
+    "too_much": "The files together come to {size}: at most {most} go with a message.",
+    "unreadable": "{name} couldn't be read: {error}",
+    "folder": "{name} is a folder: drop the files in it instead.",
+    "too_big": "{name} is {size}: the assistant takes files of up to {most}.",
+    "picture_kind": "{name} is a {kind} picture, which Flow can't read: save it as a PNG or a JPEG.",
+    "old_office": "{name} is an old Office file: save it as .docx, .xlsx or .pptx, or as a PDF.",
+    "unknown_kind": "Flow can't send {name} to the assistant: it isn't a picture, a PDF, a text file, or a Word, Excel or PowerPoint file.",
+    "untypable": "Flow didn't type this file's path: it holds a control character, {character}, which would be typed as a key, not a letter."
+  }
+}

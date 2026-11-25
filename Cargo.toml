@@ -1,0 +1,210 @@
+# Flow is one workspace: the shared core, a crate per OS, and this package,
+# whose `flow` binary hands the core the OS crate it was built for. Flow's
+# SDK lives in a public repository of its own (arcanii/Flow-SDK) with the
+# demos, and the games, programs that run in Flow's tabs built on the SDK,
+# in a private one (arcanii/Flow-Games), which builds their downloads for
+# flowapp itself; demos/ here is only `flow-demo` as flow-sdk's download
+# holds it.
+[workspace]
+members = ["core", "windows", "macos", "linux", "demos"]
+
+[workspace.package]
+version = "0.1.47"
+edition = "2021"
+license = "MIT"
+
+# A patch release of `version`, shown as a fourth number (0.1.25.1); 0 for
+# none, and back to 0 when `version` goes up. The updaters still compare
+# `version` and the build number (0.1.25.<build>), which only ever rise.
+#
+# `dev = true` while the work toward `version` goes on: as soon as a
+# release is out, `version` goes up to the next and `dev` to true, so every
+# build says what it's toward, shown as 0.1.40.DEV. Releasing sets it to
+# false, and the release scripts refuse a DEV build but for a test build.
+#
+# `flowapp` is flowapp's own version, which goes up with each download of
+# it published (docs/design/flowapp-updates.md), so it comes out between
+# Flow's releases; Flow's releases carry whatever flowapp master holds.
+#
+# `build_offset` is added to the commit count to make the build number
+# (core/build_number.rs, macos/scripts/release.sh,
+# windows/scripts/release.ps1), which the updaters compare, so it must only
+# ever rise. arcanii/Flow-Terminal's history starts afresh from Flow
+# 0.1.46.DEV, so it adds 2000, which keeps its builds above those of every
+# release before it.
+[workspace.metadata.flow]
+patch = 0
+dev = true
+flowapp = "0.2.2"
+build_offset = 2000
+
+[workspace.dependencies]
+# Flow's SDK and the demos built on it, from their own repository, by tag:
+# flow-settings asks Flow through it, and flow-demo is the demos' program.
+# Both from the same tag.
+flow-sdk = { git = "https://github.com/arcanii/Flow-SDK", tag = "v0.1.4" }
+flow-demos = { git = "https://github.com/arcanii/Flow-SDK", tag = "v0.1.4" }
+# Flow draws its own title bar, so not winit's Adwaita one for Wayland.
+winit = { version = "0.30.13", default-features = false, features = ["rwh_06", "x11", "wayland", "wayland-dlopen"] }
+# Screen readers (VoiceOver, Narrator, Orca) read Flow through a tree of what
+# it shows (core's access.rs), handed to each system by the winit adapter;
+# on Linux it speaks AT-SPI over D-Bus, with async-io (its default).
+accesskit = "0.25"
+accesskit_winit = "0.34.2"
+wgpu = "30"
+pollster = "1"
+bytemuck = { version = "1", features = ["derive"] }
+cosmic-text = "0.19"
+alacritty_terminal = "0.26"
+portable-pty = "0.9"
+window-vibrancy = "0.8"
+keyring = "4"
+ureq = "3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.9"
+dirs = "6"
+anyhow = "1"
+log = "0.4"
+env_logger = "0.11"
+arboard = "3"
+# The system's own panels for saving and opening preset files.
+rfd = "0.17"
+# Images that programs send (the kitty graphics protocol).
+base64 = "0.22"
+# Linux: checks that an update is signed with Flow's key.
+ed25519-dalek = "2"
+miniz_oxide = "0.8"
+# macOS: the chip's name, for the startup logo's lines.
+libc = "0.2"
+parking_lot = "0.12"
+crossbeam-channel = "0.5"
+unicode-width = "0.2"
+raw-window-handle = "0.6"
+png = "0.18"
+# 3D models (glTF binary) for the Ratty graphics protocol; textures decoded as PNG or JPEG.
+# The KHR extensions the crate types (texture transforms, emissive strength,
+# unlit, specular, ior, transmission, volume, punctual lights, the old
+# specular-glossiness material), and
+# "extensions" for those it leaves as JSON: the texture transforms on normal
+# and occlusion maps, clearcoat and sheen.
+gltf = { version = "1.4", default-features = false, features = ["import", "utils", "extensions", "KHR_texture_transform", "KHR_materials_emissive_strength", "KHR_materials_unlit", "KHR_materials_specular", "KHR_materials_ior", "KHR_materials_transmission", "KHR_materials_volume", "KHR_lights_punctual", "KHR_materials_pbrSpecularGlossiness"] }
+# A glTF's WebP textures (EXT_texture_webp), which the gltf crate's images
+# leave out, and WebP pictures, still or moving (core's frames.rs).
+image-webp = "0.2.4"
+# Animated GIFs as iTerm2's and kitty's pictures (core's frames.rs).
+gif = { version = "0.14", default-features = false, features = ["std"] }
+# Recording the terminal (core's record.rs): libwebp's animation encoder,
+# built from its C source, which takes each frame as it comes. The same
+# crate make_movie's `webp` stands on.
+libwebp-sys = "0.9.6"
+# The local date and time a recording is named by (Flow-2026-11-11
+# 15.30.12.webp), from the system's time zone; already in the lock through
+# env_logger. Windows bundles its own copy of the zone database.
+jiff = { version = "0.2.38", default-features = false, features = ["std", "tz-system", "tzdb-bundle-platform", "tzdb-zoneinfo"] }
+# A glTF's Basis textures (KHR_texture_basisu, in KTX2), transcoded to RGBA:
+# Binomial's transcoder in pure Rust, with Zstandard's levels (ruzstd).
+basisu = "0.1.0"
+# A glTF's Draco-compressed meshes (KHR_draco_mesh_compression): Google's
+# codec in pure Rust, its decoder alone (older bitstreams and the valence
+# traversal too); core's tests turn its encoder on.
+draco-core = { version = "2.3.3", default-features = false, features = ["decoder", "edgebreaker_valence_decode", "legacy_bitstream_decode"] }
+# SQLite built in, with FTS5, for the command history.
+rusqlite = { version = "0.41", features = ["bundled"] }
+# Flow's sounds, made in code, out through CoreAudio or WASAPI.
+cpal = "0.18.2"
+# Windows: a toast for a long command done, through WinRT's notifications;
+# the version wgpu's Direct3D 12 already takes.
+windows = { version = "0.62", features = ["Data_Xml_Dom", "Foundation", "UI_Notifications"] }
+windows-sys = { version = "0.61", features = ["Win32_Devices_DeviceAndDriverInstallation", "Win32_Foundation", "Win32_Globalization", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi","Win32_NetworkManagement_IpHelper", "Win32_NetworkManagement_Ndis", "Win32_Networking_WinSock", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_System_LibraryLoader", "Win32_System_Threading", "Win32_System_Diagnostics_Debug", "Win32_System_Diagnostics_ToolHelp", "Win32_System_ProcessStatus", "Win32_System_Power", "Win32_System_Registry", "Win32_System_SystemInformation", "Win32_System_Pipes", "Win32_System_IO", "Win32_Storage_FileSystem", "Win32_Security", "Win32_Security_Authorization", "Win32_UI_Shell"] }
+# Linux: the drop-down hotkey on X11 (XGrabKey), the version winit takes.
+x11rb = "0.13"
+# macOS: the menu bar, the title bar and Sparkle. wgpu and arboard already
+# pull in these versions.
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSBundle", "NSData", "NSDictionary", "NSGeometry", "NSLocale", "NSObject", "NSString", "NSThread", "NSURL", "NSProcessInfo", "NSUserDefaults", "NSValue"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "libc", "NSAlert", "NSApplication", "NSButton", "NSCell", "NSControl", "NSEvent", "NSGraphics", "NSImage", "NSMenu", "NSMenuItem", "NSResponder", "NSRunningApplication", "NSScreen", "NSUserInterfaceValidation", "NSView", "NSWindow", "NSWorkspace"] }
+# Notification Center, for a long command done while Flow is behind
+# (objc2-user-notifications), and the blocks its answers come in.
+objc2-user-notifications = { version = "0.3", default-features = false, features = ["std", "bitflags", "block2", "UNNotification", "UNNotificationContent", "UNNotificationRequest", "UNNotificationResponse", "UNNotificationTrigger", "UNUserNotificationCenter"] }
+block2 = "0.6"
+
+[package]
+name = "flow-terminal"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "A liquid-glass terminal emulator with a built-in AI assistant"
+default-run = "flow"
+
+[[bin]]
+name = "flow"
+path = "src/main.rs"
+
+# Flow's help pages printed in a tab, carried with the games on its tabs' PATH.
+[[bin]]
+name = "flow-help"
+path = "src/bin/flow-help.rs"
+
+# Flow's settings seen and changed from the shell, carried as flow-help is.
+[[bin]]
+name = "flow-settings"
+path = "src/bin/flow-settings.rs"
+
+# Flow's apps kept up to date, as Homebrew keeps its formulae: flowapp update,
+# upgrade, install and remove, carried with flow-help and flow-settings.
+[[bin]]
+name = "flowapp"
+path = "src/bin/flowapp.rs"
+
+# Flow as an MCP server for outside apps, which an app's MCP config runs:
+# MCP over its stdin and stdout, each call handed to the running Flow over
+# a socket only the user can open. Carried as flow-settings is.
+[[bin]]
+name = "flow-mcp"
+path = "src/bin/flow-mcp.rs"
+
+# `flow` in a tab on the Mac and Windows: a tab in the running Flow for a
+# command (docs/design/flow-command.md), carried as flow-settings is and
+# named `flow` there. On Linux `flow` is Flow itself (src/main.rs).
+[[bin]]
+name = "flow-command"
+path = "src/bin/flow-command.rs"
+
+[dependencies]
+flow-core = { path = "core" }
+anyhow.workspace = true
+# flow-help: the terminal's width, as the games find it.
+crossterm = "0.29"
+# flow-settings asks Flow with the SDK's OSC 7732, in JSON.
+flow-sdk.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+flow-windows = { path = "windows" }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+flow-macos = { path = "macos" }
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+flow-linux = { path = "linux" }
+
+[build-dependencies]
+embed-resource = "3"
+
+# examples/make_icon.rs draws the app icon; examples/update_key.rs makes the
+# update key and signs releases; examples/make_movie.rs encodes the README
+# animations (libwebp, built from source); examples/third_party_notices.rs
+# lists the crates for macOS releases.
+[dev-dependencies]
+png.workspace = true
+base64 = "0.22"
+ed25519-dalek = "2"
+getrandom = "0.3"
+webp = { version = "0.3", default-features = false }
+serde_json.workspace = true
+crossbeam-channel.workspace = true
+
+[profile.release]
+lto = "thin"
+codegen-units = 4

@@ -1,0 +1,27 @@
+[package]
+name = "flow-macos"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Flow on macOS: window blur, the title bar, the menu bar, Sparkle updates and the macOS shells"
+
+# Everything is macOS-only, so on other systems this crate is empty.
+[target.'cfg(target_os = "macos")'.dependencies]
+flow-core = { path = "../core" }
+winit.workspace = true
+log.workspace = true
+raw-window-handle.workspace = true
+objc2.workspace = true
+objc2-foundation.workspace = true
+objc2-app-kit.workspace = true
+objc2-user-notifications.workspace = true
+block2.workspace = true
+libc.workspace = true
+
+# An animated GIF for tests/pictures.rs to print, as imgcat would; the
+# grid's places, for tests/shells.rs's clicks on the prompt's line; the
+# emulator's widths, for tests/widths.rs to hold the Mac's against.
+[target.'cfg(target_os = "macos")'.dev-dependencies]
+gif.workspace = true
+alacritty_terminal.workspace = true
+unicode-width.workspace = true

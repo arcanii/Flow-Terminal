@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Flow's manual
+    url: https://github.com/arcanii/Flow-Terminal#documentation
+    about: How each part of Flow works, its keys, settings and config keys.
+  - name: Downloads and release notes
+    url: https://github.com/arcanii/Flow-releases/releases
+    about: Flow's releases for macOS, Windows and Linux.

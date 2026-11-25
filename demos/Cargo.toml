@@ -1,0 +1,18 @@
+[package]
+# flow-demo as Flow's releases carry it on the tabs' PATH: the demos live in
+# Flow's SDK repository (arcanii/Flow-SDK), whose program this calls, so it's
+# built here, with this workspace's lock and release profile, by the same
+# `cargo build -p flow-demo` as Flow and the games.
+name = "flow-demo"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "flow-demo, the demos of Flow's SDK, as Flow carries it"
+publish = false
+
+[[bin]]
+name = "flow-demo"
+path = "src/main.rs"
+
+[dependencies]
+flow-demos.workspace = true

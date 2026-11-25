@@ -1,0 +1,21 @@
+/* Info.plist's words in Japanese: what macOS shows when a program run in Flow
+   asks for access, and the copyright line. bundle.sh copies this folder into
+   the app's Resources; the keys are Info.plist's. */
+"NSHumanReadableCopyright" = "サードパーティのライセンス情報は、このアプリのResourcesフォルダにあります。";
+"NSAppleEventsUsageDescription" = "Flowで実行中のプログラムが、ほかのアプリを操作しようとしています。";
+"NSBluetoothAlwaysUsageDescription" = "Flowで実行中のプログラムが、Bluetoothを使おうとしています。";
+"NSCalendarsUsageDescription" = "Flowで実行中のプログラムが、カレンダーにアクセスしようとしています。";
+"NSCalendarsFullAccessUsageDescription" = "Flowで実行中のプログラムが、カレンダーにアクセスしようとしています。";
+"NSCameraUsageDescription" = "Flowで実行中のプログラムが、カメラを使おうとしています。";
+"NSContactsUsageDescription" = "Flowで実行中のプログラムが、連絡先にアクセスしようとしています。";
+"NSDesktopFolderUsageDescription" = "Flowで実行中のプログラムが、デスクトップのファイルにアクセスしようとしています。";
+"NSDocumentsFolderUsageDescription" = "Flowで実行中のプログラムが、書類フォルダのファイルにアクセスしようとしています。";
+"NSDownloadsFolderUsageDescription" = "Flowで実行中のプログラムが、ダウンロードフォルダのファイルにアクセスしようとしています。";
+"NSLocalNetworkUsageDescription" = "Flowで実行中のプログラムが、ローカルネットワーク上のデバイスに接続しようとしています。";
+"NSLocationUsageDescription" = "Flowで実行中のプログラムが、位置情報を使おうとしています。";
+"NSMicrophoneUsageDescription" = "Flowで実行中のプログラムが、マイクを使おうとしています。";
+"NSNetworkVolumesUsageDescription" = "Flowで実行中のプログラムが、ネットワークボリュームのファイルにアクセスしようとしています。";
+"NSPhotoLibraryUsageDescription" = "Flowで実行中のプログラムが、写真にアクセスしようとしています。";
+"NSRemindersUsageDescription" = "Flowで実行中のプログラムが、リマインダーにアクセスしようとしています。";
+"NSRemindersFullAccessUsageDescription" = "Flowで実行中のプログラムが、リマインダーにアクセスしようとしています。";
+"NSRemovableVolumesUsageDescription" = "Flowで実行中のプログラムが、リムーバブルボリュームのファイルにアクセスしようとしています。";

@@ -1,0 +1,35 @@
+name: Feature request
+description: Something Flow could do, or do better.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. [BACKLOG.md](https://github.com/arcanii/Flow-Terminal/blob/master/BACKLOG.md) lists what's planned already, so look there first. A feature that's agreed gets its design in `docs/design/` before it's built.
+  - type: textarea
+    id: want
+    attributes:
+      label: What you'd like Flow to do
+      description: Say it as what you'd see or type, not how it would be built.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: What it's for, and what you do today without it.
+    validations:
+      required: true
+  - type: checkboxes
+    id: systems
+    attributes:
+      label: Where you'd use it
+      options:
+        - label: macOS
+        - label: Windows
+        - label: Linux
+  - type: textarea
+    id: elsewhere
+    attributes:
+      label: Anything like it elsewhere
+      description: Another terminal or program that does it, with a link or a picture.

@@ -1,0 +1,25 @@
+[package]
+name = "flow-windows"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Flow on Windows: DWM glass, WinSparkle updates and the Windows shells"
+
+# Everything is Windows-only, so on other systems this crate is empty.
+[target.'cfg(windows)'.dependencies]
+flow-core = { path = "../core" }
+winit.workspace = true
+wgpu.workspace = true
+log.workspace = true
+window-vibrancy.workspace = true
+raw-window-handle.workspace = true
+windows-sys.workspace = true
+windows.workspace = true
+
+# tests/shells.rs reads the cells pictures show in, and is a full-screen
+# program built on flow-sdk in a tab of its own; tests/flow_command.rs is
+# the `flow` program asking down a tab's pipe, and answers it as Flow does.
+[target.'cfg(windows)'.dev-dependencies]
+alacritty_terminal.workspace = true
+flow-sdk.workspace = true
+base64.workspace = true

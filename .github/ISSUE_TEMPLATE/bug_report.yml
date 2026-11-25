@@ -1,0 +1,83 @@
+name: Bug report
+description: Something in Flow doesn't work as the manual says it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Leave out API keys, tokens and anything else secret, and check that screenshots and logs show no user name, computer name or folder you'd rather keep to yourself.
+        A security hole goes to the repository's **Security** tab (**Report a vulnerability**), not here.
+  - type: input
+    id: version
+    attributes:
+      label: Flow's version
+      description: From **About**, or `flow --version` in a Flow tab.
+      placeholder: "0.1.45 (build N)"
+    validations:
+      required: true
+  - type: dropdown
+    id: system
+    attributes:
+      label: System
+      options:
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: system-version
+    attributes:
+      label: The system's version, and the chip
+      description: "For Linux, the distribution, and Wayland or X11 (About's version line says which)."
+      placeholder: "macOS 27.2 on Apple silicon; Windows 11 x64; Ubuntu 24.04 on Wayland"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How Flow was installed
+      options:
+        - The macOS DMG
+        - The Windows installer
+        - The Windows portable zip
+        - The Linux .deb
+        - The Linux tarball's install.sh
+        - Built from source
+    validations:
+      required: true
+  - type: input
+    id: shell
+    attributes:
+      label: The shell, and the theme or liquid style if it matters
+      placeholder: "zsh, Teletype theme; PowerShell 7, rain"
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps that show it
+      description: From a fresh tab, what to type or click.
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: A screenshot helps for anything Flow draws.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Flow's log
+      description: A release build writes `flow.log` beside `config.toml` (the manual's Configuration page names the folder for each system). Paste the lines around the problem.
+      render: text

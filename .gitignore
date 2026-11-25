@@ -1,0 +1,21 @@
+/target
+/snapshots
+# Update-signing keys never go in the repo (docs/RELEASING.md).
+*.key
+# Python's bytecode, from the SDK's package (sdk/python).
+__pycache__/
+# What building the package's wheel leaves, and the C library copied into
+# it for a platform's wheel (sdk/python/setup.py).
+/sdk/python/build/
+/sdk/python/dist/
+/sdk/python/*.egg-info/
+/sdk/python/flow_sdk/libflow_sdk_c.*
+/sdk/python/flow_sdk/flow_sdk_c.dll
+# Notes between sessions stay on each computer, out of the repository.
+/HANDOVER.md
+/HANDOVER.local.md
+# Tarballs left at the top, and Claude Code's worktrees and local settings,
+# which are never part of the source.
+/*.tar.gz
+/.claude/worktrees/
+/.claude/settings.local.json

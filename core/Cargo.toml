@@ -1,0 +1,80 @@
+[package]
+name = "flow-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Flow's shared core: the terminal, the assistant, the liquid and the UI"
+
+[dependencies]
+winit.workspace = true
+accesskit.workspace = true
+accesskit_winit.workspace = true
+wgpu.workspace = true
+pollster.workspace = true
+bytemuck.workspace = true
+cosmic-text.workspace = true
+alacritty_terminal.workspace = true
+portable-pty.workspace = true
+keyring.workspace = true
+ureq.workspace = true
+serde.workspace = true
+# Kept in the order written, so a server's form asks its fields in its own order.
+serde_json = { workspace = true, features = ["preserve_order"] }
+toml.workspace = true
+dirs.workspace = true
+anyhow.workspace = true
+log.workspace = true
+env_logger.workspace = true
+arboard.workspace = true
+rfd.workspace = true
+base64.workspace = true
+miniz_oxide.workspace = true
+parking_lot.workspace = true
+crossbeam-channel.workspace = true
+unicode-width.workspace = true
+png.workspace = true
+rusqlite.workspace = true
+gltf.workspace = true
+image-webp.workspace = true
+draco-core.workspace = true
+basisu.workspace = true
+gif.workspace = true
+libwebp-sys.workspace = true
+jiff.workspace = true
+# iTerm2's inline JPEGs (iterm.rs); PNGs go through png as kitty's do. In
+# the lock already, through arboard and gltf.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp", "tiff"] }
+# SHA-256 of the computer's own id, for the workstations' numbers that
+# stay the same on it (identity.rs).
+sha2 = "0.10"
+getrandom = "0.3"
+regex = "1"
+# The text of a Word, Excel or PowerPoint file for the assistant
+# (ai/office.rs). In the lock already, through fontconfig-parser.
+roxmltree = "0.20"
+# flowapp checks each app it downloads against Flow's update key.
+ed25519-dalek.workspace = true
+
+# Sound out through CoreAudio and WASAPI. Linux loads ALSA's library as Flow
+# runs instead (the SDK's alsa.rs), since cpal would need ALSA's headers to
+# build and would tie Flow to the library.
+[target.'cfg(any(target_os = "macos", windows))'.dependencies]
+cpal.workspace = true
+
+# Linux's /proc and ALSA, and on every Unix who's at the other end of the
+# socket for outside apps (mcp/bridge.rs).
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
+# The SDK's own reading of what Flow's pipe for images answers (session.rs's
+# tests). Flow itself uses none of it.
+[dev-dependencies]
+# Draco's encoder, for the glTFs the tests build.
+draco-core = { workspace = true, features = ["encoder", "edgebreaker_valence_encode"] }
+# Its theme module too, so the tests read packages it writes.
+flow-sdk = { workspace = true, features = ["theme"] }
+# To read a theme package's tar headers, which say whom its files are of.
+miniz_oxide = "0.8"
+# What the screen readers' adapters make of access.rs's tree, read back
+# in its tests as they read it. In the lock already, through them.
+accesskit_consumer = "0.39"

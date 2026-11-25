@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Flow.app's Info.plist. macos/scripts/bundle.sh fills in the @...@ values:
+     the version and build number as the binary itself reports them, and the
+     update key from core/src/lib.rs, so each has one source. -->
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key>     <string>en</string>
+  <!-- The languages Flow speaks (core/locales), so Sparkle's windows and the
+       menu items macOS adds itself follow the system's language in them too.
+       ja.lproj holds this file's words in Japanese. -->
+  <key>CFBundleLocalizations</key>         <array><string>en</string><string>ja</string></array>
+  <key>CFBundleDisplayName</key>           <string>Flow</string>
+  <key>CFBundleExecutable</key>            <string>flow</string>
+  <key>CFBundleIconFile</key>              <string>flow</string>
+  <key>CFBundleIdentifier</key>            <string>com.arcanii.Flow</string>
+  <key>CFBundleInfoDictionaryVersion</key> <string>6.0</string>
+  <key>CFBundleName</key>                  <string>Flow</string>
+  <key>CFBundlePackageType</key>           <string>APPL</string>
+  <key>CFBundleShortVersionString</key>    <string>@VERSION@</string>
+  <!-- The build number (the git commit count plus build_offset), as in the About box. Sparkle compares it with the
+       appcast's sparkle:version. -->
+  <key>CFBundleVersion</key>               <string>@BUILD@</string>
+  <key>LSApplicationCategoryType</key>     <string>public.app-category.developer-tools</string>
+  <key>LSMinimumSystemVersion</key>        <string>11.0</string>
+  <key>NSHighResolutionCapable</key>       <true/>
+  <key>NSPrincipalClass</key>              <string>NSApplication</string>
+  <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
+  <key>NSHumanReadableCopyright</key>      <string>Third-party notices are in this app's Resources folder.</string>
+
+  <!-- Programs run in the terminal ask macOS for access through Flow, so it
+       needs a reason for each kind (as Terminal and iTerm2 have). Without
+       one, macOS refuses those programs outright. -->
+  <key>NSAppleEventsUsageDescription</key>      <string>A program running in Flow wants to control another app.</string>
+  <key>NSBluetoothAlwaysUsageDescription</key>  <string>A program running in Flow wants to use Bluetooth.</string>
+  <key>NSCalendarsUsageDescription</key>        <string>A program running in Flow wants to access your calendars.</string>
+  <key>NSCalendarsFullAccessUsageDescription</key><string>A program running in Flow wants to access your calendars.</string>
+  <key>NSCameraUsageDescription</key>           <string>A program running in Flow wants to use the camera.</string>
+  <key>NSContactsUsageDescription</key>         <string>A program running in Flow wants to access your contacts.</string>
+  <key>NSDesktopFolderUsageDescription</key>    <string>A program running in Flow wants to access files on your Desktop.</string>
+  <key>NSDocumentsFolderUsageDescription</key>  <string>A program running in Flow wants to access files in your Documents folder.</string>
+  <key>NSDownloadsFolderUsageDescription</key>  <string>A program running in Flow wants to access files in your Downloads folder.</string>
+  <key>NSLocalNetworkUsageDescription</key>     <string>A program running in Flow wants to connect to devices on your local network.</string>
+  <key>NSLocationUsageDescription</key>         <string>A program running in Flow wants to use your location.</string>
+  <key>NSMicrophoneUsageDescription</key>       <string>A program running in Flow wants to use the microphone.</string>
+  <key>NSNetworkVolumesUsageDescription</key>   <string>A program running in Flow wants to access files on a network volume.</string>
+  <key>NSPhotoLibraryUsageDescription</key>     <string>A program running in Flow wants to access your photos.</string>
+  <key>NSRemindersUsageDescription</key>        <string>A program running in Flow wants to access your reminders.</string>
+  <key>NSRemindersFullAccessUsageDescription</key><string>A program running in Flow wants to access your reminders.</string>
+  <key>NSRemovableVolumesUsageDescription</key> <string>A program running in Flow wants to access files on a removable volume.</string>
+
+  <!-- Sparkle: the macOS feed in the public releases repo, and Flow's own
+       Ed25519 update key (the one WinSparkle uses too). Flow checks at launch
+       that this key is UPDATE_PUBLIC_KEY in core/src/lib.rs. -->
+  <key>SUFeedURL</key>                     <string>https://raw.githubusercontent.com/arcanii/Flow-releases/main/appcast-macos.xml</string>
+  <key>SUPublicEDKey</key>                 <string>@UPDATE_PUBLIC_KEY@</string>
+</dict>
+</plist>
