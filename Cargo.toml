@@ -34,7 +34,7 @@ license = "MIT"
 # release before it.
 [workspace.metadata.flow]
 patch = 0
-dev = true
+dev = false
 flowapp = "0.2.2"
 build_offset = 2000
 

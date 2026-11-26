@@ -3673,7 +3673,12 @@ each of Flow's sounds to a WAV file, to listen to them away from Flow; `make_ico
 - A patch release adds a fourth number to what people see: `patch` under
   `[workspace.metadata.flow]` (`build_number::shown_version`: 0.1.25 with
   `patch = 1` was `version::VERSION` `0.1.25.1`), back to 0 when `version`
-  goes up, as it is for 0.1.47. It was 0 for 0.1.46, on every system,
+  goes up. It was 0 for 0.1.47, on every system, the first released from
+  arcanii/Flow-Terminal, which brought the assistant's input (editing,
+  its history across restarts and `/model`,
+  `docs/design/assistant-input.md`), the Ask item named by the provider
+  and Flow's source opened (decided 2026-11-26), the Mac's first. It was 0
+  for 0.1.46, on every system,
   which brought the security pass before Flow's source opened
   (`docs/design/untrusted-output.md`; decided 2026-11-24), the Mac's
   first. It was 0 for 0.1.45, on every system,
