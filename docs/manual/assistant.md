@@ -17,9 +17,22 @@ now on, and the panel's header names it.
 
 ![The assistant's panel with /model's list open over the input, Claude Sonnet 5.5 chosen and Claude Opus 5.5 in use](../screenshots/assistant-models.png)
 
+Below Flow's own models, the list holds the ones the provider in use
+offers that Flow doesn't list yet, each marked as from the provider's list
+and named as the provider names it, so a model released since Flow's last
+release can be chosen at once. Flow asks the provider for them as the
+list opens, at most once a day, with the key the assistant already uses
+(the same request that checks a key, which spends no tokens), and keeps
+them only until Flow quits. While it's asking, the list's title says so,
+and if the provider doesn't answer, Flow's own stay. A model Flow doesn't
+know yet may need a setting Flow doesn't send: if its requests fail, pick
+another, and Flow's next release brings what it needs.
+
 `/model` with a number, an id or a name puts one in use at once:
 `/model 2`, `/model claude-haiku-5-5`, `/model sonnet`, `/model gpt luna`.
-Words that fit several models, or none, say so and open the list. A model
+Words that fit several models, or none, say so and open the list; words
+that fit none while the provider's list is still coming wait for it, so
+`/model` with a new model's id works the first time. A model
 of another provider switches the provider too, which starts a new
 conversation, and asks for its key where it has none.
 

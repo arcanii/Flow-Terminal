@@ -413,7 +413,17 @@ proxy.
   `Chooser::Models`; `/model` with words puts in use what `find_model`
   names, `App::model_command`, `use_model`, through `set_provider` for
   another provider's, saved at once, a notice in the conversation saying
-  which model answers; snapshots show `assistant-models.png`), errors, retries, SSE reading, and `Reply`, which hands the
+  which model answers; snapshots show `assistant-models.png`; below
+  Flow's own, the provider in use's own list, `ai/models.rs`,
+  `docs/design/live-models.md`: `models::fetch` on a `flow-models`
+  thread, `App::ask_for_models` as the list opens, with `Agent::key` and
+  the endpoint in use, at most every `KEPT_FOR` (`AGAIN_AFTER` after a
+  failure), never for snapshots, back as `UserEvent::ModelsListed` into
+  `AiPanel::live` in memory (`models_listed`, the row chosen staying on
+  its model, `App::pending_model_words` looked for again), `read_page`
+  per provider, `chat_model` for OpenAI's, `snapshot_of` and `extras`
+  leaving out Flow's own and dated copies, `provider::Model` and
+  `model_list(in_use, live)`), errors, retries, SSE reading, and `Reply`, which hands the
   loop its tool calls and why it stopped. The history keeps the user's side as
   Claude's blocks and each reply in its provider's own form (`openai_item`
   items with encrypted reasoning, `gemini_part` parts with thought

@@ -6,6 +6,7 @@ pub mod claude;
 pub mod files;
 pub mod gemini;
 pub mod memory;
+pub mod models;
 pub mod office;
 pub mod openai;
 pub mod own;
@@ -376,6 +377,12 @@ impl Agent {
     pub fn validate_key(&self, key: String) {
         *self.key.lock() = Some(key.clone());
         let _ = self.tx.send(Command::ValidateKey(key));
+    }
+
+    /// The key it was last given, for asking the provider for its models
+    /// (`models::fetch`).
+    pub fn key(&self) -> Option<String> {
+        self.key.lock().clone()
     }
 
     /// Drops the key the worker holds (after it was removed from the keychain).

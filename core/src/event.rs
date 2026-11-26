@@ -39,6 +39,9 @@ pub enum UserEvent {
     /// An app Settings' Apps installed, upgraded or removed on a thread of
     /// its own: the version installed, or why it failed.
     AppsDone { name: String, doing: crate::apps::shelf::Doing, result: Result<String, String> },
+    /// A provider's own list of models, asked for on a thread of its own
+    /// as `/model` opened (`ai::models::fetch`), or why it didn't come.
+    ModelsListed { provider: crate::ai::provider::Provider, result: Result<Vec<crate::ai::models::Listed>, String> },
     /// A recording of the terminal written to the file the save panel
     /// named, on a thread of its own, or why it wasn't; no file named, the
     /// panel was cancelled and the recording is let go.

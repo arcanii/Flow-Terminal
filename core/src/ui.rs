@@ -657,6 +657,10 @@ pub struct AiPanel {
     /// `/model`'s list while it's open over the input: the row chosen in
     /// `provider::model_list`.
     pub model_pick: Option<usize>,
+    /// The provider in use's own list of models, as it last came
+    /// (`ai::models`), and whether it's being asked for.
+    pub live: Option<crate::ai::models::Live>,
+    pub models_asking: bool,
     /// The task's steps the assistant set, pinned under the header while
     /// there are some.
     pub steps: Vec<(String, StepStatus)>,
@@ -750,6 +754,8 @@ impl AiPanel {
             laid: RefCell::new(PanelLaid::default()),
             input_laid: RefCell::new(crate::panel_input::Laid::default()),
             model_pick: None,
+            live: None,
+            models_asking: false,
             steps: Vec::new(),
             files: Vec::new(),
             reading: Vec::new(),
@@ -761,6 +767,11 @@ impl AiPanel {
         let (a, b) = self.selection?;
         let laid = self.laid.borrow();
         Some(laid.text_between(a, b)).filter(|text| !text.trim().is_empty())
+    }
+
+    /// `provider`'s own list of models, where it's the one kept.
+    pub fn live_for(&self, provider: crate::ai::provider::Provider) -> &[crate::ai::models::Listed] {
+        self.live.as_ref().filter(|l| l.provider == provider).map_or(&[], |l| l.models.as_slice())
     }
 
     /// Puts `s` in the input in place of what's there, the caret at its
@@ -2566,7 +2577,8 @@ fn draw_model_pick(c: &mut Canvas<'_>, v: &View<'_>, p: Rect, above: f32, bottom
     let Some(chosen) = v.ai.model_pick else { return bottom };
     let s = v.layout.scale;
     let ch = c.cell.height;
-    let list = crate::ai::provider::model_list(v.provider);
+    let list = crate::ai::provider::model_list(v.provider, v.ai.live_for(v.provider));
+    let chosen = chosen.min(list.len().saturating_sub(1));
     let room = (((bottom - above - 16.0 * s) / ch).floor() as usize).saturating_sub(1).max(1);
     let shown = list.len().min(room);
     let first = crate::panel_input::Laid::follow(0, chosen, list.len(), shown);
@@ -2577,25 +2589,45 @@ fn draw_model_pick(c: &mut Canvas<'_>, v: &View<'_>, p: Rect, above: f32, bottom
     let x = card.x + 10.0 * s;
     let mut y = card.y + 6.0 * s;
     let title = c.text(x, y, t("panel.models_title"), rgba(FOREGROUND, 1.0), true);
-    let keys = c.text(title + c.cell.width, y, t("panel.models_keys"), rgba(DIM, 0.85), false);
+    let mut keys = c.text(title + c.cell.width, y, t("panel.models_keys"), rgba(DIM, 0.85), false);
     // Where they don't all fit, which are in view.
     if shown < list.len() {
         let place = tf("panel.models_shown", &[("from", &(first + 1)), ("to", &(first + shown)), ("n", &list.len())]);
-        c.text(keys + c.cell.width, y, &format!("· {place}"), rgba(DIM, 0.85), false);
+        keys = c.text(keys + c.cell.width, y, &format!("· {place}"), rgba(DIM, 0.85), false);
+    }
+    // The provider's own list, being asked for, or not come.
+    let company = v.provider.company();
+    let failed = v.ai.live.as_ref().is_some_and(|l| l.provider == v.provider && l.failed);
+    let asked = if v.ai.models_asking {
+        Some(tf("panel.models_asking", &[("company", &company)]))
+    } else {
+        failed.then(|| tf("panel.models_unanswered", &[("company", &company)]))
+    };
+    if let Some(asked) = asked {
+        c.text(keys + c.cell.width, y, &format!("· {asked}"), rgba(if failed { WARN } else { DIM }, 0.85), false);
     }
     y += ch;
-    for (i, &(provider, id, name)) in list.iter().enumerate().skip(first).take(shown) {
+    for (i, m) in list.iter().enumerate().skip(first).take(shown) {
         let row = Rect::new(card.x + 4.0 * s, y, card.w - 8.0 * s, ch);
         let lit = i == chosen;
         if lit || row.contains(v.hover) {
             c.rect(row.x, row.y, row.w, row.h, rgba(ACCENT, if lit { 0.22 } else { 0.10 }), 4.0 * s);
         }
-        let in_use = provider == v.provider && id == v.model;
+        let in_use = m.provider == v.provider && m.id == v.model;
         let mut tx = c.text(x, y, if in_use { "● " } else { "  " }, rgba(GOOD, 1.0), false);
-        tx = c.text(tx, y, &format!("{}. {} {name}", i + 1, provider.name()), rgba(FOREGROUND, 1.0), lit);
-        tx = c.text(tx + c.cell.width, y, id, rgba(DIM, 0.8), false);
-        if provider != v.provider {
-            c.text(tx + c.cell.width, y, &format!("· {}", t("panel.models_new_conversation")), rgba(DIM, 0.7), false);
+        tx = c.text(tx, y, &format!("{}. {}", i + 1, m.full_name()), rgba(FOREGROUND, 1.0), lit);
+        if m.name != m.id {
+            tx = c.text(tx + c.cell.width, y, &m.id, rgba(DIM, 0.8), false);
+        }
+        let note = if m.provider != v.provider {
+            Some(t("panel.models_new_conversation").to_string())
+        } else if m.listed {
+            Some(tf("panel.models_listed", &[("company", &company)]))
+        } else {
+            None
+        };
+        if let Some(note) = note {
+            c.text(tx + c.cell.width, y, &format!("· {note}"), rgba(DIM, 0.7), false);
         }
         hits.push((row, Hit::ModelPick(i)));
         y += ch;

@@ -10,7 +10,7 @@ use super::provider::{self, ApiError, Reply, Request, Stop, StreamDelta};
 use super::usage::Usage;
 use super::PendingTool;
 
-const API_VERSION: &str = "2023-06-01";
+pub(crate) const API_VERSION: &str = "2023-06-01";
 
 #[derive(Debug, Default)]
 struct StreamedMessage {

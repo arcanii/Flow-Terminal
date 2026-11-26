@@ -675,6 +675,9 @@ pub struct App {
     panel_selecting: bool,
     /// A drag from a click in the panel's input, selecting as it goes.
     input_selecting: bool,
+    /// `/model`'s words that named no model while the provider's own list
+    /// was still coming, looked for again once it comes.
+    pending_model_words: Option<String>,
     /// The line between two panes being dragged: the way to its split in
     /// the tab in front, and the room it moves in.
     dragging_divider: Option<(Vec<bool>, ui::Rect)>,
@@ -1078,6 +1081,7 @@ impl App {
             shown_drop: None,
             panel_selecting: false,
             input_selecting: false,
+            pending_model_words: None,
             dragging_divider: None,
             dragging_scrollbar: None,
             sizing_window: None,
@@ -3658,29 +3662,95 @@ impl App {
         }
     }
 
-    /// `/skills`: each skill's name and description, the user's own then
-    /// the packages' turned on; then the user's switched off, and each
-    /// package's still off.
     /// `/model`: alone, the list of models over the input, the one in use
     /// chosen, to choose from with the arrows (`model_pick_key`) or a
     /// click; with words, the one they name put in use
     /// (`provider::find_model`), and where they name none or several, a
-    /// note saying so and the list.
+    /// note saying so and the list. Words that name none while the
+    /// provider's own list is still coming wait for it
+    /// (`pending_model_words`, `models_listed`).
     fn model_command(&mut self, words: &str) {
         use crate::ai::provider::{find_model, ModelFound};
-        let note = match find_model(words, self.config.ai.provider()) {
+        let in_use = self.config.ai.provider();
+        self.ask_for_models();
+        let note = match find_model(words, in_use, self.ai.live_for(in_use)) {
             _ if words.is_empty() => None,
-            ModelFound::One(provider, id) => return self.use_model(provider, id),
+            ModelFound::One(provider, id) => {
+                self.ai.model_pick = None;
+                return self.use_model(provider, &id);
+            }
             ModelFound::Several(names) => Some(tf("notice.models_several", &[("words", &words), ("models", &names.join(", "))])),
+            ModelFound::None if self.ai.models_asking => {
+                self.pending_model_words = Some(words.to_string());
+                None
+            }
             ModelFound::None => Some(tf("notice.models_none", &[("words", &words)])),
         };
         if let Some(note) = note {
             self.ai.entries.push(Entry::Notice(note));
         }
         let ai = &self.config.ai;
-        let in_use = crate::ai::provider::model_list(ai.provider()).iter().position(|&(p, id, _)| p == ai.provider() && id == ai.active_model());
-        self.ai.model_pick = Some(in_use.unwrap_or(0));
+        let chosen = crate::ai::provider::model_list(in_use, self.ai.live_for(in_use)).iter().position(|m| m.provider == in_use && m.id == ai.active_model());
+        self.ai.model_pick = Some(chosen.unwrap_or(0));
         self.ai.focus = true;
+    }
+
+    /// The models `/model`'s list shows now, the provider in use's own
+    /// list among them where it has come.
+    fn models_offered(&self) -> Vec<crate::ai::provider::Model> {
+        let in_use = self.config.ai.provider();
+        crate::ai::provider::model_list(in_use, self.ai.live_for(in_use))
+    }
+
+    /// Asks the provider in use for its own list of models on a
+    /// `flow-models` thread (`models::fetch`), with the key the assistant
+    /// holds, where there's none from the last day (ten minutes, where the
+    /// last didn't come) and it isn't being asked already. Never for a
+    /// snapshot, nor without a key.
+    fn ask_for_models(&mut self) {
+        let provider = self.config.ai.provider();
+        let fresh = self.ai.live.as_ref().is_some_and(|l| l.provider == provider && l.fresh(Instant::now()));
+        if fresh || self.ai.models_asking || self.snapshot.is_some() {
+            return;
+        }
+        let Some(key) = self.agent.key() else { return };
+        let base_url = self.agent_settings().base_url;
+        let waker = self.waker.clone();
+        let ask = move || {
+            let result = crate::ai::models::fetch(provider, &key, &base_url);
+            waker.send(UserEvent::ModelsListed { provider, result });
+        };
+        match std::thread::Builder::new().name("flow-models".into()).spawn(ask) {
+            Ok(_) => self.ai.models_asking = true,
+            Err(err) => log::warn!("could not ask for the models: {err}"),
+        }
+    }
+
+    /// The provider's own list of models came, or didn't: kept a day (the
+    /// one before kept where this one didn't come), the row chosen staying
+    /// on its model, and words waiting for it looked for again.
+    fn models_listed(&mut self, provider: crate::ai::provider::Provider, result: Result<Vec<crate::ai::models::Listed>, String>) {
+        self.ai.models_asking = false;
+        let chosen = self.ai.model_pick.and_then(|i| self.models_offered().get(i).map(|m| (m.provider, m.id.clone())));
+        let failed = result.is_err();
+        let models = match result {
+            Ok(models) => models,
+            Err(err) => {
+                log::warn!("{}'s list of models didn't come: {err}", provider.company());
+                self.ai.live.take().filter(|l| l.provider == provider).map(|l| l.models).unwrap_or_default()
+            }
+        };
+        self.ai.live = Some(crate::ai::models::Live { provider, models, at: Instant::now(), failed });
+        if let Some((p, id)) = chosen {
+            if let Some(i) = self.models_offered().iter().position(|m| m.provider == p && m.id == id) {
+                self.ai.model_pick = Some(i);
+            }
+        }
+        let words = self.pending_model_words.take().filter(|_| self.ai.model_pick.is_some() && provider == self.config.ai.provider());
+        if let Some(words) = words {
+            self.model_command(&words);
+        }
+        self.request_redraw();
     }
 
     /// A key while `/model`'s list is open: ↑↓, Home and End choose, Enter
@@ -3688,7 +3758,7 @@ impl App {
     /// other key closes it and goes on to the input: false.
     fn model_pick_key(&mut self, event: &KeyEvent, base: &str) -> bool {
         let Some(chosen) = self.ai.model_pick else { return false };
-        let n = crate::ai::provider::model_list(self.config.ai.provider()).len();
+        let n = self.models_offered().len();
         let to = match &event.logical_key {
             Key::Named(NamedKey::Shift | NamedKey::Control | NamedKey::Alt | NamedKey::Super | NamedKey::Meta) => return true,
             Key::Named(NamedKey::ArrowUp) => (chosen + n - 1) % n,
@@ -3721,8 +3791,8 @@ impl App {
     /// Puts model `i` of `/model`'s list in use, and closes the list.
     fn pick_model(&mut self, i: usize) {
         self.ai.model_pick = None;
-        if let Some(&(provider, id, _)) = crate::ai::provider::model_list(self.config.ai.provider()).get(i) {
-            self.use_model(provider, id);
+        if let Some(m) = self.models_offered().into_iter().nth(i) {
+            self.use_model(m.provider, &m.id);
         }
     }
 
@@ -3730,6 +3800,7 @@ impl App {
     /// rows do, and saves it: another provider starts a new conversation.
     /// The conversation says so, where the eyes are, and a toast too.
     fn use_model(&mut self, provider: crate::ai::provider::Provider, id: &str) {
+        let name = self.models_offered().into_iter().find(|m| m.provider == provider && m.id == id).map_or_else(|| id.to_string(), |m| m.full_name());
         let other = provider != self.config.ai.provider();
         if other {
             self.set_provider(provider);
@@ -3740,13 +3811,15 @@ impl App {
         let said = if other && !self.has_key {
             tf("toast.provider_needs_key", &[("company", &provider.company()), ("name", &provider.name())])
         } else {
-            let name = provider.models().iter().find(|(m, _)| *m == id).map_or(id, |(_, name)| name);
-            tf("notice.model_in_use", &[("model", &format!("{} {name}", provider.name()))])
+            tf("notice.model_in_use", &[("model", &name)])
         };
         self.ai.entries.push(Entry::Notice(said.clone()));
         self.show_toast(said);
     }
 
+    /// `/skills`: each skill's name and description, the user's own then
+    /// the packages' turned on; then the user's switched off, and each
+    /// package's still off.
     fn skills_notice(&mut self) -> String {
         self.refresh_assistant_files();
         let skills = &self.assistant_files.1;
@@ -13385,7 +13458,7 @@ impl App {
                 }
             }
             Chooser::Models => {
-                if self.ai.model_pick.is_some() && i < crate::ai::provider::model_list(self.config.ai.provider()).len() {
+                if self.ai.model_pick.is_some() && i < self.models_offered().len() {
                     self.ai.model_pick = Some(i);
                 }
             }
@@ -13788,18 +13861,21 @@ impl App {
         }
         if let Some(chosen) = self.ai.model_pick.filter(|_| self.ai.open) {
             let ai = &self.config.ai;
-            let items = crate::ai::provider::model_list(ai.provider())
+            let items = self
+                .models_offered()
                 .into_iter()
                 .enumerate()
-                .map(|(i, (provider, id, name))| {
-                    let detail = if provider == ai.provider() && id == ai.active_model() {
-                        t("access.model_in_use")
-                    } else if provider != ai.provider() {
-                        t("panel.models_new_conversation")
+                .map(|(i, m)| {
+                    let detail = if m.provider == ai.provider() && m.id == ai.active_model() {
+                        t("access.model_in_use").to_string()
+                    } else if m.provider != ai.provider() {
+                        t("panel.models_new_conversation").to_string()
+                    } else if m.listed {
+                        tf("panel.models_listed", &[("company", &m.provider.company())])
                     } else {
-                        ""
+                        String::new()
                     };
-                    Item { label: format!("{} {name}", provider.name()), detail: detail.to_string(), rect: self.rect_of(Hit::ModelPick(i)) }
+                    Item { label: m.full_name(), detail, rect: self.rect_of(Hit::ModelPick(i)) }
                 })
                 .collect();
             out.push(Dialog {
@@ -14219,6 +14295,7 @@ impl ApplicationHandler<UserEvent> for App {
                 }
             }
             UserEvent::AppsDone { name, doing, result } => self.apps_done(name, doing, result),
+            UserEvent::ModelsListed { provider, result } => self.models_listed(provider, result),
             UserEvent::RecordingSaved { path, result } => self.recording_saved(path, result),
             UserEvent::AppsChecked { newer, asked } => self.apps_checked(newer, asked),
             UserEvent::GalleryRead { name, themes } => self.gallery_read(name, themes),

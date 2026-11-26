@@ -409,52 +409,84 @@ pub fn result_text(block: &Value) -> String {
     }
 }
 
-/// Every model Flow offers, the provider in use's first, then the
-/// others' in their order: the list `/model` shows, which its numbers
-/// count by. Each is its provider, id and short name.
-pub fn model_list(in_use: Provider) -> Vec<(Provider, &'static str, &'static str)> {
-    std::iter::once(in_use)
-        .chain(Provider::ALL.into_iter().filter(move |p| *p != in_use))
-        .flat_map(|p| p.models().iter().map(move |&(id, name)| (p, id, name)))
-        .collect()
+/// A model `/model` offers: its provider, id and short name, and whether
+/// it's from the provider's own list rather than Flow's
+/// (`docs/design/live-models.md`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Model {
+    pub provider: Provider,
+    pub id: String,
+    pub name: String,
+    pub listed: bool,
+}
+
+impl Model {
+    /// Its name with its provider's, "Claude Opus 5.5"; one its provider
+    /// names by its id alone, the id.
+    pub fn full_name(&self) -> String {
+        if self.name == self.id {
+            self.id.clone()
+        } else {
+            format!("{} {}", self.provider.name(), self.name)
+        }
+    }
+}
+
+/// Every model Flow offers, the provider in use's first, then the models
+/// of its own list `live` that Flow doesn't list (`models::extras`), then
+/// the other providers' in their order: the list `/model` shows, which its
+/// numbers count by.
+pub fn model_list(in_use: Provider, live: &[super::models::Listed]) -> Vec<Model> {
+    let ours = |p: Provider| p.models().iter().map(move |&(id, name)| Model { provider: p, id: id.into(), name: name.into(), listed: false });
+    let mut list: Vec<Model> = ours(in_use).collect();
+    list.extend(super::models::extras(in_use, live).into_iter().map(|m| {
+        // The provider's name for it, less the provider's own name before it.
+        let name = m.name.strip_prefix(&format!("{} ", in_use.name())).map_or(m.name.clone(), str::to_string);
+        Model { provider: in_use, id: m.id, name, listed: true }
+    }));
+    for p in Provider::ALL.into_iter().filter(|p| *p != in_use) {
+        list.extend(ours(p));
+    }
+    list
 }
 
 /// What `/model`'s words name.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ModelFound {
-    One(Provider, &'static str),
+    One(Provider, String),
     /// Several, by their names with their providers'.
     Several(Vec<String>),
     None,
 }
 
-/// The model `words` name, the provider in use being `in_use`: its number
-/// in [`model_list`], its id or name ("Sonnet 5.5", "Claude Sonnet 5.5"),
-/// in any case, or words each found in those ("sonnet", "gpt luna"). Of
-/// several found, the provider in use's count first.
-pub fn find_model(words: &str, in_use: Provider) -> ModelFound {
-    let list = model_list(in_use);
+/// The model `words` name, the provider in use being `in_use` and `live`
+/// its own list: its number in [`model_list`], its id or name ("Sonnet
+/// 5.5", "Claude Sonnet 5.5"), in any case, or words each found in those
+/// ("sonnet", "gpt luna"). Of several found, the provider in use's count
+/// first.
+pub fn find_model(words: &str, in_use: Provider, live: &[super::models::Listed]) -> ModelFound {
+    let list = model_list(in_use, live);
     let words = words.trim().to_lowercase();
-    let full = |p: Provider, name: &str| format!("{} {name}", p.name());
+    let one = |m: &Model| ModelFound::One(m.provider, m.id.clone());
     if let Ok(n) = words.parse::<usize>() {
-        return n.checked_sub(1).and_then(|i| list.get(i)).map_or(ModelFound::None, |&(p, id, _)| ModelFound::One(p, id));
+        return n.checked_sub(1).and_then(|i| list.get(i)).map_or(ModelFound::None, one);
     }
-    if let Some(&(p, id, _)) = list.iter().find(|&&(p, id, name)| id == words || name.to_lowercase() == words || full(p, name).to_lowercase() == words) {
-        return ModelFound::One(p, id);
+    if let Some(m) = list.iter().find(|m| m.id.to_lowercase() == words || m.name.to_lowercase() == words || m.full_name().to_lowercase() == words) {
+        return one(m);
     }
-    let found: Vec<_> = list
+    let found: Vec<&Model> = list
         .iter()
-        .filter(|&&(p, id, name)| {
-            let named = format!("{id} {}", full(p, name).to_lowercase());
+        .filter(|m| {
+            let named = format!("{} {}", m.id, m.full_name()).to_lowercase();
             !words.is_empty() && words.split_whitespace().all(|w| named.contains(w))
         })
         .collect();
-    let ours: Vec<_> = found.iter().filter(|f| f.0 == in_use).collect();
+    let ours: Vec<&Model> = found.iter().copied().filter(|m| m.provider == in_use).collect();
     match (found.as_slice(), ours.as_slice()) {
         ([], _) => ModelFound::None,
-        ([&(p, id, _)], _) | (_, [&&(p, id, _)]) => ModelFound::One(p, id),
-        (_, []) => ModelFound::Several(found.iter().map(|&&(p, _, name)| full(p, name)).collect()),
-        (_, ours) => ModelFound::Several(ours.iter().map(|&&&(p, _, name)| full(p, name)).collect()),
+        ([m], _) | (_, [m]) => one(m),
+        (_, []) => ModelFound::Several(found.iter().map(|m| m.full_name()).collect()),
+        (_, ours) => ModelFound::Several(ours.iter().map(|m| m.full_name()).collect()),
     }
 }
 
@@ -466,23 +498,45 @@ mod tests {
     #[test]
     fn model_finds_a_model_by_its_number_id_name_or_words() {
         use Provider::*;
-        let one = |words: &str, in_use| find_model(words, in_use);
-        assert_eq!(model_list(OpenAi)[0].0, OpenAi);
-        assert_eq!(one("2", Anthropic), ModelFound::One(Anthropic, "claude-sonnet-5-5"));
-        assert_eq!(one("4", Anthropic), ModelFound::One(OpenAi, "gpt-6-astra"));
+        let one = |words: &str, in_use| find_model(words, in_use, &[]);
+        let found = |p, id: &str| ModelFound::One(p, id.to_string());
+        assert_eq!(model_list(OpenAi, &[])[0].provider, OpenAi);
+        assert_eq!(one("2", Anthropic), found(Anthropic, "claude-sonnet-5-5"));
+        assert_eq!(one("4", Anthropic), found(OpenAi, "gpt-6-astra"));
         assert_eq!(one("0", Anthropic), ModelFound::None);
         assert_eq!(one("99", Anthropic), ModelFound::None);
-        assert_eq!(one("claude-haiku-5-5", OpenAi), ModelFound::One(Anthropic, "claude-haiku-5-5"));
-        assert_eq!(one("Sonnet 5.5", Gemini), ModelFound::One(Anthropic, "claude-sonnet-5-5"));
-        assert_eq!(one("GPT 6 Luna", Anthropic), ModelFound::One(OpenAi, "gpt-6-luna"));
-        assert_eq!(one("opus", Gemini), ModelFound::One(Anthropic, "claude-opus-5-5"));
-        assert_eq!(one("gpt luna", Anthropic), ModelFound::One(OpenAi, "gpt-6-luna"));
+        assert_eq!(one("claude-haiku-5-5", OpenAi), found(Anthropic, "claude-haiku-5-5"));
+        assert_eq!(one("Sonnet 5.5", Gemini), found(Anthropic, "claude-sonnet-5-5"));
+        assert_eq!(one("GPT 6 Luna", Anthropic), found(OpenAi, "gpt-6-luna"));
+        assert_eq!(one("opus", Gemini), found(Anthropic, "claude-opus-5-5"));
+        assert_eq!(one("gpt luna", Anthropic), found(OpenAi, "gpt-6-luna"));
         // Several: the provider in use's, else all of them.
         assert_eq!(one("flash", Gemini), ModelFound::Several(vec!["Gemini 3.8 Flash".into(), "Gemini 3.5 Flash-Lite".into()]));
         assert_eq!(one("5.5", Anthropic), ModelFound::Several(vec!["Claude Opus 5.5".into(), "Claude Sonnet 5.5".into(), "Claude Haiku 5.5".into()]));
         // A number is a place in the list, never a word of a name.
-        assert_eq!(one("6", Anthropic), ModelFound::One(OpenAi, "gpt-6-luna"));
+        assert_eq!(one("6", Anthropic), found(OpenAi, "gpt-6-luna"));
         assert_eq!(one("nothing like it", Anthropic), ModelFound::None);
+    }
+
+    #[test]
+    fn the_providers_own_models_come_after_flows_named_as_it_names_them() {
+        use super::super::models::Listed;
+        use Provider::*;
+        let live = [
+            Listed { id: "claude-opus-6-20270101".into(), name: "Claude Opus 6".into() },
+            Listed { id: "claude-opus-5-5-20261001".into(), name: "Claude Opus 5.5".into() },
+        ];
+        let list = model_list(Anthropic, &live);
+        let names: Vec<String> = list.iter().map(Model::full_name).collect();
+        assert_eq!(names[..5], ["Claude Opus 5.5", "Claude Sonnet 5.5", "Claude Haiku 5.5", "Claude Opus 6", "GPT 6 Astra"]);
+        assert!(list[3].listed && !list[2].listed);
+        assert_eq!(find_model("opus 6", Anthropic, &live), ModelFound::One(Anthropic, "claude-opus-6-20270101".into()));
+        assert_eq!(find_model("claude-opus-6-20270101", Anthropic, &live), ModelFound::One(Anthropic, "claude-opus-6-20270101".into()));
+        // GPT's are named by their ids.
+        let gpt = [Listed { id: "gpt-7".into(), name: "gpt-7".into() }];
+        assert_eq!(model_list(OpenAi, &gpt)[3].full_name(), "gpt-7");
+        // Another provider's list isn't this one's.
+        assert_eq!(model_list(Gemini, &[]).len(), 9);
     }
 
     #[test]
