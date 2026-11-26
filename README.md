@@ -11,26 +11,22 @@
   <tr>
     <td align="center" width="180">
       <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-macos"><img src="https://cdn.simpleicons.org/apple/A2AAAD" width="64" height="64" alt="Apple logo"></a><br>
-      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-macos"><b>Download for macOS</b></a>
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-macos"><b>Download for macOS</b></a><br>
+      <sub>0.1.46</sub>
     </td>
     <td align="center" width="180">
       <a href="https://github.com/arcanii/Flow-releases/releases/latest"><img src="assets/readme/windows.svg" width="64" height="64" alt="Windows logo"></a><br>
-      <a href="https://github.com/arcanii/Flow-releases/releases/latest"><b>Download for Windows</b></a>
+      <a href="https://github.com/arcanii/Flow-releases/releases/latest"><b>Download for Windows</b></a><br>
+      <sub>0.1.46</sub>
     </td>
     <td align="center" width="180">
       <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-linux"><img src="https://cdn.simpleicons.org/linux/FCC624" width="64" height="64" alt="Tux, the Linux logo"></a><br>
-      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-linux"><b>Download for Linux</b></a>
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-linux"><b>Download for Linux</b></a><br>
+      <sub>0.1.46</sub>
     </td>
   </tr>
 </table>
 </div>
-
-<p align="center">
-  <a href="https://github.com/arcanii/Flow-releases#macos"><img src="https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fraw.githubusercontent.com%2Farcanii%2FFlow-releases%2Fmain%2Fappcast-macos.xml&query=%28%2F%2F%2A%5Blocal-name%28%29%3D%27enclosure%27%5D%29%5B1%5D%2F%40%2A%5Blocal-name%28%29%3D%27shortVersionString%27%5D&label=macOS&logo=apple&logoColor=white&color=000000&style=for-the-badge" alt="The newest Flow for macOS"></a>
-  <a href="https://github.com/arcanii/Flow-releases#windows"><img src="https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fraw.githubusercontent.com%2Farcanii%2FFlow-releases%2Fmain%2Fappcast.xml&query=%28%2F%2F%2A%5Blocal-name%28%29%3D%27enclosure%27%5D%29%5B1%5D%2F%40%2A%5Blocal-name%28%29%3D%27shortVersionString%27%5D&label=Windows&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAyNCAyNCc%2BPHBhdGggZmlsbD0nI2ZmZicgZD0nTTEgMWgxMC41djEwLjVIMXpNMTIuNSAxSDIzdjEwLjVIMTIuNXpNMSAxMi41aDEwLjVWMjNIMXpNMTIuNSAxMi41SDIzVjIzSDEyLjV6Jy8%2BPC9zdmc%2B&color=0078D6&style=for-the-badge" alt="The newest Flow for Windows"></a>
-  <a href="https://github.com/arcanii/Flow-releases#linux"><img src="https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fraw.githubusercontent.com%2Farcanii%2FFlow-releases%2Fmain%2Fappcast-linux-x86_64.xml&query=%28%2F%2F%2A%5Blocal-name%28%29%3D%27enclosure%27%5D%29%5B1%5D%2F%40%2A%5Blocal-name%28%29%3D%27shortVersionString%27%5D&label=Linux&logo=linux&logoColor=black&color=FCC624&style=for-the-badge" alt="The newest Flow for Linux"></a>
-  <a href="https://github.com/arcanii/Flow-releases/releases"><img src="https://img.shields.io/github/downloads/arcanii/Flow-releases/total?label=Downloads&color=7CE7FF&style=for-the-badge" alt="Downloads"></a>
-</p>
 
 <p align="center">
   <a href="CONTRIBUTING.md#building-and-testing"><img src="https://img.shields.io/badge/Rust-stable%20%C2%B7%202021%20edition-B78CFF?style=for-the-badge&logo=rust&logoColor=black" alt="Built with stable Rust, 2021 edition"></a>
@@ -195,15 +191,18 @@ much the same on Windows, macOS and Linux?**
   <tr>
     <td align="center" width="180">
       <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-macos"><img src="https://cdn.simpleicons.org/apple/A2AAAD" width="64" height="64" alt="Apple logo"></a><br>
-      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-macos"><b>Download for macOS</b></a>
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-macos"><b>Download for macOS</b></a><br>
+      <sub>0.1.46</sub>
     </td>
     <td align="center" width="180">
       <a href="https://github.com/arcanii/Flow-releases/releases/latest"><img src="assets/readme/windows.svg" width="64" height="64" alt="Windows logo"></a><br>
-      <a href="https://github.com/arcanii/Flow-releases/releases/latest"><b>Download for Windows</b></a>
+      <a href="https://github.com/arcanii/Flow-releases/releases/latest"><b>Download for Windows</b></a><br>
+      <sub>0.1.46</sub>
     </td>
     <td align="center" width="180">
       <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-linux"><img src="https://cdn.simpleicons.org/linux/FCC624" width="64" height="64" alt="Tux, the Linux logo"></a><br>
-      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-linux"><b>Download for Linux</b></a>
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-linux"><b>Download for Linux</b></a><br>
+      <sub>0.1.46</sub>
     </td>
   </tr>
 </table>

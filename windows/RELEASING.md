@@ -163,6 +163,10 @@ leave the portable one stale.
    its README also gets edited on GitHub. Then copy `target\dist\appcast.xml`
    to its root, commit, and push to `main`. WinSparkle sees the update on its
    next check, or when someone picks *Check for Updates…* in About.
+6. **Update the README's Windows version**: in this repository's own
+   `README.md`, change the version under "Download for Windows", at the
+   top and under Install, to `<ver>`. Its link opens Flow-releases' latest
+   release and needs no change.
 
 ## flowapp's apps
 

@@ -117,7 +117,10 @@ All commands below run from the repo root. The scripts are in
    and push to `main`. Until then the links still open the previous release,
    whose copies Sparkle then updates. Change them the same way in this
    repository's own `README.md`, whose "Download for macOS" link and the logo
-   over it, at the top and under Install, open the release by its tag too.
+   over it, at the top and under Install, open the release by its tag too,
+   and change the version under that link to `<ver>`. It's plain text: a
+   shields.io badge there broke when GitHub's image proxy couldn't reach
+   shields.io.
 
 ## flowapp's apps
 
