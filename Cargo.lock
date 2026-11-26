@@ -1474,7 +1474,7 @@ dependencies = [
 
 [[package]]
 name = "flow-core"
-version = "0.1.47"
+version = "0.1.48"
 dependencies = [
  "accesskit",
  "accesskit_consumer",
@@ -1539,7 +1539,7 @@ dependencies = [
 
 [[package]]
 name = "flow-linux"
-version = "0.1.47"
+version = "0.1.48"
 dependencies = [
  "alacritty_terminal",
  "arboard",
@@ -1559,7 +1559,7 @@ dependencies = [
 
 [[package]]
 name = "flow-macos"
-version = "0.1.47"
+version = "0.1.48"
 dependencies = [
  "alacritty_terminal",
  "block2 0.6.2",
@@ -1592,7 +1592,7 @@ dependencies = [
 
 [[package]]
 name = "flow-terminal"
-version = "0.1.47"
+version = "0.1.48"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -1613,7 +1613,7 @@ dependencies = [
 
 [[package]]
 name = "flow-windows"
-version = "0.1.47"
+version = "0.1.48"
 dependencies = [
  "alacritty_terminal",
  "base64 0.22.1",
