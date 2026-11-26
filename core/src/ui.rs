@@ -1702,7 +1702,7 @@ fn draw_title(c: &mut Canvas<'_>, v: &View<'_>, hits: &mut Vec<(Rect, Hit)>) -> 
     // A newer Flow found, or installed and waiting for a restart: where the
     // tabs still have room beside it, since About says so too.
     let update = match &v.update {
-        Some(UpdateState::Available { .. } | UpdateState::Installing { .. } | UpdateState::ByHand { .. } | UpdateState::InTab { .. }) => Some(i18n::t("title.update")),
+        Some(UpdateState::Available { .. } | UpdateState::Installing { .. } | UpdateState::ByHand { .. } | UpdateState::InTab { .. } | UpdateState::ByPackage { .. }) => Some(i18n::t("title.update")),
         Some(UpdateState::Installed { .. }) => Some(i18n::t("title.restart")),
         _ => None,
     };
@@ -5252,6 +5252,7 @@ fn draw_about(c: &mut Canvas<'_>, v: &View<'_>, a: &AboutView, hits: &mut Vec<(R
         UpdateState::Installed { version } => Some((tf("about.update.installed", &[("version", version)]), GOOD)),
         UpdateState::ByHand { version, file, .. } => Some((tf("update.deb", &[("version", version), ("file", file)]), ACCENT)),
         UpdateState::InTab { version, .. } => Some((tf("update.in_tab", &[("version", version)]), ACCENT)),
+        UpdateState::ByPackage { version } => Some((tf("update.aur", &[("version", version)]), ACCENT)),
         UpdateState::Failed(error) => Some((error.clone(), WARN)),
     });
     let cols = ((w - 48.0 * s) / c.cell.width).max(10.0) as usize;

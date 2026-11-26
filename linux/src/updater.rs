@@ -7,7 +7,9 @@
 //! itself: where the feed carries the release's .deb, signed too, it's
 //! downloaded and checked, and Flow runs `sudo apt install` on it in a tab
 //! (`UpdateState::InTab`), where sudo asks for the password; once the new
-//! Flow is in place, it's installed. Flow shows how it stands
+//! Flow is in place, it's installed. Nor can one from the AUR (pacman's, in
+//! /usr), which its AUR helper updates: Flow says a release is out
+//! (`UpdateState::ByPackage`) and installs nothing. Flow shows how it stands
 //! (`UpdateState`) in About, since there's no updater window here. Only a
 //! build made as one of Flow's releases starts it (`version::UPDATES`).
 
@@ -160,6 +162,12 @@ pub fn check(quiet: bool) {
             return;
         }
         match result {
+            // pacman's copy is the AUR helper's to update, whenever the
+            // AUR has the release: Flow only says it's out.
+            Ok(Some(release)) if release.build > current && from_pacman(&u.prefix) => {
+                log::info!("update: {} is out, for the AUR helper to install", release.display());
+                *state = UpdateState::ByPackage { version: release.display() };
+            }
             Ok(Some(release)) if release.build > current => {
                 log::info!("update: {} is out", release.display());
                 *state = UpdateState::Available { version: release.display() };
@@ -341,6 +349,24 @@ fn deb_is_build(path: &Path, build: u64) -> Result<(), UpdateError> {
 /// Whether Flow at `prefix` came from the release's .deb: dpkg's, in /usr.
 fn from_deb(prefix: &Path) -> bool {
     prefix == Path::new("/usr") && Path::new("/var/lib/dpkg/info/flow-terminal.list").is_file()
+}
+
+/// Whether Flow at `prefix` came from the AUR: pacman's, in /usr.
+fn from_pacman(prefix: &Path) -> bool {
+    prefix == Path::new("/usr") && pacman_has_flow(Path::new("/var/lib/pacman/local"))
+}
+
+/// Whether pacman's database of what's installed (`local`, a folder per
+/// package named `<name>-<version>-<release>`) holds Flow's package: the
+/// AUR's `flow-terminal-bin`, or a `flow-terminal` built from source.
+fn pacman_has_flow(local: &Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(local) else { return false };
+    entries.flatten().any(|entry| {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let mut parts = name.rsplitn(3, '-');
+        let package = parts.nth(2).unwrap_or_default();
+        package == "flow-terminal-bin" || package == "flow-terminal"
+    })
 }
 
 /// The release's .deb for this computer, as linux/scripts/package.sh names
@@ -810,6 +836,26 @@ mod tests {
 
     fn public(key: &SigningKey) -> String {
         STANDARD.encode(key.verifying_key().to_bytes())
+    }
+
+    #[test]
+    fn pacmans_copy_is_known_by_flows_package_in_its_database_alone() {
+        let local = std::env::temp_dir().join(format!("flow-pacman-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&local);
+        std::fs::create_dir_all(&local).unwrap();
+        std::fs::write(local.join("ALPM_DB_VERSION"), "9\n").unwrap();
+        // Facebook's Flow, another of Flow's names and one of the system's.
+        for other in ["flow-bin-0.342.0-1", "flow-terminal-git-r1.abc-1", "glibc-2.43+r5-1"] {
+            std::fs::create_dir(local.join(other)).unwrap();
+        }
+        assert!(!pacman_has_flow(&local));
+        for ours in ["flow-terminal-bin-0.1.46-1", "flow-terminal-1:0.1.47-2"] {
+            std::fs::create_dir(local.join(ours)).unwrap();
+            assert!(pacman_has_flow(&local), "{ours}");
+            std::fs::remove_dir(local.join(ours)).unwrap();
+        }
+        assert!(!pacman_has_flow(&local.join("none")), "no pacman at all");
+        let _ = std::fs::remove_dir_all(&local);
     }
 
     #[test]

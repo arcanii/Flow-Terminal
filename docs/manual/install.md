@@ -68,4 +68,7 @@ one from the source on an Arm64 Linux (see [Linux release](../development.md#lin
   asks after an update Flow installed itself, if About isn't open. Where a
   release's feed doesn't carry its .deb, **Install Update** opens the
   release's page instead, and About names the file and gives that command,
-  which **Copy Command** copies; then restart Flow.
+  which **Copy Command** copies; then restart Flow. A Flow from the AUR
+  (`flow-terminal-bin`, from 0.1.48) says when there's a newer release,
+  in the title bar and About, with no **Install Update**: your AUR helper
+  installs it (`yay -Syu`, say) once the AUR has it.

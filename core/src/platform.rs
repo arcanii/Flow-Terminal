@@ -490,6 +490,10 @@ pub enum UpdateState {
     /// (`App::run_update_in_tab`). The updater goes on to `Installed` once
     /// the new Flow is in place.
     InTab { version: String, command: String },
+    /// A newer release for a package manager to install, as an AUR
+    /// helper updates the Flow pacman put in /usr: About says so, with
+    /// nothing for Flow itself to install.
+    ByPackage { version: String },
     /// What went wrong, in the user's language.
     Failed(String),
 }

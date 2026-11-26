@@ -1590,7 +1590,12 @@ a tab isn't at its prompt (`a_tab_is_busy`); Later (Esc) leaves the pill
 and About. A feed without the .deb has Install Update
 open the release page and About give the .deb's name and the command
 (`UpdateState::ByHand`), which its button copies. After either, Restart
-starts the new Flow (`updater::replaced`).
+starts the new Flow (`updater::replaced`). A Flow pacman put in `/usr`
+(the AUR's `flow-terminal-bin`, `from_pacman`, `pacman_has_flow` reading
+pacman's database) only says a release is out (`UpdateState::ByPackage`),
+its AUR helper installing it; `linux/scripts/aur.sh <ver>` writes the
+package's PKGBUILD and `.SRCINFO` from `linux/packaging/aur/` for each
+release (`docs/design/aur.md`).
 Flow shows it, through `Platform::update_state`, `UpdateState` and `UserEvent::Update`: About's line
 and button (check, install, restart), a pill in the title bar, and a question
 asked once whether to check daily (`config::UpdateChecks`, kept in

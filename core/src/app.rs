@@ -13839,6 +13839,7 @@ impl App {
                 Some(UpdateState::Installed { version }) => Some(tf("about.update.installed", &[("version", version)])),
                 Some(UpdateState::ByHand { version, file, .. }) => Some(tf("update.deb", &[("version", version), ("file", file)])),
                 Some(UpdateState::InTab { version, .. }) => Some(tf("update.in_tab", &[("version", version)])),
+                Some(UpdateState::ByPackage { version }) => Some(tf("update.aur", &[("version", version)])),
                 _ => None,
             };
             text.extend(line);
