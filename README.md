@@ -236,7 +236,8 @@ Anthropic's Claude, OpenAI's GPT or Google's Gemini. Then choose
 provider by a free call that lists the models, then stored in the OS credential
 store: Windows Credential Manager, the macOS Keychain, or on Linux the Secret
 Service (GNOME Keyring or KWallet). Each provider keeps its
-own key, so switching back and forth asks only once. `ANTHROPIC_API_KEY`,
+own key, so switching back and forth asks only once; **Model**, under it,
+picks the model, and so does `/model` in the panel. `ANTHROPIC_API_KEY`,
 `OPENAI_API_KEY` and `GEMINI_API_KEY` in the environment take precedence if set.
 
 ![Adding an API key](docs/screenshots/key.png)

@@ -409,10 +409,81 @@ pub fn result_text(block: &Value) -> String {
     }
 }
 
+/// Every model Flow offers, the provider in use's first, then the
+/// others' in their order: the list `/model` shows, which its numbers
+/// count by. Each is its provider, id and short name.
+pub fn model_list(in_use: Provider) -> Vec<(Provider, &'static str, &'static str)> {
+    std::iter::once(in_use)
+        .chain(Provider::ALL.into_iter().filter(move |p| *p != in_use))
+        .flat_map(|p| p.models().iter().map(move |&(id, name)| (p, id, name)))
+        .collect()
+}
+
+/// What `/model`'s words name.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ModelFound {
+    One(Provider, &'static str),
+    /// Several, by their names with their providers'.
+    Several(Vec<String>),
+    None,
+}
+
+/// The model `words` name, the provider in use being `in_use`: its number
+/// in [`model_list`], its id or name ("Sonnet 5.5", "Claude Sonnet 5.5"),
+/// in any case, or words each found in those ("sonnet", "gpt luna"). Of
+/// several found, the provider in use's count first.
+pub fn find_model(words: &str, in_use: Provider) -> ModelFound {
+    let list = model_list(in_use);
+    let words = words.trim().to_lowercase();
+    let full = |p: Provider, name: &str| format!("{} {name}", p.name());
+    if let Ok(n) = words.parse::<usize>() {
+        return n.checked_sub(1).and_then(|i| list.get(i)).map_or(ModelFound::None, |&(p, id, _)| ModelFound::One(p, id));
+    }
+    if let Some(&(p, id, _)) = list.iter().find(|&&(p, id, name)| id == words || name.to_lowercase() == words || full(p, name).to_lowercase() == words) {
+        return ModelFound::One(p, id);
+    }
+    let found: Vec<_> = list
+        .iter()
+        .filter(|&&(p, id, name)| {
+            let named = format!("{id} {}", full(p, name).to_lowercase());
+            !words.is_empty() && words.split_whitespace().all(|w| named.contains(w))
+        })
+        .collect();
+    let ours: Vec<_> = found.iter().filter(|f| f.0 == in_use).collect();
+    match (found.as_slice(), ours.as_slice()) {
+        ([], _) => ModelFound::None,
+        ([&(p, id, _)], _) | (_, [&&(p, id, _)]) => ModelFound::One(p, id),
+        (_, []) => ModelFound::Several(found.iter().map(|&&(p, _, name)| full(p, name)).collect()),
+        (_, ours) => ModelFound::Several(ours.iter().map(|&&&(p, _, name)| full(p, name)).collect()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn model_finds_a_model_by_its_number_id_name_or_words() {
+        use Provider::*;
+        let one = |words: &str, in_use| find_model(words, in_use);
+        assert_eq!(model_list(OpenAi)[0].0, OpenAi);
+        assert_eq!(one("2", Anthropic), ModelFound::One(Anthropic, "claude-sonnet-5-5"));
+        assert_eq!(one("4", Anthropic), ModelFound::One(OpenAi, "gpt-6-astra"));
+        assert_eq!(one("0", Anthropic), ModelFound::None);
+        assert_eq!(one("99", Anthropic), ModelFound::None);
+        assert_eq!(one("claude-haiku-5-5", OpenAi), ModelFound::One(Anthropic, "claude-haiku-5-5"));
+        assert_eq!(one("Sonnet 5.5", Gemini), ModelFound::One(Anthropic, "claude-sonnet-5-5"));
+        assert_eq!(one("GPT 6 Luna", Anthropic), ModelFound::One(OpenAi, "gpt-6-luna"));
+        assert_eq!(one("opus", Gemini), ModelFound::One(Anthropic, "claude-opus-5-5"));
+        assert_eq!(one("gpt luna", Anthropic), ModelFound::One(OpenAi, "gpt-6-luna"));
+        // Several: the provider in use's, else all of them.
+        assert_eq!(one("flash", Gemini), ModelFound::Several(vec!["Gemini 3.8 Flash".into(), "Gemini 3.5 Flash-Lite".into()]));
+        assert_eq!(one("5.5", Anthropic), ModelFound::Several(vec!["Claude Opus 5.5".into(), "Claude Sonnet 5.5".into(), "Claude Haiku 5.5".into()]));
+        // A number is a place in the list, never a word of a name.
+        assert_eq!(one("6", Anthropic), ModelFound::One(OpenAi, "gpt-6-luna"));
+        assert_eq!(one("nothing like it", Anthropic), ModelFound::None);
+    }
 
     #[test]
     fn providers_read_back_from_config_and_unknown_ones_mean_anthropic() {

@@ -99,6 +99,8 @@ pub enum Hit {
     ResumeLater,
     /// The panel's Attach, which opens the system's file panel.
     Attach,
+    /// A model in `/model`'s list: its place in `provider::model_list`.
+    ModelPick(usize),
     /// A file's chip under the input: its ✕, and (one that looks like a
     /// secret) the chip itself, which confirms it may go.
     AttachRemove(usize),
@@ -652,6 +654,9 @@ pub struct AiPanel {
     pub laid: RefCell<PanelLaid>,
     /// The input as the last frame laid it out, for the keys and the mouse.
     pub input_laid: RefCell<crate::panel_input::Laid>,
+    /// `/model`'s list while it's open over the input: the row chosen in
+    /// `provider::model_list`.
+    pub model_pick: Option<usize>,
     /// The task's steps the assistant set, pinned under the header while
     /// there are some.
     pub steps: Vec<(String, StepStatus)>,
@@ -744,6 +749,7 @@ impl AiPanel {
             selection: None,
             laid: RefCell::new(PanelLaid::default()),
             input_laid: RefCell::new(crate::panel_input::Laid::default()),
+            model_pick: None,
             steps: Vec::new(),
             files: Vec::new(),
             reading: Vec::new(),
@@ -2551,6 +2557,52 @@ fn underline_composed(c: &mut Canvas<'_>, y: f32, spans: &[(f32, f32, Option<boo
     }
 }
 
+/// `/model`'s list, while it's open, between `above` and `bottom` over the
+/// input (and its chips): a line saying its keys, then each model Flow offers, numbered as
+/// `/model` takes them, the one in use marked ●, the one chosen lit, and
+/// another provider's saying it starts a new conversation; as many as
+/// there's room for, around the one chosen. Returns its top.
+fn draw_model_pick(c: &mut Canvas<'_>, v: &View<'_>, p: Rect, above: f32, bottom: f32, hits: &mut Vec<(Rect, Hit)>) -> f32 {
+    let Some(chosen) = v.ai.model_pick else { return bottom };
+    let s = v.layout.scale;
+    let ch = c.cell.height;
+    let list = crate::ai::provider::model_list(v.provider);
+    let room = (((bottom - above - 16.0 * s) / ch).floor() as usize).saturating_sub(1).max(1);
+    let shown = list.len().min(room);
+    let first = crate::panel_input::Laid::follow(0, chosen, list.len(), shown);
+    let h = (shown + 1) as f32 * ch + 12.0 * s;
+    let card = Rect::new(p.x + 8.0 * s, bottom - h - 4.0 * s, p.w - 16.0 * s, h);
+    c.rect(card.x, card.y, card.w, card.h, rgba([255, 255, 255], 0.05), 8.0 * s);
+    c.outline(card.x, card.y, card.w, card.h, rgba(ACCENT, 0.35), 8.0 * s, 1.0);
+    let x = card.x + 10.0 * s;
+    let mut y = card.y + 6.0 * s;
+    let title = c.text(x, y, t("panel.models_title"), rgba(FOREGROUND, 1.0), true);
+    let keys = c.text(title + c.cell.width, y, t("panel.models_keys"), rgba(DIM, 0.85), false);
+    // Where they don't all fit, which are in view.
+    if shown < list.len() {
+        let place = tf("panel.models_shown", &[("from", &(first + 1)), ("to", &(first + shown)), ("n", &list.len())]);
+        c.text(keys + c.cell.width, y, &format!("· {place}"), rgba(DIM, 0.85), false);
+    }
+    y += ch;
+    for (i, &(provider, id, name)) in list.iter().enumerate().skip(first).take(shown) {
+        let row = Rect::new(card.x + 4.0 * s, y, card.w - 8.0 * s, ch);
+        let lit = i == chosen;
+        if lit || row.contains(v.hover) {
+            c.rect(row.x, row.y, row.w, row.h, rgba(ACCENT, if lit { 0.22 } else { 0.10 }), 4.0 * s);
+        }
+        let in_use = provider == v.provider && id == v.model;
+        let mut tx = c.text(x, y, if in_use { "● " } else { "  " }, rgba(GOOD, 1.0), false);
+        tx = c.text(tx, y, &format!("{}. {} {name}", i + 1, provider.name()), rgba(FOREGROUND, 1.0), lit);
+        tx = c.text(tx + c.cell.width, y, id, rgba(DIM, 0.8), false);
+        if provider != v.provider {
+            c.text(tx + c.cell.width, y, &format!("· {}", t("panel.models_new_conversation")), rgba(DIM, 0.7), false);
+        }
+        hits.push((row, Hit::ModelPick(i)));
+        y += ch;
+    }
+    card.y - 4.0 * s
+}
+
 /// The panel's input at the foot of panel `p`: a box of the rows its text
 /// wraps to, up to a third of the panel's height, scrolled to keep the
 /// caret's row in view, with what's selected under the text and what the
@@ -3044,6 +3096,8 @@ fn draw_panel(c: &mut Canvas<'_>, v: &View<'_>, p: Rect, hits: &mut Vec<(Rect, H
         }
         top += 6.0 * s;
     }
+    // `/model`'s list over the input, leaving the conversation a row.
+    let chips_top = draw_model_pick(c, v, p, top + ch, chips_top, hits);
     let bottom = chips_top - 6.0 * s;
     let visible_rows = ((bottom - top) / ch).floor().max(1.0) as usize;
     let now = Instant::now();

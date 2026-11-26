@@ -3200,6 +3200,9 @@ impl App {
     /// (`docs/design/assistant-input.md`). A selection made in the input
     /// takes the place of the conversation's.
     fn ai_key(&mut self, event: &KeyEvent, ctrl: bool, base: &str) {
+        if self.model_pick_key(event, base) {
+            return;
+        }
         self.input_key(event, ctrl, base);
         if self.ai.input.selection().is_some() {
             self.ai.selection = None;
@@ -3389,6 +3392,10 @@ impl App {
             }
             return;
         }
+        // A command too, so ↑ brings it back as it does a message.
+        if text.starts_with('/') {
+            self.remember_sent(&text);
+        }
         if self.prompt_command(&text) {
             self.request_redraw();
             return;
@@ -3469,16 +3476,26 @@ impl App {
                 self.set_auto_mode(text == "/auto");
                 return;
             }
+            _ if text == "/model" || text.starts_with("/model ") => {
+                self.ai.set_input(String::new());
+                self.model_command(text["/model".len()..].trim());
+                return;
+            }
             _ => {}
         }
         // The question stays in the input when it can't go yet.
         if self.send_to_assistant(text.clone(), text.clone()) {
-            self.ai.history.sent(&text);
-            // Kept across restarts with the rest of what it remembers.
-            if self.config.ai.memory {
-                self.memory.journal.keep_sent(&text, memory::now());
-            }
+            self.remember_sent(&text);
             self.ai.set_input(String::new());
+        }
+    }
+
+    /// `text` was sent from the panel: the newest that ↑ brings back, kept
+    /// across restarts with the rest of what it remembers.
+    fn remember_sent(&mut self, text: &str) {
+        self.ai.history.sent(text);
+        if self.config.ai.memory {
+            self.memory.journal.keep_sent(text, memory::now());
         }
     }
 
@@ -3644,6 +3661,92 @@ impl App {
     /// `/skills`: each skill's name and description, the user's own then
     /// the packages' turned on; then the user's switched off, and each
     /// package's still off.
+    /// `/model`: alone, the list of models over the input, the one in use
+    /// chosen, to choose from with the arrows (`model_pick_key`) or a
+    /// click; with words, the one they name put in use
+    /// (`provider::find_model`), and where they name none or several, a
+    /// note saying so and the list.
+    fn model_command(&mut self, words: &str) {
+        use crate::ai::provider::{find_model, ModelFound};
+        let note = match find_model(words, self.config.ai.provider()) {
+            _ if words.is_empty() => None,
+            ModelFound::One(provider, id) => return self.use_model(provider, id),
+            ModelFound::Several(names) => Some(tf("notice.models_several", &[("words", &words), ("models", &names.join(", "))])),
+            ModelFound::None => Some(tf("notice.models_none", &[("words", &words)])),
+        };
+        if let Some(note) = note {
+            self.ai.entries.push(Entry::Notice(note));
+        }
+        let ai = &self.config.ai;
+        let in_use = crate::ai::provider::model_list(ai.provider()).iter().position(|&(p, id, _)| p == ai.provider() && id == ai.active_model());
+        self.ai.model_pick = Some(in_use.unwrap_or(0));
+        self.ai.focus = true;
+    }
+
+    /// A key while `/model`'s list is open: ↑↓, Home and End choose, Enter
+    /// or a model's number puts it in use, and Esc closes the list. Any
+    /// other key closes it and goes on to the input: false.
+    fn model_pick_key(&mut self, event: &KeyEvent, base: &str) -> bool {
+        let Some(chosen) = self.ai.model_pick else { return false };
+        let n = crate::ai::provider::model_list(self.config.ai.provider()).len();
+        let to = match &event.logical_key {
+            Key::Named(NamedKey::Shift | NamedKey::Control | NamedKey::Alt | NamedKey::Super | NamedKey::Meta) => return true,
+            Key::Named(NamedKey::ArrowUp) => (chosen + n - 1) % n,
+            Key::Named(NamedKey::ArrowDown) => (chosen + 1) % n,
+            Key::Named(NamedKey::Home | NamedKey::PageUp) => 0,
+            Key::Named(NamedKey::End | NamedKey::PageDown) => n - 1,
+            Key::Named(NamedKey::Enter) => {
+                self.pick_model(chosen);
+                return true;
+            }
+            Key::Named(NamedKey::Escape) => {
+                self.ai.model_pick = None;
+                return true;
+            }
+            _ => match base.parse::<usize>() {
+                Ok(number) if (1..=n).contains(&number) && self.modifiers.is_empty() => {
+                    self.pick_model(number - 1);
+                    return true;
+                }
+                _ => {
+                    self.ai.model_pick = None;
+                    return false;
+                }
+            },
+        };
+        self.ai.model_pick = Some(to);
+        true
+    }
+
+    /// Puts model `i` of `/model`'s list in use, and closes the list.
+    fn pick_model(&mut self, i: usize) {
+        self.ai.model_pick = None;
+        if let Some(&(provider, id, _)) = crate::ai::provider::model_list(self.config.ai.provider()).get(i) {
+            self.use_model(provider, id);
+        }
+    }
+
+    /// Puts model `id` of `provider` in use, as Settings' Provider and Model
+    /// rows do, and saves it: another provider starts a new conversation.
+    /// The conversation says so, where the eyes are, and a toast too.
+    fn use_model(&mut self, provider: crate::ai::provider::Provider, id: &str) {
+        let other = provider != self.config.ai.provider();
+        if other {
+            self.set_provider(provider);
+        }
+        self.config.ai.set_model(id);
+        self.agent.configure(self.agent_settings());
+        self.save_config();
+        let said = if other && !self.has_key {
+            tf("toast.provider_needs_key", &[("company", &provider.company()), ("name", &provider.name())])
+        } else {
+            let name = provider.models().iter().find(|(m, _)| *m == id).map_or(id, |(_, name)| name);
+            tf("notice.model_in_use", &[("model", &format!("{} {name}", provider.name()))])
+        };
+        self.ai.entries.push(Entry::Notice(said.clone()));
+        self.show_toast(said);
+    }
+
     fn skills_notice(&mut self) -> String {
         self.refresh_assistant_files();
         let skills = &self.assistant_files.1;
@@ -6271,6 +6374,7 @@ impl App {
         if let Some(panel) = self.layout.panel {
             if panel.contains(p) {
                 self.ai.focus = true;
+                self.ai.model_pick = None;
                 // In the input, the caret goes where it's clicked: ⇧ selects
                 // to there, a double click takes a word and a triple its
                 // line, and a drag selects.
@@ -6471,6 +6575,7 @@ impl App {
             Hit::ResumeOn => self.carry_on(),
             Hit::ResumeLater => self.leave_for_now(),
             Hit::Attach => self.attach_dialog(),
+            Hit::ModelPick(i) => self.pick_model(i),
             Hit::AttachRemove(i) => self.remove_attached(i),
             Hit::AttachConfirm(i) => self.confirm_attached(i),
             Hit::CodeCopy(entry, block) => {
@@ -6894,7 +6999,8 @@ impl App {
 
     /// For snapshots: the panel's input holding a message of two lines, the
     /// first wrapped, a word of it selected, under a made-up conversation
-    /// (`assistant-input.png`), all put back after.
+    /// (`assistant-input.png`), then `/model`'s list open over it
+    /// (`assistant-models.png`), all put back after.
     fn show_input(&mut self, path: &std::path::Path) {
         let entries = std::mem::replace(
             &mut self.ai.entries,
@@ -6904,6 +7010,7 @@ impl App {
             ],
         );
         let input = std::mem::take(&mut self.ai.input);
+        let awaiting = self.ai.awaiting.take();
         self.ai.input.paste("push both, then tag site as v2.1 and write a short note of what changed since v2.0 for its release page, in the voice of the last one\nbut leave notes alone if its tests fail");
         let text = self.ai.input.text();
         if let Some(at) = text.find("short") {
@@ -6915,7 +7022,13 @@ impl App {
         }
         self.ai.focus = true;
         self.capture(path, true);
+        // `/model`'s list over it, the next model down chosen.
+        self.ai.input = crate::panel_input::Input::default();
+        self.ai.model_pick = Some(1);
+        self.capture(&path.with_file_name("assistant-models.png"), true);
+        self.ai.model_pick = None;
         self.ai.entries = entries;
+        self.ai.awaiting = awaiting;
         self.ai.input = input;
         if self.ai.open != open {
             self.toggle_ai();
@@ -13271,6 +13384,11 @@ impl App {
                     p.selected = i;
                 }
             }
+            Chooser::Models => {
+                if self.ai.model_pick.is_some() && i < crate::ai::provider::model_list(self.config.ai.provider()).len() {
+                    self.ai.model_pick = Some(i);
+                }
+            }
             Chooser::History => {
                 if let Some(p) = self.history_panel.as_mut().filter(|p| i < p.found.len()) {
                     p.selected = i;
@@ -13542,7 +13660,10 @@ impl App {
                 None => Focus::Window,
             },
             Page::Find => Focus::Field(DialogKind::Find),
-            Page::Assistant => Focus::Panel,
+            Page::Assistant => match self.ai.model_pick {
+                Some(chosen) => Focus::Item(DialogKind::AiModels, 0, chosen),
+                None => Focus::Panel,
+            },
             _ => Focus::Window,
         }
     }
@@ -13663,6 +13784,31 @@ impl App {
                 lists: vec![List { label: t("history.title").to_string(), chooser: Chooser::History, items, chosen: Some(p.selected) }],
                 buttons,
                 active: (p.selected < p.found.len().min(MOST_READ)).then_some((0, p.selected)),
+            });
+        }
+        if let Some(chosen) = self.ai.model_pick.filter(|_| self.ai.open) {
+            let ai = &self.config.ai;
+            let items = crate::ai::provider::model_list(ai.provider())
+                .into_iter()
+                .enumerate()
+                .map(|(i, (provider, id, name))| {
+                    let detail = if provider == ai.provider() && id == ai.active_model() {
+                        t("access.model_in_use")
+                    } else if provider != ai.provider() {
+                        t("panel.models_new_conversation")
+                    } else {
+                        ""
+                    };
+                    Item { label: format!("{} {name}", provider.name()), detail: detail.to_string(), rect: self.rect_of(Hit::ModelPick(i)) }
+                })
+                .collect();
+            out.push(Dialog {
+                kind: DialogKind::AiModels,
+                title: t("panel.models_title").to_string(),
+                text: vec![t("panel.models_keys").to_string()],
+                lists: vec![List { label: t("panel.models_title").to_string(), chooser: Chooser::Models, items, chosen: Some(chosen) }],
+                active: Some((0, chosen)),
+                ..Dialog::default()
             });
         }
         if let Some(p) = &self.palette {

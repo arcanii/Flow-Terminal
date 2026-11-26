@@ -225,7 +225,10 @@ as in the terminal, to copy with `⌘C` or `Ctrl+Shift+C`, the menu's Copy or a
 right click, while the panel has the keys; on Linux it's the primary
 selection too.
 
-Panel commands: `/clear`, `/auto`, `/guide`, `/usage`, `/memory` (what the
+Panel commands: `/model` (a list of the models to choose from with ↑↓ and
+Enter; `/model sonnet` or `/model 2` puts one in use at once, and another
+provider's starts a new conversation),
+`/clear`, `/auto`, `/guide`, `/usage`, `/memory` (what the
 assistant remembers), `/undo` (puts back the files the task changed),
 `/skills` (lists your skills), `/settings`, `/about`, `/key`, `/forget`
 (removes the stored key).

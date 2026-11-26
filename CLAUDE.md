@@ -138,7 +138,7 @@ cargo run --release --example make_movie -- <dir>/oil oil.webp
   The current pictures were made on Windows, except `style-rain.png` (a
   downpour, `SHOWCASE_RAIN`),
   `style-water-below.png`, `style-none.png`, `style-crt.png`, `key.png`, `new-tab.png`, `tab-card.png`, `resources.png`, `settings.png`,
-  `settings-font.png`, `settings-apps.png`, `settings-skills.png`, `theme-gallery.png`, `find.png`, `palette.png`, `split.png`, `history.png`, `help.png`, `model.png`, `theme-home.webp`, `theme-green.png`, `theme-instruments.png`, `theme-amiga.png`, `settings-mcp.png`, `mcp-ask.png`, `settings-mcp-servers.png`, `mcp-call.png`, `mcp-ask-form.png`, `mcp-ask-link.png`, `assistant-files.png`, `assistant-drop.png` and `assistant-input.png` (macOS, scaled to 1650 × 1050
+  `settings-font.png`, `settings-apps.png`, `settings-skills.png`, `theme-gallery.png`, `find.png`, `palette.png`, `split.png`, `history.png`, `help.png`, `model.png`, `theme-home.webp`, `theme-green.png`, `theme-instruments.png`, `theme-amiga.png`, `settings-mcp.png`, `mcp-ask.png`, `settings-mcp-servers.png`, `mcp-call.png`, `mcp-ask-form.png`, `mcp-ask-link.png`, `assistant-files.png`, `assistant-drop.png`, `assistant-input.png` and `assistant-models.png` (macOS, scaled to 1650 × 1050
   from a 2× screen, but `new-tab.png`, `tab-card.png` and `resources.png`,
   kept at 2200 × 1400). `theme-home.webp` is the
   snapshot's `theme-home.png` through `cwebp -q 90 -m 6`, since its tube's
@@ -400,7 +400,15 @@ proxy.
   SDKs): Claude's Messages API (`ai/claude.rs`), OpenAI's Responses API
   (`ai/openai.rs`) and Gemini's streamGenerateContent (`ai/gemini.rs`).
   `ai/provider.rs` holds what they share: the `Provider` table (names, models,
-  keys, endpoints), errors, retries, SSE reading, and `Reply`, which hands the
+  keys, endpoints; `/model` opens `model_list` as a list over the panel's
+  input, `AiPanel::model_pick` the row chosen, `ui::draw_model_pick`
+  leaving the conversation a row, `App::model_pick_key` its keys (↑↓,
+  Home, End, Enter, a number, Esc; any other closes it and goes on),
+  `Hit::ModelPick` its clicks, readers' `DialogKind::AiModels` and
+  `Chooser::Models`; `/model` with words puts in use what `find_model`
+  names, `App::model_command`, `use_model`, through `set_provider` for
+  another provider's, saved at once, a notice in the conversation saying
+  which model answers; snapshots show `assistant-models.png`), errors, retries, SSE reading, and `Reply`, which hands the
   loop its tool calls and why it stopped. The history keeps the user's side as
   Claude's blocks and each reply in its provider's own form (`openai_item`
   items with encrypted reasoning, `gemini_part` parts with thought
@@ -789,7 +797,8 @@ proxy.
   (`toast.input_full`); `AiPanel::history` a `Recall`, the messages sent
   (`sent`, `MOST`), which ↑ on the first row and ↓ on the last go through
   (`older`, `newer`), keeping what was being typed and each edit made to
-  one (`edits`) until the next is sent. While `ai.memory` is on, each
+  one (`edits`) until the next is sent, `/` commands among them
+  (`App::remember_sent`). While `ai.memory` is on, each
   sent goes into the journal's table of its own, `sent`
   (`Journal::keep_sent`, the newest `SENT_KEPT`, none that `looks_secret`),
   which `App::new` begins it from (`Journal::sent`, `Recall::from_past`),

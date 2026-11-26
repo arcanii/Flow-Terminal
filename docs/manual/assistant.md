@@ -5,6 +5,24 @@
 Adding a key and opening the panel are in [Getting started](../../README.md#getting-started),
 and the panel's keys in [Flow's keys](keys.md).
 
+## Models
+
+Settings' **Provider** and **Model**, under Assistant, pick who answers and
+with which model. In the panel, `/model` opens a list of every model Flow
+offers over the input, numbered, the one in use marked ●: ↑ and ↓ choose
+(Home and End go to the ends), Enter or a click puts the one chosen in use
+and saves it, a model's number puts that one in use, and Esc, or any other
+key, closes the list. The conversation then says which model answers from
+now on, and the panel's header names it.
+
+![The assistant's panel with /model's list open over the input, Claude Sonnet 5.5 chosen and Claude Opus 5.5 in use](../screenshots/assistant-models.png)
+
+`/model` with a number, an id or a name puts one in use at once:
+`/model 2`, `/model claude-haiku-5-5`, `/model sonnet`, `/model gpt luna`.
+Words that fit several models, or none, say so and open the list. A model
+of another provider switches the provider too, which starts a new
+conversation, and asks for its key where it has none.
+
 ## Typing a request
 
 The input at the panel's foot grows a row at a time as what you type wraps,
@@ -29,7 +47,8 @@ It edits as any text field does:
   a run of typing comes back at once.
 - **Esc** lets go of a selection first, then clears the input.
 
-↑ on the input's first row brings back the request you sent before, and
+↑ on the input's first row brings back the request (or `/` command) you
+sent before, and
 ↓ on its last goes forward again, then back to what you were typing. A
 change you make to one is kept while you go through them, until you send.
 The last 200 are kept, and come back after Flow restarts too while

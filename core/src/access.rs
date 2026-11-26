@@ -242,6 +242,8 @@ pub enum DialogKind {
     Outside,
     /// An MCP server's question (`crate::mcp::client::elicit`).
     ServerAsk,
+    /// `/model`'s list of the assistant's models.
+    AiModels,
 }
 
 /// A list in a dialog, the one chosen in it, and what choosing does.
@@ -272,6 +274,8 @@ pub enum Chooser {
     Links,
     Packages,
     PackageThemes,
+    /// `/model`'s list of the assistant's models.
+    Models,
 }
 
 /// What has the keys.
