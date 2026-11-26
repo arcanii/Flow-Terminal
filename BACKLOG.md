@@ -1012,6 +1012,13 @@ it](docs/manual/keys.md)). Still to do:
 - **Tried in a live window:** Run, Copy reply and dragging, and the small
   Copy on a line in backticks and on a command's card, have been checked in
   unit tests and snapshots only.
+- **Ctrl+C clearing the input** (asked for on 2026-11-26, after trying
+  0.1.47's input on Linux; not urgent, since Ctrl+A then Delete clears it
+  already): off the Mac, Ctrl+C with nothing selected in the input could
+  empty it, as a shell's Ctrl+C drops the line typed, while with a
+  selection it still copies. What's cleared would be one step for Ctrl+Z
+  to bring back. To decide: whether a selection in the conversation
+  (which Ctrl+C copies now) comes first, and what the Mac's ⌃C does.
 
 ## Files dropped on the assistant
 
