@@ -138,7 +138,7 @@ cargo run --release --example make_movie -- <dir>/oil oil.webp
   The current pictures were made on Windows, except `style-rain.png` (a
   downpour, `SHOWCASE_RAIN`),
   `style-water-below.png`, `style-none.png`, `style-crt.png`, `key.png`, `new-tab.png`, `tab-card.png`, `resources.png`, `settings.png`,
-  `settings-font.png`, `settings-apps.png`, `settings-skills.png`, `theme-gallery.png`, `find.png`, `palette.png`, `split.png`, `history.png`, `help.png`, `model.png`, `theme-home.webp`, `theme-green.png`, `theme-instruments.png`, `theme-amiga.png`, `settings-mcp.png`, `mcp-ask.png`, `settings-mcp-servers.png`, `mcp-call.png`, `mcp-ask-form.png`, `mcp-ask-link.png`, `assistant-files.png` and `assistant-drop.png` (macOS, scaled to 1650 × 1050
+  `settings-font.png`, `settings-apps.png`, `settings-skills.png`, `theme-gallery.png`, `find.png`, `palette.png`, `split.png`, `history.png`, `help.png`, `model.png`, `theme-home.webp`, `theme-green.png`, `theme-instruments.png`, `theme-amiga.png`, `settings-mcp.png`, `mcp-ask.png`, `settings-mcp-servers.png`, `mcp-call.png`, `mcp-ask-form.png`, `mcp-ask-link.png`, `assistant-files.png`, `assistant-drop.png` and `assistant-input.png` (macOS, scaled to 1650 × 1050
   from a 2× screen, but `new-tab.png`, `tab-card.png` and `resources.png`,
   kept at 2200 × 1400). `theme-home.webp` is the
   snapshot's `theme-home.png` through `cwebp -q 90 -m 6`, since its tube's
@@ -674,7 +674,8 @@ proxy.
   layout, Esc, Run and Select All clear it (`App::relayout`).
 - The assistant's memory (`ai/memory.rs`, `ai.memory`, on at first): a
   journal in `assistant.sqlite3` beside config.toml (`Journal`: `tasks`, one
-  a conversation, and `steps`, trigram-indexed as the history is), which
+  a conversation, and `steps`, trigram-indexed as the history is; and
+  `sent`, the panel's messages as typed, for its input's ↑), which
   `App` writes by itself, `journal_ask` at each message of the user's
   (`send_to_assistant`, the first beginning `App::task`) and `journal_step`
   as each tool's outcome comes (a command in `finish_command`, files read
@@ -780,6 +781,44 @@ proxy.
   `own::helper_refuses`, its report its result (`helper_done`); they end
   with the turn (`end_helpers`). Snapshots show `helpers.png` (a stage of
   its own, `HELPERS_STAGE`) and `undo.png`.
+- The panel's input (`panel_input.rs`, `docs/design/assistant-input.md`):
+  `AiPanel::input` is a `panel_input::Input`, the text as characters, the
+  caret and the selection's other end (`anchor`), with its undo (`keep`,
+  a run of typing or of deleting one step, a paste, a cut or `set` one of
+  its own, `UNDOS`) and at most `Input::MOST` characters
+  (`toast.input_full`); `AiPanel::history` a `Recall`, the messages sent
+  (`sent`, `MOST`), which ↑ on the first row and ↓ on the last go through
+  (`older`, `newer`), keeping what was being typed and each edit made to
+  one (`edits`) until the next is sent. While `ai.memory` is on, each
+  sent goes into the journal's table of its own, `sent`
+  (`Journal::keep_sent`, the newest `SENT_KEPT`, none that `looks_secret`),
+  which `App::new` begins it from (`Journal::sent`, `Recall::from_past`),
+  so ↑ brings them back after a restart; Remembered's Clear forgets them. None of it draws, so it's tested
+  alone. `ui::draw_input` lays the text out in rows (`panel_input::rows`:
+  after a space, around Chinese and Japanese characters, or where a long
+  word runs out of room; a line break ends one), each character as wide
+  as `text::advance` says, which `Canvas` draws by too, up to a third of
+  the panel's height, the rows in view following the caret
+  (`Laid::follow`), what's selected under the text and what the input
+  method composes spliced in at the caret; it keeps them in
+  `AiPanel::input_laid` (`Laid`, by the input's `version`, a number no
+  other input has had, so a snapshot's put in its place is never taken
+  for it), which the keys (`rows_of`, laid out again where the text
+  changed since) and the mouse (`place_at`) go by. `App::ai_key` hands
+  the input's own keys to it, none of them in `keys::TABLE`: ⇧ with any
+  move selects, ⌥ (Ctrl) by word, ⌘← ⌘→ or Home and End the row's ends,
+  ⌘↑ ⌘↓ or Ctrl+Home and Ctrl+End the text's, ⇧Enter a new line, ⌘X and
+  ⌘Z (no menu item takes them) or elsewhere Ctrl+A, C, X, Z and Y, the
+  panel not being a shell (`cut_input`, `type_into_input`). Select All,
+  Copy and Paste go to the input while the panel has the keys
+  (`select_all`, `copy_selection`, its selection before the
+  conversation's, `paste_text`, keeping line breaks). A click in the input
+  puts the caret there, ⇧ selecting, two a word and three its line, and a
+  drag selects (`App::input_selecting`); a selection made there takes the
+  conversation's place, becomes Linux's primary selection, and a middle
+  click pastes where it's clicked. Readers get the selection
+  (`access::Field::anchor`, `selected_from`). Snapshots show
+  `assistant-input.png` (`App::show_input`).
 - Files for the assistant (`ai/files.rs`, `ai/office.rs`, `app/attach.rs`;
   `docs/design/assistant-files.md`): a file dropped on the panel
   (`App::file_dropped`, where `attach::drop_place` says from the pointer

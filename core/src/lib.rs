@@ -43,6 +43,7 @@ mod mosaic;
 mod mouse;
 mod notify;
 mod osc;
+mod panel_input;
 mod panes;
 pub mod pipe;
 pub mod platform;

@@ -13,10 +13,16 @@ they're bound.
 | `Ctrl+Space` | `⌃Space` | Open / focus / close the assistant panel |
 | `Win+.` (Windows) | `⌃⌘Space` or `fn E` | The system's emoji picker: what you pick is typed at the prompt or in the assistant's input |
 | `Enter` (panel) | `Enter` (panel) | Send your request; with a command waiting, run it |
+| `Shift+Enter` (panel) | `⇧Enter` or `⌥Enter` (panel) | A new line in your request |
+| `↑` / `↓` (panel) | same | Between the input's rows; past its first or last, the requests you sent before, then back to what you were typing |
+| click, drag, `Shift`+arrows (panel) | same | Put the caret there, or select; double-click a word, triple-click a line |
+| `Ctrl+←/→`, `Home` / `End`, `Ctrl+Home` / `Ctrl+End` (panel) | `⌥←/→`, `⌘←/→`, `⌘↑/↓` (panel) | By word, to the row's ends, to the input's ends |
+| `Ctrl+A` / `Ctrl+C` / `Ctrl+X` / `Ctrl+V` (panel) | `⌘A` / `⌘C` / `⌘X` / `⌘V` (panel) | Select all, copy, cut and paste in the input |
+| `Ctrl+Z` / `Ctrl+Y` (panel) | `⌘Z` / `⇧⌘Z` (panel) | Undo / redo in the input |
 | `E` / `S` (panel, command waiting) | same | Edit the command first / skip it |
 | typing + `Enter` while a command waits | same | Decline it and tell Claude why |
 | `Tab` (panel) | `Tab` (panel) | Switch guide ↔ auto mode |
-| `Esc` (panel) | `Esc` (panel) | Stop Claude, clear the input, or go back to the terminal |
+| `Esc` (panel) | `Esc` (panel) | Stop Claude, let go of a selection, clear the input, or go back to the terminal |
 | `Ctrl+L` (panel) | `⌃L` (panel) | Start a new conversation |
 | `Ctrl+Shift+T` | `⌘T` | New tab with the default shell (+ in the title bar too; … beside it picks the shell and the theme) |
 | `Ctrl+Shift+W` | `⌘W` | Close the tab (the last one closes Flow) |

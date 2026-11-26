@@ -17,7 +17,6 @@ use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
 use bytemuck::{Pod, Zeroable};
-use unicode_width::UnicodeWidthChar;
 use winit::window::Window;
 
 use atlas::{Atlas, CellMetrics, GlyphKey};
@@ -355,11 +354,7 @@ impl<'a> Canvas<'a> {
     /// except Chinese, Japanese and Korean, which are 1em wide in their
     /// fonts and would look spaced out over the terminal's two cells.
     fn advance(&self, ch: char) -> f32 {
-        match ch.width().unwrap_or(0) {
-            0 => 0.0,
-            _ if crate::text::is_cjk(ch) => self.cell.font_size.min(self.cell.width * 2.0),
-            w => self.cell.width * w as f32,
-        }
+        crate::text::advance(ch, self.cell.width, self.cell.font_size)
     }
 
     /// Width of one cell at font size `px`.

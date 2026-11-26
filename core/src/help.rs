@@ -337,8 +337,16 @@ const BOUND: [(&str, &str); 27] = [
 
 /// The keys the pages name that are inside Flow's own screens, which
 /// aren't bound: on the Mac, then elsewhere.
-const FIXED: [(&str, &str, &str); 11] = [
+const FIXED: [(&str, &str, &str); 18] = [
     ("find_pattern", "⌥⌘R", "Alt+R"),
+    // The assistant's input (`panel_input`).
+    ("input_rows", "⌘← ⌘→", "Home and End"),
+    ("input_ends", "⌘↑ ⌘↓", "Ctrl+Home and Ctrl+End"),
+    ("input_select_all", "⌘A", "Ctrl+A"),
+    ("input_copy", "⌘C", "Ctrl+C"),
+    ("input_cut", "⌘X", "Ctrl+X"),
+    ("input_undo", "⌘Z", "Ctrl+Z"),
+    ("input_redo", "⇧⌘Z", "Ctrl+Y"),
     ("new_conversation", "⌃L", "Ctrl+L"),
     ("dialog_paste", "⌘V", "Ctrl+V"),
     ("forget", "⌘⌫", "Shift+Delete"),

@@ -40,6 +40,9 @@ pub const FACTS_BYTES: usize = 8 * 1024;
 const FACT_CHARS: usize = 300;
 /// How long a task left working is offered to carry on.
 const OFFER_FOR: i64 = 7 * 24 * 3600 * 1000;
+/// The most messages sent from the panel kept, as many as ↑ goes back
+/// through.
+pub const SENT_KEPT: usize = crate::panel_input::Recall::MOST;
 /// What takes the place of an output line that looks like a secret.
 const SECRET_LEFT_OUT: &str = "[secret left out]";
 
@@ -371,8 +374,32 @@ impl Journal {
     /// Forgets everything.
     pub fn clear(&self) {
         if let Some(db) = &self.db {
-            log_err(db.execute_batch("DELETE FROM steps; DELETE FROM tasks; INSERT INTO steps_text(steps_text) VALUES ('rebuild'); VACUUM;"));
+            log_err(db.execute_batch("DELETE FROM steps; DELETE FROM tasks; DELETE FROM sent; INSERT INTO steps_text(steps_text) VALUES ('rebuild'); VACUUM;"));
         }
+    }
+
+    /// Keeps a message the user sent from the panel, as typed, for ↑ to
+    /// bring back after a restart (`panel_input::Recall`): not one that
+    /// looks like a secret, nor the newest again; only the newest
+    /// [`SENT_KEPT`].
+    pub fn keep_sent(&self, text: &str, at: i64) {
+        let Some(db) = &self.db else { return };
+        if looks_secret(text) || self.sent(1).last().is_some_and(|last| last == text) {
+            return;
+        }
+        log_err(db.execute("INSERT INTO sent (at, text) VALUES (?1, ?2)", params![at, text]));
+        log_err(db.execute("DELETE FROM sent WHERE id NOT IN (SELECT id FROM sent ORDER BY id DESC LIMIT ?1)", params![SENT_KEPT as i64]));
+    }
+
+    /// The newest `most` messages kept by [`Journal::keep_sent`], oldest
+    /// first.
+    pub fn sent(&self, most: usize) -> Vec<String> {
+        let Some(db) = &self.db else { return Vec::new() };
+        let found = db.prepare("SELECT text FROM (SELECT id, text FROM sent ORDER BY id DESC LIMIT ?1) ORDER BY id").and_then(|mut q| {
+            let rows = q.query_map(params![most as i64], |r| r.get::<_, String>(0))?;
+            rows.collect::<Result<Vec<_>, _>>()
+        });
+        log_err(found).unwrap_or_default()
     }
 }
 
@@ -439,6 +466,11 @@ fn prepare(db: &Connection) -> rusqlite::Result<()> {
             output TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS steps_task ON steps(task);
+        CREATE TABLE IF NOT EXISTS sent (
+            id INTEGER PRIMARY KEY,
+            at INTEGER NOT NULL,
+            text TEXT NOT NULL
+        );
         CREATE VIRTUAL TABLE IF NOT EXISTS steps_text USING fts5(text, output, content='steps', content_rowid='id', tokenize='trigram');
         CREATE TRIGGER IF NOT EXISTS steps_added AFTER INSERT ON steps BEGIN
             INSERT INTO steps_text(rowid, text, output) VALUES (new.id, new.text, new.output);
@@ -882,6 +914,25 @@ mod tests {
     }
 
     #[test]
+    fn messages_sent_are_kept_newest_last_but_secrets_and_repeats() {
+        let j = Journal::in_memory();
+        j.keep_sent("why is the build slow", 1);
+        j.keep_sent("why is the build slow", 2);
+        j.keep_sent("export GITHUB_TOKEN=ghp_madeupmadeupmadeupmadeupmadeup1234", 3);
+        j.keep_sent("check the disk\nthen the logs", 4);
+        assert_eq!(j.sent(10), ["why is the build slow", "check the disk\nthen the logs"]);
+        assert_eq!(j.sent(1), ["check the disk\nthen the logs"]);
+        for i in 0..SENT_KEPT + 3 {
+            j.keep_sent(&format!("message {i}"), 10 + i as i64);
+        }
+        let kept = j.sent(SENT_KEPT + 10);
+        assert_eq!(kept.len(), SENT_KEPT);
+        assert_eq!(kept.last().map(String::as_str), Some(format!("message {}", SENT_KEPT + 2).as_str()));
+        j.clear();
+        assert!(j.sent(10).is_empty());
+    }
+
+    #[test]
     fn a_task_left_for_a_restart_or_working_lately_is_offered_and_no_other() {
         let day = 24 * 3600 * 1000;
         let j = Journal::in_memory();
@@ -922,6 +973,15 @@ mod tests {
         j.save_own(t, Some("{}"));
         j.set_status(t, Status::Left);
         assert_eq!(j.task(t).unwrap().own, None);
+    }
+
+    #[test]
+    fn messages_sent_are_there_again_once_flow_starts_again() {
+        let dir = scratch("sent");
+        let path = dir.join(DB_NAME);
+        Journal::open(&path).keep_sent("show me what is using the most disk space", 1);
+        assert_eq!(Journal::open(&path).sent(10), ["show me what is using the most disk space"]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

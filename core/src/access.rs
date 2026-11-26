@@ -138,6 +138,9 @@ pub struct Field {
     pub placeholder: String,
     pub lines: Vec<String>,
     pub caret: (usize, usize),
+    /// Where the selection began, the caret being its other end, if
+    /// something is selected.
+    pub anchor: Option<(usize, usize)>,
     pub multiline: bool,
     /// An API key, which Flow never shows: read as dots.
     pub secret: bool,
@@ -155,18 +158,29 @@ impl Field {
     /// `text`, its lines parted by `\n`, with the caret `caret` letters in.
     pub fn text(label: impl Into<String>, placeholder: impl Into<String>, text: &str, caret: usize, rect: Option<Rect>) -> Self {
         let lines: Vec<String> = text.split('\n').map(str::to_string).collect();
-        let mut left = caret;
-        let mut at = (lines.len() - 1, lines.last().map_or(0, |l| l.chars().count()));
-        for (i, line) in lines.iter().enumerate() {
-            let n = line.chars().count();
-            if left <= n {
-                at = (i, left);
-                break;
-            }
-            left -= n + 1;
-        }
+        let at = line_and_letter(&lines, caret);
         Field { label: label.into(), placeholder: placeholder.into(), multiline: lines.len() > 1, lines, caret: at, rect, ..Field::default() }
     }
+
+    /// The field with what's selected from `anchor` letters in to the caret.
+    pub fn selected_from(mut self, anchor: Option<usize>) -> Self {
+        self.anchor = anchor.map(|a| line_and_letter(&self.lines, a));
+        self
+    }
+}
+
+/// The line and the letter along it that letter `at` of `lines`, parted by
+/// line breaks, is at.
+fn line_and_letter(lines: &[String], at: usize) -> (usize, usize) {
+    let mut left = at;
+    for (i, line) in lines.iter().enumerate() {
+        let n = line.chars().count();
+        if left <= n {
+            return (i, left);
+        }
+        left -= n + 1;
+    }
+    (lines.len() - 1, lines.last().map_or(0, |l| l.chars().count()))
 }
 
 /// Settings, as a dialog: its rows as `settings::entries` builds them, each
@@ -553,20 +567,26 @@ impl Build {
             false => f.lines.clone(),
         };
         let mut children = Vec::new();
-        let mut caret = None;
+        let (mut caret, mut anchor) = (None, None);
         let (cl, cc) = (f.caret.0.min(lines.len() - 1), f.caret.1);
+        let (al, ac) = f.anchor.map_or((usize::MAX, 0), |(l, c)| (l.min(lines.len() - 1), c));
         for (i, line) in lines.iter().enumerate() {
             let newline = i + 1 < lines.len();
             let runs = self.runs(|p| run_id(i, p), line, None, newline, None, 0.0);
+            let n = line.chars().count();
             if i == cl {
-                let (run, at) = run_place(line.chars().count(), cc.min(line.chars().count()));
+                let (run, at) = run_place(n, cc.min(n));
                 caret = Some(TextPosition { node: runs[run], character_index: at });
+            }
+            if i == al {
+                let (run, at) = run_place(n, ac.min(n));
+                anchor = Some(TextPosition { node: runs[run], character_index: at });
             }
             children.extend(runs);
         }
         node.set_children(children);
         if let Some(at) = caret {
-            node.set_text_selection(TextSelection { anchor: at, focus: at });
+            node.set_text_selection(TextSelection { anchor: anchor.unwrap_or(at), focus: at });
         }
         if let Some(r) = f.rect {
             node.set_bounds(bounds(r));

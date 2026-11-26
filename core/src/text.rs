@@ -113,6 +113,19 @@ fn link_at(chars: &[char], start: usize) -> Option<(String, String, usize)> {
 
 /// Greedy word wrap of styled spans to `cols` columns. Continuation lines get
 /// `indent` leading spaces.
+/// How far a character moves the pen in the interface's text, a cell being
+/// `cell` wide in a font of `em`: its cells, except Chinese, Japanese and
+/// Korean, which are 1em wide in their fonts and would look spaced out over
+/// the terminal's two cells. `Canvas` draws by it, and the panel's input
+/// lays out its rows by it between frames.
+pub fn advance(ch: char, cell: f32, em: f32) -> f32 {
+    match ch.width().unwrap_or(0) {
+        0 => 0.0,
+        _ if is_cjk(ch) => em.min(cell * 2.0),
+        w => cell * w as f32,
+    }
+}
+
 /// Chinese, Japanese and Korean characters: two cells in the terminal, but
 /// drawn 1em wide in the interface's own text, as their fonts make them.
 /// Text in them breaks between any two, as their languages do.

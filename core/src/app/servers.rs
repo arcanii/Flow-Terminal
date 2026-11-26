@@ -1212,7 +1212,7 @@ impl App {
         let link = elicit::LinkAsk { message: "Connect your rail account so the notes can show your seat bookings.".into(), url: "https://notes.example.com/connect/rail?session=8f2c41".into(), id: "e1".into() };
         snap(self, AskCard::link("notes", Purpose::Server { id: json!(2) }, link), "mcp-ask-link.png");
         self.ai.entries = entries;
-        self.ai.set_input(input);
+        self.ai.input = input;
         let ai = &mut self.config.ai;
         (ai.mcp_tools_on, ai.mcp_approval, ai.mcp_resources_on) = (on, approval, resources);
     }

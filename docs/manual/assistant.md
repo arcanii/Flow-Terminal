@@ -5,6 +5,37 @@
 Adding a key and opening the panel are in [Getting started](../../README.md#getting-started),
 and the panel's keys in [Flow's keys](keys.md).
 
+## Typing a request
+
+The input at the panel's foot grows a row at a time as what you type wraps,
+up to a third of the panel, then scrolls to keep the caret in view, so a
+long request shows whole. Shift+Enter (or ⌥Enter on the Mac) starts a new
+line, and a paste keeps its lines; Enter sends.
+
+![The assistant's input holding a request of two lines, the first wrapped, with a word selected](../screenshots/assistant-input.png)
+
+It edits as any text field does:
+- **Click** puts the caret there, **drag** or **Shift+click** selects,
+  **double-click** takes a word and **triple-click** its line.
+- **Shift** with any move selects: the arrows, by word (⌥ on the Mac, Ctrl
+  elsewhere), to the row's ends (⌘← ⌘→, or Home and End) and to the text's
+  (⌘↑ ⌘↓, or Ctrl+Home and Ctrl+End).
+- **Select all, copy, cut and paste** are ⌘A, ⌘C, ⌘X and ⌘V on the Mac,
+  and Ctrl+A, Ctrl+C, Ctrl+X and Ctrl+V elsewhere, since the panel isn't a
+  shell (Ctrl+Shift+C and V, Ctrl+Insert, Shift+Insert and Shift+Delete
+  work too). Typing replaces what's selected. On Linux what you select is
+  the primary selection, and a middle click pastes it where you click.
+- **Undo** is ⌘Z (⇧⌘Z again), or Ctrl+Z (Ctrl+Y or Ctrl+Shift+Z again):
+  a run of typing comes back at once.
+- **Esc** lets go of a selection first, then clears the input.
+
+↑ on the input's first row brings back the request you sent before, and
+↓ on its last goes forward again, then back to what you were typing. A
+change you make to one is kept while you go through them, until you send.
+The last 200 are kept, and come back after Flow restarts too while
+[Memory](#memory) is on, which keeps them in its journal; one that looks
+like it holds a password, a token or a key is kept only until Flow quits.
+
 ## Ask why
 
 When a command you ran fails (any exit code but 0, and not Ctrl+C's 130),
@@ -622,6 +653,9 @@ Flow or of the computer, and what was already tried isn't tried again:
   long it took, but never its arguments or answer. The assistant searches it
   (`search_journal`) before repeating a diagnosis, or when you ask about
   earlier work. The last 500 tasks are kept.
+- **What you sent from the panel**, as you typed it, the last 200, so ↑ in
+  its input brings them back after Flow restarts ([Typing a
+  request](#typing-a-request)). They're never sent to the provider.
 - **Facts** worth keeping for later (this computer's GPU and its driver, how
   you install software), which the assistant keeps with `remember` and drops
   with `forget`, a line each in `assistant-memory.txt` beside `config.toml`,

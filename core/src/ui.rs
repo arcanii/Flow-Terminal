@@ -630,16 +630,16 @@ pub enum Entry {
 pub struct AiPanel {
     pub open: bool,
     pub focus: bool,
-    pub input: String,
-    /// Cursor position in chars.
-    pub caret: usize,
+    /// The message being typed, its caret and what's selected
+    /// (`docs/design/assistant-input.md`).
+    pub input: crate::panel_input::Input,
     pub entries: Vec<Entry>,
     pub busy: bool,
     pub auto_mode: bool,
     /// Rows scrolled up from the bottom.
     pub scroll: usize,
-    pub history: Vec<String>,
-    pub history_pos: Option<usize>,
+    /// The messages sent, which ↑ and ↓ bring back.
+    pub history: crate::panel_input::Recall,
     /// Card index awaiting approval, if any.
     pub awaiting: Option<usize>,
     pub editing: Option<usize>,
@@ -650,6 +650,8 @@ pub struct AiPanel {
     /// The conversation as the last frame laid it out, for the mouse and
     /// Copy, which can't measure text themselves.
     pub laid: RefCell<PanelLaid>,
+    /// The input as the last frame laid it out, for the keys and the mouse.
+    pub input_laid: RefCell<crate::panel_input::Laid>,
     /// The task's steps the assistant set, pinned under the header while
     /// there are some.
     pub steps: Vec<(String, StepStatus)>,
@@ -731,18 +733,17 @@ impl AiPanel {
         Self {
             open: false,
             focus: false,
-            input: String::new(),
-            caret: 0,
+            input: crate::panel_input::Input::default(),
             entries: Vec::new(),
             busy: false,
             auto_mode,
             scroll: 0,
-            history: Vec::new(),
-            history_pos: None,
+            history: crate::panel_input::Recall::default(),
             awaiting: None,
             editing: None,
             selection: None,
             laid: RefCell::new(PanelLaid::default()),
+            input_laid: RefCell::new(crate::panel_input::Laid::default()),
             steps: Vec::new(),
             files: Vec::new(),
             reading: Vec::new(),
@@ -756,36 +757,10 @@ impl AiPanel {
         Some(laid.text_between(a, b)).filter(|text| !text.trim().is_empty())
     }
 
-    pub fn insert(&mut self, s: &str) {
-        let byte = self.byte_at(self.caret);
-        self.input.insert_str(byte, s);
-        self.caret += s.chars().count();
-    }
-
-    pub fn backspace(&mut self) {
-        if self.caret > 0 {
-            let start = self.byte_at(self.caret - 1);
-            let end = self.byte_at(self.caret);
-            self.input.replace_range(start..end, "");
-            self.caret -= 1;
-        }
-    }
-
-    pub fn delete(&mut self) {
-        if self.caret < self.input.chars().count() {
-            let start = self.byte_at(self.caret);
-            let end = self.byte_at(self.caret + 1);
-            self.input.replace_range(start..end, "");
-        }
-    }
-
+    /// Puts `s` in the input in place of what's there, the caret at its
+    /// end.
     pub fn set_input(&mut self, s: String) {
-        self.caret = s.chars().count();
-        self.input = s;
-    }
-
-    fn byte_at(&self, chars: usize) -> usize {
-        self.input.char_indices().nth(chars).map(|(i, _)| i).unwrap_or(self.input.len())
+        self.input.set(&s);
     }
 
     /// Appends streamed assistant text, merging with the last text entry.
@@ -2576,6 +2551,130 @@ fn underline_composed(c: &mut Canvas<'_>, y: f32, spans: &[(f32, f32, Option<boo
     }
 }
 
+/// The panel's input at the foot of panel `p`: a box of the rows its text
+/// wraps to, up to a third of the panel's height, scrolled to keep the
+/// caret's row in view, with what's selected under the text and what the
+/// input method is composing spliced in at the caret (`panel_input`).
+/// Keeps where it all went for the keys and the mouse. Returns the top of
+/// the chips above it and where the caret is, for the input method.
+fn draw_input(c: &mut Canvas<'_>, v: &View<'_>, p: Rect, hits: &mut Vec<(Rect, Hit)>) -> (f32, Option<Rect>) {
+    use crate::panel_input::{self, Laid};
+    let ai = v.ai;
+    let s = v.layout.scale;
+    let (cw, ch) = (c.cell.width, c.cell.height);
+    let (cell, em) = (c.cell.width, c.cell.font_size);
+    let width = |chr: char| crate::text::advance(chr, cell, em);
+    let (input_x, input_w) = (p.x + 8.0 * s, p.w - 16.0 * s);
+    let text_x = input_x + 10.0 * s + c.text_width("› ");
+    let attach = t("attach.button");
+    let attach_x = input_x + input_w - 8.0 * s - small_button_w(c, attach, s);
+    let room = ((attach_x - 8.0 * s) - text_x).max(4.0 * cw);
+
+    // What's shown: the text, with what the input method composes at the
+    // caret, each composed character marked Some(converting).
+    let preedit = v.preedit.filter(|_| ai.focus);
+    let marked = preedit.map(|p| p.marked());
+    let typed = ai.input.chars();
+    let at = ai.input.caret();
+    let chars: std::borrow::Cow<'_, [char]> = match &marked {
+        Some(marked) => typed[..at].iter().copied().chain(marked.iter().map(|&(chr, _)| chr)).chain(typed[at..].iter().copied()).collect::<Vec<_>>().into(),
+        None => typed.into(),
+    };
+    let composed = marked.as_ref().map_or(at..at, |m| at..at + m.len());
+    let caret_at = match (&marked, preedit) {
+        (Some(m), Some(p)) => at + p.caret().unwrap_or(m.len()),
+        _ => at,
+    };
+    let mut laid = ai.input_laid.borrow_mut();
+    let fresh = marked.is_none() && laid.version == ai.input.version() && laid.room == room && (laid.cell, laid.em) == (cell, em) && !laid.rows.is_empty();
+    let rows = if fresh { laid.rows.clone() } else { panel_input::rows(&chars, width, room) };
+    let most = ((p.h / 3.0) / ch).floor().max(1.0) as usize;
+    let shown = rows.len().min(most);
+    let caret_row = panel_input::row_of(&rows, caret_at);
+    let first = Laid::follow(laid.first, caret_row, rows.len(), shown);
+    let input_h = shown as f32 * ch + 14.0 * s;
+    let input = Rect::new(input_x, p.y + p.h - input_h - 8.0 * s, input_w, input_h);
+    let top = input.y + 7.0 * s;
+    (laid.room, laid.cell, laid.em, laid.first, laid.shown) = (room, cell, em, first, shown);
+    (laid.left, laid.top, laid.row_h, laid.area) = (text_x, top, ch, input);
+    if marked.is_none() {
+        laid.version = ai.input.version();
+        laid.rows = rows.clone();
+    }
+    drop(laid);
+
+    c.rect(input.x, input.y, input.w, input.h, rgba([255, 255, 255], if ai.focus { 0.07 } else { 0.035 }), 10.0 * s);
+    if ai.focus {
+        c.outline(input.x, input.y, input.w, input.h, rgba(ACCENT, 0.45), 10.0 * s, 1.0);
+    }
+    if first == 0 {
+        c.text(input_x + 10.0 * s, top, "› ", rgba(ACCENT, 1.0), true);
+    }
+    // Attach, at the input's right end, on its last row.
+    small_button(c, v, (attach_x, top + (shown - 1) as f32 * ch), attach, DIM, Hit::Attach, hits);
+    // The files to go with the next message, in rows of chips above it.
+    let chips_top = draw_chips(c, v, Rect::new(input.x, p.y, input.w, input.y - p.y), hits);
+    let along = |from: usize, to: usize| chars[from..to.max(from)].iter().map(|&chr| width(chr)).sum::<f32>();
+    let blink = 0.55 + 0.45 * (v.time * 4.0).sin().abs();
+    if chars.is_empty() {
+        let plan = ai.awaiting.and_then(|i| ai.entries.get(i)).is_some_and(|e| matches!(e, Entry::Tool(card) if card.plan));
+        let placeholder = if plan {
+            t("panel.placeholder_plan").to_string()
+        } else if ai.awaiting.is_some() {
+            t("panel.placeholder_approve").to_string()
+        } else if ai.busy {
+            tf("panel.placeholder_busy", &[("name", &v.provider.name())])
+        } else {
+            t("panel.placeholder").to_string()
+        };
+        c.text(text_x, top, &placeholder, rgba(DIM, 0.6), false);
+        if ai.focus {
+            c.rect(text_x, top, 2.0 * s, ch, rgba(ACCENT, blink), 1.0);
+            return (chips_top, Some(Rect::new(text_x, top, cw, ch)));
+        }
+        return (chips_top, None);
+    }
+    // What's selected, under the text; none while the input method
+    // composes. A line break selected shows as half a cell after its row.
+    let selection = ai.input.selection().filter(|_| marked.is_none());
+    for (k, row) in rows.iter().enumerate().skip(first).take(shown) {
+        let y = top + (k - first) as f32 * ch;
+        if let Some(sel) = &selection {
+            let (from, to) = (sel.start.max(row.start), sel.end.min(row.end));
+            let tail = if row.broken && sel.start <= row.end && sel.end > row.end { cw * 0.5 } else { 0.0 };
+            if to > from || tail > 0.0 {
+                let x0 = text_x + along(row.start, from);
+                let x1 = (text_x + along(row.start, to) + tail).min(text_x + room + cw);
+                c.rect(x0, y, x1 - x0, ch, rgba(ACCENT, if ai.focus { 0.28 } else { 0.14 }), 2.0 * s);
+            }
+        }
+        let mut cx = text_x;
+        let mut spans = Vec::new();
+        for (i, &chr) in chars.iter().enumerate().take(row.end).skip(row.start) {
+            if cx > text_x + room {
+                break;
+            }
+            let next = c.text(cx, y, chr.encode_utf8(&mut [0; 4]), rgba(FOREGROUND, 1.0), false);
+            if composed.contains(&i) {
+                let converting = marked.as_ref().is_some_and(|m| m[i - composed.start].1);
+                spans.push((cx, next, Some(converting)));
+            }
+            cx = next;
+        }
+        underline_composed(c, y + c.cell.baseline + 2.0, &spans, rgba(FOREGROUND, 0.9), s);
+    }
+    if !ai.focus || !(first..first + shown).contains(&caret_row) {
+        return (chips_top, None);
+    }
+    let y = top + (caret_row - first) as f32 * ch;
+    let x = (text_x + along(rows[caret_row].start, caret_at)).min(text_x + room);
+    // No caret while the input method converts.
+    if preedit.is_none_or(|p| p.caret().is_some()) {
+        c.rect(x, y, 2.0 * s, ch, rgba(ACCENT, blink), 1.0);
+    }
+    (chips_top, Some(Rect::new(x, y, cw, ch)))
+}
+
 /// A line of typed text from `at`, with what the input method is composing
 /// spliced in at `caret` (in chars) and underlined, heavier where it's being
 /// converted. It scrolls sideways to keep the caret within `room`. Returns
@@ -2915,52 +3014,7 @@ fn draw_panel(c: &mut Canvas<'_>, v: &View<'_>, p: Rect, hits: &mut Vec<(Rect, H
         hits.push((r, Hit::Stop));
     }
 
-    // Input line
-    let input_h = ch + 14.0 * s;
-    let input = Rect::new(p.x + 8.0 * s, p.y + p.h - input_h - 8.0 * s, p.w - 16.0 * s, input_h);
-    c.rect(input.x, input.y, input.w, input.h, rgba([255, 255, 255], if ai.focus { 0.07 } else { 0.035 }), 10.0 * s);
-    if ai.focus {
-        c.outline(input.x, input.y, input.w, input.h, rgba(ACCENT, 0.45), 10.0 * s, 1.0);
-    }
-    let iy = input.y + (input.h - ch) * 0.5;
-    let ix = c.text(input.x + 10.0 * s, iy, "› ", rgba(ACCENT, 1.0), true);
-    // Attach, at the input's right end.
-    let attach = t("attach.button");
-    let attach_x = input.x + input.w - 8.0 * s - small_button_w(c, attach, s);
-    small_button(c, v, (attach_x, iy), attach, DIM, Hit::Attach, hits);
-    let room = ((attach_x - 8.0 * s) - ix).max(4.0 * cw);
-    // The files to go with the next message, in rows of chips above it.
-    let chips_top = draw_chips(c, v, Rect::new(input.x, p.y, input.w, input.y - p.y), hits);
-    let preedit = v.preedit.filter(|_| ai.focus);
-    let mut caret = None;
-    if ai.input.is_empty() && preedit.is_none() {
-        let plan = ai.awaiting.and_then(|i| ai.entries.get(i)).is_some_and(|e| matches!(e, Entry::Tool(card) if card.plan));
-        let placeholder = if plan {
-            t("panel.placeholder_plan").to_string()
-        } else if ai.awaiting.is_some() {
-            t("panel.placeholder_approve").to_string()
-        } else if ai.busy {
-            tf("panel.placeholder_busy", &[("name", &v.provider.name())])
-        } else {
-            t("panel.placeholder").to_string()
-        };
-        c.text(ix, iy, &placeholder, rgba(DIM, 0.6), false);
-        if ai.focus {
-            let a = 0.55 + 0.45 * (v.time * 4.0).sin().abs();
-            c.rect(ix, iy, 2.0 * s, ch, rgba(ACCENT, a), 1.0);
-            caret = Some(Rect::new(ix, iy, cw, ch));
-        }
-    } else {
-        let (caret_x, _) = input_line(c, (ix, iy), room, &ai.input, ai.caret, preedit, s);
-        if ai.focus {
-            // No caret while the input method converts.
-            if preedit.is_none_or(|p| p.caret().is_some()) {
-                let a = 0.55 + 0.45 * (v.time * 4.0).sin().abs();
-                c.rect(caret_x, iy, 2.0 * s, ch, rgba(ACCENT, a), 1.0);
-            }
-            caret = Some(Rect::new(caret_x, iy, cw, ch));
-        }
-    }
+    let (chips_top, caret) = draw_input(c, v, p, hits);
 
     // The task's steps, pinned under the header, then the conversation,
     // bottom-aligned above the input.

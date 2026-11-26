@@ -673,6 +673,8 @@ pub struct App {
     shown_drop: Option<attach::DropPlace>,
     /// A drag selecting text in the assistant's conversation.
     panel_selecting: bool,
+    /// A drag from a click in the panel's input, selecting as it goes.
+    input_selecting: bool,
     /// The line between two panes being dragged: the way to its split in
     /// the tab in front, and the room it moves in.
     dragging_divider: Option<(Vec<bool>, ui::Rect)>,
@@ -1005,6 +1007,8 @@ impl App {
         // Snapshots and recordings run commands of their own, not the user's.
         let history = if snapshot_dir.is_some() { History::in_memory() } else { History::open(&crate::config::config_dir().join("history.sqlite3")) };
         let memory = if snapshot_dir.is_some() || record { Memory::in_memory() } else { Memory::open(&crate::config::config_dir()) };
+        // The messages sent from the panel before, for ↑ to bring back.
+        let sent_before = if config.ai.memory { memory.journal.sent(crate::panel_input::Recall::MOST) } else { Vec::new() };
         let undo = if snapshot_dir.is_some() || record { crate::ai::undo::Undo::none() } else { crate::ai::undo::Undo::open(&crate::config::config_dir()) };
         let assistant_dir = (snapshot_dir.is_none() && !record).then(crate::config::config_dir);
         // Snapshots and recordings never call the API, so they leave the
@@ -1048,7 +1052,7 @@ impl App {
             pane_looks: HashMap::new(),
             resources: Resources::default(),
             machine_seed: std::cell::OnceCell::new(),
-            ai: AiPanel::new(config.ai.auto_mode),
+            ai: AiPanel { history: crate::panel_input::Recall::from_past(sent_before), ..AiPanel::new(config.ai.auto_mode) },
             // No key yet is fine: the panel says where to add one, and the
             // user picks the provider in Settings first.
             key_dialog: None,
@@ -1073,6 +1077,7 @@ impl App {
             pasted_pictures: 0,
             shown_drop: None,
             panel_selecting: false,
+            input_selecting: false,
             dragging_divider: None,
             dragging_scrollbar: None,
             sizing_window: None,
@@ -2263,8 +2268,13 @@ impl App {
     }
 
     fn copy_selection(&mut self) -> bool {
-        // The panel's words, while it has the keys: in the terminal, Ctrl+C
-        // with no selection of the terminal's is the program's.
+        // The panel's words, while it has the keys, its input's first: in
+        // the terminal, Ctrl+C with no selection of the terminal's is the
+        // program's.
+        if let Some(text) = self.ai.input.selected().filter(|_| self.ai.focus) {
+            self.copy_out(text);
+            return true;
+        }
         if let Some(text) = self.ai.selected_text().filter(|_| self.ai.focus) {
             self.ai.selection = None;
             self.copy_out(text);
@@ -2286,12 +2296,17 @@ impl App {
 
     /// For context menus and menu bars, which grey out Copy without a selection.
     fn has_selection(&self) -> bool {
-        self.ai.selected_text().is_some_and(|_| self.ai.focus) || self.session().is_some_and(|s| s.emu.lock().term.selection.as_ref().is_some_and(|sel| !sel.is_empty()))
+        (self.ai.focus && (self.ai.input.selection().is_some() || self.ai.selected_text().is_some())) || self.session().is_some_and(|s| s.emu.lock().term.selection.as_ref().is_some_and(|sel| !sel.is_empty()))
     }
 
-    /// Selects the whole scrollback and screen.
+    /// Selects the whole scrollback and screen, or, while the panel has
+    /// the keys, all its input holds.
     fn select_all(&mut self) {
         self.ai.selection = None;
+        if self.ai.focus && self.ai.open {
+            self.ai.input.select_all();
+            return;
+        }
         let Some(s) = self.session() else { return };
         let mut emu = s.emu.lock();
         let term = &mut emu.term;
@@ -2471,8 +2486,11 @@ impl App {
             f.query.push_str(text.lines().next().unwrap_or_default());
             self.search_find(true);
         } else if self.ai.focus {
-            let one_line = text.replace("\r\n", " ").replace('\n', " ");
-            self.ai.insert(&one_line);
+            // Its line breaks kept: the input takes several lines.
+            if !self.ai.input.paste(&text) {
+                self.show_toast(tf("toast.input_full", &[("most", &crate::panel_input::Input::MOST)]));
+            }
+            self.ai.selection = None;
         } else if let Some(s) = self.session() {
             let bracketed = s.emu.lock().term.mode().contains(TermMode::BRACKETED_PASTE);
             s.write(&paste_bytes(&text, bracketed));
@@ -3091,7 +3109,7 @@ impl App {
             self.search_find(true);
         } else if self.ai.focus {
             let clean: String = text.chars().filter(|c| !c.is_control()).collect();
-            self.ai.insert(&clean);
+            self.type_into_input(&clean);
         } else if let Some(s) = self.session() {
             s.write(text.as_bytes());
             self.typing_in_terminal();
@@ -3178,24 +3196,45 @@ impl App {
         self.request_redraw();
     }
 
+    /// A key for the panel's input, while the panel has the keys
+    /// (`docs/design/assistant-input.md`). A selection made in the input
+    /// takes the place of the conversation's.
     fn ai_key(&mut self, event: &KeyEvent, ctrl: bool, base: &str) {
+        self.input_key(event, ctrl, base);
+        if self.ai.input.selection().is_some() {
+            self.ai.selection = None;
+        }
+    }
+
+    fn input_key(&mut self, event: &KeyEvent, ctrl: bool, base: &str) {
+        let mac = cfg!(target_os = "macos");
+        let (shift, alt) = (self.modifiers.shift_key(), self.modifiers.alt_key());
+        // A word at a time: ⌥ on the Mac, Ctrl elsewhere.
+        let by_word = if mac { alt } else { ctrl };
+        let measure = self.ai.input_laid.borrow().clone();
+        let rows = measure.rows_of(&self.ai.input);
+        let width = |c: char| measure.width(c);
         let ai = &mut self.ai;
-        if cfg!(target_os = "macos") && self.modifiers.super_key() {
-            // ⌘← ⌘→ jump to the ends of the input and ⌘⌫ deletes to its
-            // start. Other ⌘ keys are menu shortcuts, never typed text.
+        if mac && self.modifiers.super_key() {
+            // ⌘← ⌘→ go to the row's ends, ⌘↑ ⌘↓ the text's, and ⌘⌫
+            // deletes to the row's start; ⌘X and ⌘Z, which no menu item
+            // takes, cut and undo. Other ⌘ keys are menu shortcuts.
             match &event.logical_key {
-                Key::Named(NamedKey::ArrowLeft) => ai.caret = 0,
-                Key::Named(NamedKey::ArrowRight) => ai.caret = ai.input.chars().count(),
-                Key::Named(NamedKey::Backspace) => {
-                    let rest: String = ai.input.chars().skip(ai.caret).collect();
-                    ai.set_input(rest);
-                    ai.caret = 0;
-                }
+                Key::Named(NamedKey::ArrowLeft) => ai.input.home(&rows, shift),
+                Key::Named(NamedKey::ArrowRight) => ai.input.end(&rows, shift),
+                Key::Named(NamedKey::ArrowUp) => ai.input.top(shift),
+                Key::Named(NamedKey::ArrowDown) => ai.input.bottom(shift),
+                Key::Named(NamedKey::Backspace) => ai.input.backspace_row(&rows),
+                _ if base == "x" => self.cut_input(),
+                _ if base == "z" && shift => _ = ai.input.redo(),
+                _ if base == "z" => _ = ai.input.undo(),
                 _ => {}
             }
             return;
         }
         match &event.logical_key {
+            // ⇧Enter (or ⌥Enter) starts a new line; Enter sends.
+            Key::Named(NamedKey::Enter) if shift || alt => _ = ai.input.type_text("\n"),
             Key::Named(NamedKey::Enter) => self.submit_ai(),
             Key::Named(NamedKey::Escape) => {
                 if ai.editing.is_some() {
@@ -3205,6 +3244,7 @@ impl App {
                     self.resolve_approval(Approval::Skip(None));
                 } else if ai.busy || self.tools.is_some() {
                     self.stop_ai();
+                } else if ai.input.end_selection() {
                 } else if !ai.input.is_empty() {
                     ai.set_input(String::new());
                 } else {
@@ -3213,38 +3253,54 @@ impl App {
                 }
             }
             Key::Named(NamedKey::Tab) => self.toggle_mode(),
-            Key::Named(NamedKey::Backspace) => ai.backspace(),
-            Key::Named(NamedKey::Delete) => ai.delete(),
-            Key::Named(NamedKey::ArrowLeft) => ai.caret = ai.caret.saturating_sub(1),
-            Key::Named(NamedKey::ArrowRight) => ai.caret = (ai.caret + 1).min(ai.input.chars().count()),
-            Key::Named(NamedKey::Home) => ai.caret = 0,
-            Key::Named(NamedKey::End) => ai.caret = ai.input.chars().count(),
+            Key::Named(NamedKey::Backspace) if by_word => ai.input.backspace_word(),
+            Key::Named(NamedKey::Backspace) => ai.input.backspace(),
+            // Shift+Delete cuts, as Windows' fields have it.
+            Key::Named(NamedKey::Delete) if shift && !mac => self.cut_input(),
+            Key::Named(NamedKey::Delete) if by_word => ai.input.delete_word(),
+            Key::Named(NamedKey::Delete) => ai.input.delete(),
+            Key::Named(NamedKey::ArrowLeft) if by_word => ai.input.word_left(shift),
+            Key::Named(NamedKey::ArrowLeft) => ai.input.left(shift),
+            Key::Named(NamedKey::ArrowRight) if by_word => ai.input.word_right(shift),
+            Key::Named(NamedKey::ArrowRight) => ai.input.right(shift),
+            Key::Named(NamedKey::Home) if ctrl && !mac => ai.input.top(shift),
+            Key::Named(NamedKey::Home) => ai.input.home(&rows, shift),
+            Key::Named(NamedKey::End) if ctrl && !mac => ai.input.bottom(shift),
+            Key::Named(NamedKey::End) => ai.input.end(&rows, shift),
+            // Between rows; past the first, the message sent before, the
+            // caret at its start so ↑ goes on back, and past the last the
+            // one after, back to what was being typed.
             Key::Named(NamedKey::ArrowUp) => {
-                if !ai.history.is_empty() {
-                    let pos = ai.history_pos.map(|p| p.saturating_sub(1)).unwrap_or(ai.history.len() - 1);
-                    ai.history_pos = Some(pos);
-                    let h = ai.history[pos].clone();
-                    ai.set_input(h);
+                if !ai.input.up(&rows, &width, shift) && !shift && ai.editing.is_none() {
+                    if let Some(older) = ai.history.older(&ai.input.text()) {
+                        ai.input.set(&older);
+                        ai.input.top(false);
+                    }
                 }
             }
             Key::Named(NamedKey::ArrowDown) => {
-                if let Some(pos) = ai.history_pos {
-                    if pos + 1 < ai.history.len() {
-                        ai.history_pos = Some(pos + 1);
-                        let h = ai.history[pos + 1].clone();
-                        ai.set_input(h);
-                    } else {
-                        ai.history_pos = None;
-                        ai.set_input(String::new());
+                if !ai.input.down(&rows, &width, shift) && !shift && ai.editing.is_none() {
+                    if let Some(newer) = ai.history.newer(&ai.input.text()) {
+                        ai.input.set(&newer);
                     }
                 }
             }
             Key::Named(NamedKey::PageUp) => ai.scroll += 5,
             Key::Named(NamedKey::PageDown) => ai.scroll = ai.scroll.saturating_sub(5),
-            Key::Named(NamedKey::Space) => ai.insert(" "),
+            Key::Named(NamedKey::Space) => _ = ai.input.type_text(" "),
             _ if ctrl && base == "l" => self.clear_conversation(),
             _ if ctrl && base == "v" => self.paste(),
             Key::Named(NamedKey::Insert) if self.modifiers.shift_key() => self.paste(),
+            // The panel isn't a shell, so elsewhere Ctrl's letters are its
+            // field's, as in any other; the Mac's Ctrl+A and Ctrl+E go to
+            // the row's ends, as its fields' do.
+            _ if ctrl && !mac && base == "a" => ai.input.select_all(),
+            _ if ctrl && !mac && base == "c" => _ = self.copy_selection(),
+            _ if ctrl && !mac && base == "x" => self.cut_input(),
+            _ if ctrl && !mac && (base == "y" || (base == "z" && shift)) => _ = ai.input.redo(),
+            _ if ctrl && !mac && base == "z" => _ = ai.input.undo(),
+            _ if ctrl && mac && base == "a" => ai.input.home(&rows, shift),
+            _ if ctrl && mac && base == "e" => ai.input.end(&rows, shift),
             _ if ctrl => {}
             _ => {
                 if ai.awaiting.is_some() && ai.input.is_empty() && ai.editing.is_none() {
@@ -3263,10 +3319,24 @@ impl App {
                 if let Some(t) = &event.text {
                     let clean: String = t.chars().filter(|c| !c.is_control()).collect();
                     if !clean.is_empty() {
-                        self.ai.insert(&clean);
+                        self.type_into_input(&clean);
                     }
                 }
             }
+        }
+    }
+
+    /// Types `text` into the panel's input, saying so where it's full.
+    fn type_into_input(&mut self, text: &str) {
+        if !self.ai.input.type_text(text) {
+            self.show_toast(tf("toast.input_full", &[("most", &crate::panel_input::Input::MOST)]));
+        }
+    }
+
+    /// Cut, in the panel's input: its selection onto the clipboard.
+    fn cut_input(&mut self) {
+        if let Some(text) = self.ai.input.cut() {
+            self.copy_out(text);
         }
     }
 
@@ -3291,7 +3361,7 @@ impl App {
     }
 
     fn submit_ai(&mut self) {
-        let text = self.ai.input.trim().to_string();
+        let text = self.ai.input.text().trim().to_string();
         if self.ai.editing.is_some() {
             if !text.is_empty() {
                 self.ai.set_input(String::new());
@@ -3403,10 +3473,11 @@ impl App {
         }
         // The question stays in the input when it can't go yet.
         if self.send_to_assistant(text.clone(), text.clone()) {
-            if self.ai.history.last() != Some(&text) {
-                self.ai.history.push(text.clone());
+            self.ai.history.sent(&text);
+            // Kept across restarts with the rest of what it remembers.
+            if self.config.ai.memory {
+                self.memory.journal.keep_sent(&text, memory::now());
             }
-            self.ai.history_pos = None;
             self.ai.set_input(String::new());
         }
     }
@@ -4407,6 +4478,7 @@ impl App {
         }
         if self.memory_clear_at.is_some_and(|at| at.elapsed() < CONFIRM_WINDOW) {
             self.memory.clear();
+            self.ai.history = crate::panel_input::Recall::default();
             self.task = None;
             if let Some(i) = self.offered() {
                 self.ai.entries.remove(i);
@@ -5496,6 +5568,13 @@ impl App {
             self.drag_picker(part, rect, p);
         }
 
+        if self.input_selecting {
+            let at = self.ai.input_laid.borrow().place_at(&self.ai.input, p);
+            if at != self.ai.input.caret() {
+                self.ai.input.place(at, true);
+                self.request_redraw();
+            }
+        }
         if self.panel_selecting {
             let at = self.ai.laid.borrow().place_at(p, true);
             if let (Some(at), Some(selection)) = (at, self.ai.selection.as_mut()) {
@@ -6011,6 +6090,11 @@ impl App {
             }
             if let Some(text) = self.platform.primary_selection() {
                 self.ai.focus = panel;
+                // Where it's clicked in the input, as in the terminal.
+                if panel && self.ai.input_laid.borrow().area.contains(p) {
+                    let at = self.ai.input_laid.borrow().place_at(&self.ai.input, p);
+                    self.ai.input.place(at, false);
+                }
                 self.paste_text(text);
                 self.request_redraw();
             }
@@ -6020,6 +6104,11 @@ impl App {
             return;
         }
         if state == ElementState::Released {
+            if std::mem::take(&mut self.input_selecting) {
+                if let Some(text) = self.ai.input.selected() {
+                    self.platform.set_primary_selection(&text);
+                }
+            }
             if std::mem::take(&mut self.panel_selecting) {
                 if self.ai.selection.is_some_and(|(a, b)| a == b) {
                     self.ai.selection = None;
@@ -6182,11 +6271,33 @@ impl App {
         if let Some(panel) = self.layout.panel {
             if panel.contains(p) {
                 self.ai.focus = true;
+                // In the input, the caret goes where it's clicked: ⇧ selects
+                // to there, a double click takes a word and a triple its
+                // line, and a drag selects.
+                if self.ai.input_laid.borrow().area.contains(p) {
+                    let at = self.ai.input_laid.borrow().place_at(&self.ai.input, p);
+                    match count {
+                        2 => self.ai.input.select_word(at),
+                        3 => self.ai.input.select_line(at),
+                        _ => self.ai.input.place(at, self.modifiers.shift_key()),
+                    }
+                    self.input_selecting = count == 1;
+                    self.ai.selection = None;
+                    if let Some(text) = self.ai.input.selected().filter(|_| count > 1) {
+                        self.platform.set_primary_selection(&text);
+                    }
+                    self.request_redraw();
+                    return;
+                }
                 // A drag over the conversation selects its words, in place
-                // of the terminal's; a click alone selects nothing.
+                // of the terminal's and the input's; a click alone selects
+                // nothing.
                 let at = self.ai.laid.borrow().place_at(p, false);
                 self.ai.selection = at.map(|at| (at, at));
                 self.panel_selecting = at.is_some();
+                if at.is_some() {
+                    self.ai.input.end_selection();
+                }
                 if let Some(s) = self.session().filter(|_| at.is_some()) {
                     s.emu.lock().term.selection = None;
                 }
@@ -6692,7 +6803,7 @@ impl App {
         self.own = None;
         self.ai.entries = entries;
         self.ai.awaiting = awaiting;
-        self.ai.set_input(input);
+        self.ai.input = input;
     }
 
     /// For the helpers' snapshot: a tab of its own, the assistant's pane and
@@ -6778,7 +6889,38 @@ impl App {
         self.capture(path, true);
         self.ai.entries = entries;
         self.ai.awaiting = awaiting;
-        self.ai.set_input(input);
+        self.ai.input = input;
+    }
+
+    /// For snapshots: the panel's input holding a message of two lines, the
+    /// first wrapped, a word of it selected, under a made-up conversation
+    /// (`assistant-input.png`), all put back after.
+    fn show_input(&mut self, path: &std::path::Path) {
+        let entries = std::mem::replace(
+            &mut self.ai.entries,
+            vec![
+                Entry::User("which of my projects haven't been pushed?".into()),
+                Entry::Assistant("Two have commits their remotes don't: `notes`, 3 ahead of `origin/main`, and `site`, 1 ahead.".into()),
+            ],
+        );
+        let input = std::mem::take(&mut self.ai.input);
+        self.ai.input.paste("push both, then tag site as v2.1 and write a short note of what changed since v2.0 for its release page, in the voice of the last one\nbut leave notes alone if its tests fail");
+        let text = self.ai.input.text();
+        if let Some(at) = text.find("short") {
+            self.ai.input.select_word(text[..at].chars().count());
+        }
+        let (open, focus) = (self.ai.open, self.ai.focus);
+        if !self.ai.open {
+            self.toggle_ai();
+        }
+        self.ai.focus = true;
+        self.capture(path, true);
+        self.ai.entries = entries;
+        self.ai.input = input;
+        if self.ai.open != open {
+            self.toggle_ai();
+        }
+        self.ai.focus = focus;
     }
 
     /// The panel offering a task left waiting for a restart, for a
@@ -6800,7 +6942,7 @@ impl App {
         self.capture(path, true);
         self.ai.entries = entries;
         self.ai.awaiting = awaiting;
-        self.ai.set_input(input);
+        self.ai.input = input;
     }
 
     /// Settings' search for a snapshot: "glow" typed, what it finds in
@@ -11883,6 +12025,7 @@ impl App {
                 self.show_own(&dir.join("own-plan.png"), &dir.join("own-working.png"));
                 self.show_undo(&dir.join("undo.png"));
                 self.show_files(&dir.join("assistant-files.png"), &dir.join("assistant-drop.png"));
+                self.show_input(&dir.join("assistant-input.png"));
                 // Caps Lock's notice, as a key typed into the pane with it on
                 // brings it.
                 self.caps.typed(Some(true), None, Instant::now());
@@ -13267,7 +13410,7 @@ impl App {
                 top: laid.top,
                 row_h: laid.row_h,
                 area: laid.area,
-                input: Field::text(t("access.ask_input"), t("panel.placeholder"), &self.ai.input, self.ai.caret, None),
+                input: Field::text(t("access.ask_input"), t("panel.placeholder"), &self.ai.input.text(), self.ai.input.caret(), None).selected_from(self.ai.input.selection().map(|_| self.ai.input.anchor().unwrap_or_default())),
                 buttons,
             }
         });

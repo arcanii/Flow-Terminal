@@ -305,7 +305,7 @@ impl App {
         self.ai.entries = entries;
         self.ai.files = files;
         self.ai.reading = reading;
-        self.ai.set_input(input);
+        self.ai.input = input;
         if self.ai.open != open {
             self.toggle_ai();
         }
