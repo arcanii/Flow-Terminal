@@ -296,13 +296,21 @@ and [Linux release](docs/development.md#linux-release)). Still to do:
   title bar, its right-click menu, middle-click paste with other programs,
   the key in GNOME Keyring and KWallet, and typing through IBus and Fcitx.
 - **Publishing more of it:** every release since 0.1.23 has gone out for
-  x86-64 Linux, the latest `v0.1.44.2-linux` (the tarball and the .deb, with
+  x86-64 Linux, the latest `v0.1.47-linux` (the tarball and the .deb, with
   `appcast-linux-x86_64.xml` for Flow's own updater). From 0.1.37.1 a
   .deb's Flow downloads the next .deb, checks it with Flow's key and runs
-  `sudo apt install` on it in a tab (the manual's Install). Still to come: an
-  Arm64 tarball, an apt repository, so the .deb updates with the rest of
-  the system's packages, and other packages (an `.rpm`, an AppImage or a
-  Flatpak, with AppStream metadata), which would update through their own.
+  `sudo apt install` on it in a tab (the manual's Install).
+  - **The AUR** (2026-11-25, the user's "AUR package first", ahead of a
+    Flatpak): `flow-terminal-bin`, repackaging each release's tarball
+    (`docs/design/aur.md`), built, linted and installed in a scratch Arch;
+    `linux/scripts/aur.sh` writes it for each release, and from 0.1.48
+    Flow leaves pacman's copy to the AUR helper. Left:
+    - the user's AUR account, and publishing the package;
+    - seeing Flow's window on Arch (Hyprland, Omarchy's).
+  - Still to come: an Arm64 tarball, an apt repository, so the .deb
+    updates with the rest of the system's packages, and other packages
+    (an `.rpm`, an AppImage or a Flatpak, with AppStream metadata), which
+    would update through their own.
 - **The window manager's menu on X11**, which winit doesn't ask for
   (`_GTK_SHOW_WINDOW_MENU`); on Windows too (`Window::show_window_menu`),
   untried there.

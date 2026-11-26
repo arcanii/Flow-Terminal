@@ -1,0 +1,33 @@
+# Maintainer: arcanii <arcanii at users dot noreply dot github dot com>
+pkgname=flow-terminal-bin
+pkgver=@PKGVER@
+pkgrel=@PKGREL@
+pkgdesc='A liquid-glass terminal with Claude built in'
+arch=('x86_64')
+url='https://github.com/arcanii/Flow-Terminal'
+license=('MIT')
+depends=('glibc' 'libxkbcommon' 'hicolor-icon-theme')
+optdepends=(
+  'vulkan-icd-loader: drawing with Vulkan, for glass you can see through'
+  'wayland: a Wayland window'
+  'libx11: an X11 window, with libxcursor, libxi, libxrandr and libxkbcommon-x11'
+  "alsa-lib: Flow's sounds"
+  "gnome-keyring: keeping the assistant's API key (or any Secret Service)"
+  'xdg-desktop-portal: the panels for picking a file'
+  "zenity: the error dialog when Flow can't start"
+)
+provides=('flow-terminal')
+conflicts=('flow-terminal' 'flow' 'flow-bin')
+options=('!strip' '!debug')
+source=('LICENSE')
+source_x86_64=("https://github.com/arcanii/Flow-releases/releases/download/v${pkgver}-linux/Flow-${pkgver}-linux-x86_64.tar.gz")
+sha256sums=('@LICENSE_SHA256@')
+sha256sums_x86_64=('@SHA256@')
+
+package() {
+  cd "flow-${pkgver}"
+  install -d "$pkgdir/usr"
+  cp -R bin lib share "$pkgdir/usr/"
+  install -Dm644 THIRD-PARTY-NOTICES.txt "$pkgdir/usr/share/licenses/$pkgname/THIRD-PARTY-NOTICES.txt"
+  install -Dm644 "$srcdir/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

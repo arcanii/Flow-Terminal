@@ -146,6 +146,21 @@ Windows releases are in [macos/RELEASING.md](../macos/RELEASING.md) and
    Flow's key and installs it into a scratch folder, as an update would,
    and fetches and checks its .deb where the feed carries one, as a .deb's
    Flow would.
+8. **Update the AUR's package**, `flow-terminal-bin`
+   ([docs/design/aur.md](../docs/design/aur.md)), which repackages the
+   x86-64 tarball for Arch:
+   ```sh
+   git clone ssh://aur@aur.archlinux.org/flow-terminal-bin.git target/aur/flow-terminal-bin
+   linux/scripts/aur.sh <ver>
+   ```
+   (`git pull` there instead, once it's cloned.) This writes its
+   `PKGBUILD`, `.SRCINFO` and `LICENSE` from `linux/packaging/aur/` and the
+   checksum the release publishes beside the tarball, checked against
+   `target/linux`'s; on Arch it also checks `.SRCINFO` against `makepkg
+   --printsrcinfo`. `--pkgrel <n>` is for a change to the package alone.
+   Then commit there and push, which publishes it: every AUR helper
+   offers it at once, so only when asked. A Flow the package installed
+   only says a release is out (0.1.48 on), its AUR helper installing it.
 
 ## flowapp's apps
 
