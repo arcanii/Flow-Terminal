@@ -17,7 +17,7 @@
     <td align="center" width="180">
       <a href="https://github.com/arcanii/Flow-releases/releases/latest"><img src="assets/readme/windows.svg" width="64" height="64" alt="Windows logo"></a><br>
       <a href="https://github.com/arcanii/Flow-releases/releases/latest"><b>Download for Windows</b></a><br>
-      <sub>0.1.46</sub>
+      <sub>0.1.47</sub>
     </td>
     <td align="center" width="180">
       <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-linux"><img src="https://cdn.simpleicons.org/linux/FCC624" width="64" height="64" alt="Tux, the Linux logo"></a><br>
@@ -197,7 +197,7 @@ much the same on Windows, macOS and Linux?**
     <td align="center" width="180">
       <a href="https://github.com/arcanii/Flow-releases/releases/latest"><img src="assets/readme/windows.svg" width="64" height="64" alt="Windows logo"></a><br>
       <a href="https://github.com/arcanii/Flow-releases/releases/latest"><b>Download for Windows</b></a><br>
-      <sub>0.1.46</sub>
+      <sub>0.1.47</sub>
     </td>
     <td align="center" width="180">
       <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.46-linux"><img src="https://cdn.simpleicons.org/linux/FCC624" width="64" height="64" alt="Tux, the Linux logo"></a><br>
