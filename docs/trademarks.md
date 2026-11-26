@@ -2,6 +2,11 @@
 
 # Trademarks
 
+Flow's own name, its icon and its startup logo are arcanii's marks, not
+covered by the MIT License: [Flow's brand license](brand/LICENSE-brand.txt)
+says how they may be used, and that a fork changes them unless it's kept
+pristine ([Forks](../CONTRIBUTING.md#forks)).
+
 Intel, AMD, Sun Microsystems and its emblem, SGI (Silicon Graphics) and its
 cube, Amiga and its Boing Ball (with Kickstart, Workbench and Topaz, which the
 Flow notanAmiga CLI names), Apple and Windows are trademarks of their

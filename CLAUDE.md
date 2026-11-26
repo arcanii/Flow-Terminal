@@ -8,7 +8,12 @@ keys, the terminal, settings, themes, liquid styles, sound, shells, config
 keys, updates, the assistant, outside apps, images, flowapp, the SDK, games,
 demos), and `docs/` also describes the build (`how-it-is-built.md`,
 `development.md`), what has been tested on each OS (`status.md`) and whose
-logos Flow shows (`trademarks.md`). README.md is short: the icon and
+logos Flow shows (`trademarks.md`). Flow's own name, icon and startup logo
+are arcanii's marks, outside the MIT License (`docs/brand/LICENSE-brand.txt`,
+decided 2026-11-26, after the ArtCraft repositories' brand license): a fork
+changes them unless it's pristine, and CONTRIBUTING's Forks says where
+each is, so a change that adds a place the name, icon or identity lives
+adds it there too. README.md is short: the icon and
 shields, then "Why Flow", the pitch (written 2026-11-23: Omarchy's way
 of working on the computer you have, AI running your PC, old machines, an
 exciting terminal, the everyday things on every OS), whose claims link to

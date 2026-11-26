@@ -327,6 +327,13 @@ WinSparkle under the MIT License
 The crates it's built from are listed with their licenses in each
 release's THIRD-PARTY-NOTICES.txt.
 
+Flow's name, its icon and its startup logo aren't covered by the MIT
+License: they're arcanii's marks, under
+[Flow's brand license](docs/brand/LICENSE-brand.txt). A fork kept pristine
+(an unchanged copy, or kept only to propose changes back here) keeps them;
+any other fork that's released or handed on takes a name, an icon and an
+identity of its own ([Forks](CONTRIBUTING.md#forks)).
+
 ## Trademarks
 
 Flow shows other companies' logos for its startup logo and its old machines'

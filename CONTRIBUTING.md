@@ -177,6 +177,49 @@ request never needs to touch them.
 
 ## Forks
 
+A fork is welcome, under the MIT License, but Flow's name, its icon and its
+startup logo aren't covered by that license: they're arcanii's marks, and
+[Flow's brand license](docs/brand/LICENSE-brand.txt) says how they may be
+used.
+
+### Branding
+
+- **A pristine fork keeps Flow's branding.** That's a fork that's an
+  unchanged copy of this repository, or one kept only to propose changes
+  back to it, its changes on branches for pull requests, never released or
+  handed on as a program of its own.
+- **Every other fork changes it.** A fork that's built and handed to
+  anyone, published or released takes a name of its own (one that neither
+  is nor contains Flow), an icon and startup logo of its own, and an
+  identity of its own, and doesn't present itself as Flow, as arcanii's,
+  or as an official release. It may say in plain text that it's based on
+  Flow by arcanii, with a link to this repository.
+
+Where each is in the source:
+
+- **The name:** `APP_NAME` in `core/src/lib.rs`, which the interface's words
+  name the app by; `CFBundleName` and `CFBundleDisplayName` in
+  `macos/packaging/Info.plist`; `MyApp` in `windows/packaging/installer.iss`;
+  `Name` in `linux/packaging/com.arcanii.Flow.desktop`; and the words in
+  `core/locales/` and `docs/` that say Flow outright.
+- **The icon and the startup logo:** `assets/icon/` (`flow-*.png`,
+  `flow.icns`, `flow.ico`; `examples/make_icon.rs` draws Flow's), which the
+  bundle, the Windows program and installer, Linux's icons and the startup
+  logo all come from.
+- **The identity:** `com.arcanii.Flow` as `CFBundleIdentifier` in
+  `Info.plist`, `APP_ID` in `linux/src/window.rs` (and the `.desktop` file's
+  name), and `APP_USER_MODEL_ID` in `windows/src/notify.rs`; `AppId` and
+  `AppPublisher` in `installer.iss`; and About's links to Flow's releases
+  (`RELEASES` in `core/src/version.rs`, `RELEASES_URL` in
+  `macos/src/menu.rs`). So a fork's installs, notifications and windows
+  never take Flow's place, nor send its users to Flow's releases.
+- **Updates:** the key, feeds and catalog below.
+
+Names inside the program that are how it works (the `flow` and `flowapp`
+commands, `FLOW_*` variables, config keys) may stay.
+
+### Updates
+
 Only Flow's own releases update themselves: a Flow built with plain
 `cargo build --release` has no updater, and the release scripts build with
 updates (`FLOW_UPDATES=1`) only with the update key the build trusts at

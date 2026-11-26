@@ -1,0 +1,70 @@
+Flow's brand: license
+
+The name Flow, as the name of this terminal and of its releases, the Flow
+icon and the startup logo drawn from it (together, "Flow's marks") are
+arcanii's. They are trademarks and are NOT open source. They are not covered
+by Flow's MIT License, and nothing in that license, in a release's
+THIRD-PARTY-NOTICES.txt or in any other file of this repository or of a
+release grants any right to them.
+
+Flow's marks are, in every color, size and format:
+
+  - the name Flow (and Flow Terminal) as the name of this program;
+  - the icon in assets/icon/ (flow-*.png, flow.icns and flow.ico, which
+    examples/make_icon.rs draws), and every icon the releases carry;
+  - the startup logo, Flow's icon at the top of a new tab.
+
+Permission
+
+arcanii grants a limited, non-exclusive, non-transferable, revocable,
+royalty-free permission to use Flow's marks only:
+
+  1. as part of copies of this repository, and of pristine forks of it
+     (below); and
+  2. within Flow itself, its documentation and its official releases
+     (https://github.com/arcanii/Flow-releases), to identify Flow.
+
+Conditions
+
+The permission holds only while every one of these is true:
+
+  - The marks are used exactly as supplied. Do not redraw, recolor, crop,
+    stretch, rotate, animate, outline or add effects to them, extract parts
+    of them, or combine them with any other name, mark or artwork. (Flow's
+    own drawing of its icon, as its startup logo, is part of Flow.)
+  - They are used only in the context of Flow, and only to say that it is
+    Flow. They must never suggest that arcanii made, sponsors, endorses,
+    certifies or supports any other product, service, fork, modified
+    version, app, theme, organization or person.
+  - Neither the marks nor the name Flow appear in the name, logo, icon,
+    domain, social media handle, app-store listing, package name,
+    advertising or marketing of anything other than Flow.
+
+Forks and modified versions
+
+If you build and hand on, distribute or publish a modified version of Flow,
+or any work derived from it, you must replace Flow's marks with your own:
+give it a name of its own that neither is nor contains Flow, an icon and a
+startup logo of its own, and an identity of its own (its app identifier,
+installer, update key and feeds), and you must not call it Flow or present
+it as Flow, as made by arcanii, or as an official release. CONTRIBUTING.md's
+Forks section lists where each of these is in the source. Names inside the
+program that are how it works (its commands, such as flow and flowapp, its
+environment variables, its config keys) may stay.
+
+You may say, in plain text, that your work is based on Flow by arcanii, and
+link to https://github.com/arcanii/Flow-Terminal.
+
+Pristine forks
+
+A pristine fork may keep Flow's marks unchanged: one that is an unchanged
+copy of this repository, or that is kept only to propose changes back to
+arcanii/Flow-Terminal, its changes on branches for pull requests and never
+released or handed on as a program of its own.
+
+Everything else
+
+Any use not expressly permitted here needs arcanii's permission in writing
+first; ask through an issue at https://github.com/arcanii/Flow-Terminal. The
+permission ends automatically for anyone who breaks these terms. All other
+rights are reserved.
