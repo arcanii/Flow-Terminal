@@ -5,6 +5,8 @@ house style its code and words keep, where a design goes, and how to file an
 issue or open a pull request. GitHub links this page from every new issue and
 pull request.
 
+Everyone here keeps Flow's [code of conduct](CODE_OF_CONDUCT.md).
+
 [CLAUDE.md](CLAUDE.md) holds the architecture notes: how a frame is drawn,
 how the sessions, the assistant and the platforms fit together, and where
 each feature lives. It's written for Claude Code, but it reads as a guide
@@ -169,7 +171,8 @@ Use the issue forms: **Bug report** or **Feature request**.
 
 Flow is licensed under the [MIT License](LICENSE), and a contribution
 is taken under the same license: opening a pull request says you have the
-right to offer it so.
+right to offer it so. There's nothing to sign, no contributor agreement
+and no sign-off on each commit (decided 2026-11-27).
 
 Flow's releases, their signing and their update feeds are made by the
 maintainer from `windows/`, `macos/` and `linux/`'s `RELEASING.md`; a pull

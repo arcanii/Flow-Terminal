@@ -302,6 +302,8 @@ screen shows secrets.
   issues and pull requests.
 - [SECURITY.md](SECURITY.md): reporting a security hole, and what Flow
   guards.
+- [Code of conduct](CODE_OF_CONDUCT.md): how we treat each other, and
+  reporting what breaks it.
 - [How it is built](docs/how-it-is-built.md): the workspace, its crates and
   what each holds.
 - [Development](docs/development.md): tests, snapshots and recordings,

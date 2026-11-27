@@ -286,6 +286,35 @@ and Linux (x86-64). Flow's own part:
 - **An app's note,** which flowapp would print after installing it: not
   built yet.
 
+## Hearing: speech to text
+
+Asked for on 2026-11-27: Flow hears the user, speech to text with
+Whisper, so a request can be said rather than typed. Nothing is started;
+what's known:
+
+- **Where the words go:** into the assistant's input as typed text,
+  never sent by themselves, so they can be read and changed first. A
+  microphone button beside Attach, and a key held while talking. Later,
+  perhaps, typed into a pane as well.
+- **Whisper here, or OpenAI's:** run on this computer (whisper.cpp,
+  through a crate such as `whisper-rs`; Metal on the Mac, the CPU or
+  Vulkan elsewhere), with a model of about 75 MB (tiny) to about 3 GB
+  (large), so nothing said leaves the computer; or OpenAI's transcription
+  API with the OpenAI key, which sends the audio. On this computer first,
+  as the journal and the history keep everything here.
+- **An app of its own?** As flow-say speaks (Voices, above), hearing could
+  be an app flowapp installs, carrying whisper.cpp and fetching its model
+  the first time, a download the user agrees to, so Flow stays small and
+  no release carries a model.
+- **The microphone:** cpal records on the Mac and Windows; on Linux,
+  ALSA, loaded as Flow runs, as its sound output is. The Mac asks the
+  user once (`NSMicrophoneUsageDescription` in Info.plist, and the
+  hardened runtime's audio-input entitlement); Windows' privacy settings
+  may refuse it.
+- **Languages:** Whisper finds the language itself, Japanese among them;
+  a setting could hold it to `ui.language`.
+- **Snapshots** show it made up, hearing nothing.
+
 ## Linux: what's left
 
 Flow builds, runs and packs into a tarball and a .deb on Linux (the docs, [Install](docs/manual/install.md)
@@ -402,13 +431,14 @@ known:
 
 Flow's source opens as arcanii/Flow-Terminal. Still to do:
 
-- **For contributors:** CONTRIBUTING.md and `.github`'s issue forms and
-  pull request template are written (2026-11-23). Still to come: a code
-  of conduct, SECURITY.md (CONTRIBUTING sends holes to the Security tab's
-  private report, which GitHub offers only on a public repository: turn
-  on private vulnerability reporting in Flow-Terminal's settings as it
-  opens), and whether contributions need a CLA or a DCO, which matters if
-  Flow may be licensed differently later.
+- **For contributors:** done. CONTRIBUTING.md and `.github`'s issue
+  forms and pull request template (2026-11-23); SECURITY.md, with private
+  vulnerability reporting on since the repository opened (2026-11-25);
+  CODE_OF_CONDUCT.md (2026-11-27), its reports through the same private
+  report, titled "Conduct:" (the user's choice). No CLA and no DCO
+  (decided 2026-11-27): a contribution comes under the MIT License, as
+  CONTRIBUTING says, which lets a later Flow carry it under other terms
+  as long as its MIT notices stay.
 - **CI:** GitHub Actions building and testing on macOS, Windows and Linux
   (`cargo test --workspace`, clippy), with no signing secrets in it;
   releases stay with the release scripts, run by hand.
@@ -474,12 +504,13 @@ Flow's source opens as arcanii/Flow-Terminal. Still to do:
       allow.
 - **Where releases live:** Flow-releases keeps the releases and the feeds,
   since every installed Flow reads its feeds and flowapp its catalog from
-  there; its README's line that the source isn't public yet becomes a
-  link to Flow-Terminal as it opens.
-- **The other repositories' scripts:** the repositories whose apps
-  flowapp installs make their downloads with Flow's tools, taking a
-  checkout of Flow-Terminal named with `--flow`; their default is to
-  become a checkout of Flow-Terminal beside them.
+  there. Done (2026-11-27): its README links the source, its issues go to
+  Flow-Terminal's, and its badges are files of its own, as GitHub's image
+  proxy stopped fetching shields.io's.
+- **The other repositories' scripts:** done (2026-11-27). Flow-Games,
+  Flow-Utils, Flow-Say, Flow-Phonebook and Flow-BBS-List take a checkout
+  of Flow-Terminal beside them by default (`--flow` or `FLOW_TERMINAL`
+  for another), and their docs name it as public.
 
 ## Context help
 
@@ -1010,6 +1041,37 @@ introducing itself as it's installed (Voices, above;
   per-user one it ran from. Whether the setup should keep to the install
   that started it, to decide.
 
+## 0.1.48
+
+The plan for 0.1.48 (2026-11-27), beside what master holds for it
+already: `/model` listing each provider's own models
+(`docs/design/live-models.md`), and Linux leaving pacman's Flow to the
+AUR helper.
+
+- **Themes: some polish** (Themes to come, above):
+  - the phosphor's floor for saturated colors, kept or taken away;
+  - the glow without the tube, clipped channel by channel, brought back;
+  - your own and saved themes keeping a window frame (`THEME_KEYS`), and
+    `flow-core-themes`' next version carrying it;
+  - a package of themes installed while Flow runs, and Export…, tried in
+    a live window;
+  - the notanAmiga's frame in the Mac's and Linux's live windows.
+- **Efficient mode, tried for real on battery:** unplugged and in Low
+  Power Mode on a Mac, and on Windows' and Linux's laptops (Efficient
+  mode: what's left, below).
+- **3D models: more of glTF, and Windows' checks** (3D models: what's
+  left, above):
+  - whole files from glTF tools (gltf-transform, gltfpack, Blender),
+    meshopt and quantized ones as gltfpack writes them, placed in a live
+    tab on each system;
+  - the newer materials refused by name today (anisotropy, iridescence,
+    dispersion), and `COLOR_1` and on;
+  - instancing drawn on the GPU rather than copied on the CPU, so a
+    forest of big trees fits;
+  - on Windows: a model's cells kept through ConPTY's repaints, as the
+    startup logo's are (`Banner`), `show_model` down the pipe for images,
+    and clicks answered through ConPTY's input.
+
 ## The assistant's panel: what's left
 
 The panel's replies have Copy and Run under each block of code, a small Copy
@@ -1020,13 +1082,6 @@ it](docs/manual/keys.md)). Still to do:
 - **Tried in a live window:** Run, Copy reply and dragging, and the small
   Copy on a line in backticks and on a command's card, have been checked in
   unit tests and snapshots only.
-- **Ctrl+C clearing the input** (asked for on 2026-11-26, after trying
-  0.1.47's input on Linux; not urgent, since Ctrl+A then Delete clears it
-  already): off the Mac, Ctrl+C with nothing selected in the input could
-  empty it, as a shell's Ctrl+C drops the line typed, while with a
-  selection it still copies. What's cleared would be one step for Ctrl+Z
-  to bring back. To decide: whether a selection in the conversation
-  (which Ctrl+C copies now) comes first, and what the Mac's ⌃C does.
 
 ## Files dropped on the assistant
 

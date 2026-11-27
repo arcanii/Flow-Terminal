@@ -145,8 +145,7 @@ goes out apart from Flow, when it changes:
   made in their own repository, arcanii/Flow-Games, by its
   `scripts/app-release.sh <game>`, the same steps from its own workspace and
   lock, with this checkout beside it (`--flow <dir>`, by default
-  `../Flow_Terminal`, so a checkout of Flow-Terminal is named with
-  `--flow`) for `app_catalog`, the notices and Sparkle's
+  `../Flow-Terminal`) for `app_catalog`, the notices and Sparkle's
   `sign_update` from `target/sparkle-*`. `--unsigned` (with `--adhoc`,
   signed ad hoc) makes and tries one without Flow's key. Flow itself no
   longer needs that repository to build. Flow-Utils makes its own the same

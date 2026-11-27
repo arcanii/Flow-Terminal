@@ -21,7 +21,9 @@ the manual's sections that hold them, a short tour, install, getting
 started, and the index of the docs (its Documentation section, which each
 page's first line links back to). CONTRIBUTING.md tells contributors how
 to build and test and the house style below, with `.github/`'s issue and
-pull request templates. When a change adds or alters a setting, shortcut,
+pull request templates, and CODE_OF_CONDUCT.md how they treat each other
+(reports through the Security tab's private report, titled "Conduct:";
+no CLA or DCO, decided 2026-11-27). When a change adds or alters a setting, shortcut,
 config key, style or platform behavior, update the matching page in
 `docs/manual/` too (a new page goes in the README's Documentation), and
 Why Flow where it's worth selling or a claim there no longer holds.

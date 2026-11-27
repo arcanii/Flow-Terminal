@@ -15,6 +15,9 @@ anything else secret.
 There's no bounty, and no promise of a time to answer, but every report is
 read, and a fix goes into the next release on each system it touches.
 
+The same private report takes a report under Flow's [code of
+conduct](CODE_OF_CONDUCT.md), with a title that starts with **Conduct:**.
+
 ## Supported versions
 
 Only the newest release on each system (macOS, Windows and Linux, listed in

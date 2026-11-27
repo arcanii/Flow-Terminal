@@ -178,8 +178,7 @@ the Mac's. The games
 (`flow-rogue`, `flow-mines`, `flow-invaders`) are built and made in their
 own repository, arcanii/Flow-Games, by its `scripts/app-release-linux.sh
 <game>`, in the same steps from its own workspace and lock, with this
-checkout beside it (`--flow <dir>`, by default `../Flow_Terminal`, so a
-checkout of Flow-Terminal is named with `--flow`) for
+checkout beside it (`--flow <dir>`, by default `../Flow-Terminal`) for
 `app_catalog`, the notices and `update_key`; Flow-Utils makes its own the
 same way. Flow itself no longer needs Flow-Games to build.
 
