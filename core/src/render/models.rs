@@ -1075,6 +1075,66 @@ mod tests {
 
     #[test]
     #[ignore = "draws on the GPU"]
+    fn whole_files_from_gltf_tools_draw_on_the_gpu() {
+        let Some(gpu) = gpu() else { return };
+        let off = |a: &[u8], b: &[u8]| a.iter().zip(b).filter(|(x, y)| x.abs_diff(**y) > 8).count();
+        let covered = |p: &[u8]| p.chunks(4).filter(|c| c[3] > 128).count();
+        // Khronos's Fox from the side, as each tool packed it, standing
+        // (Survey's first moment) and a moment into Walk: each as gltfpack's
+        // quantized one draws it, but for a pixel's edge here and there
+        // (gltf-transform's box is fitted a hair larger) and its WebP.
+        let side = Style { rotation: [10.0, 90.0, 0.0], ..Style::default() };
+        let mut first: Vec<Vec<u8>> = Vec::new();
+        for (tool, file) in model::tests::FOXES {
+            for (clip, secs) in [(0, 0.0), (1, 0.3)] {
+                let name = format!("fox-{}-{clip}", tool.replace(' ', "-"));
+                let drawn = picture_at(&gpu, &name, model::load(Format::Glb, file).unwrap(), Style { clip, ..side }, Some(secs));
+                match first.get(clip as usize) {
+                    Some(reference) => {
+                        assert!(off(reference, &drawn) < 300, "{name}: {} values more than 8 apart", off(reference, &drawn));
+                        assert!(covered(reference).abs_diff(covered(&drawn)) <= 4, "{name}: {} pixels, not {}", covered(&drawn), covered(reference));
+                    }
+                    None => first.push(drawn),
+                }
+            }
+        }
+        assert!(covered(&first[0]) > 300 && off(&first[0], &first[1]) > 1000, "a fox, walking");
+        // The forest made instances of draws as the plain one does.
+        let above = Style { rotation: [35.0, 20.0, 0.0], ..Style::default() };
+        let plain = picture(&gpu, "forest-plain", model::load(Format::Glb, model::tests::FORESTS[0].1).unwrap(), above);
+        assert!(covered(&plain) > 400);
+        for (tool, file) in &model::tests::FORESTS[1..] {
+            let drawn = picture(&gpu, &format!("forest-{tool}"), model::load(Format::Glb, file).unwrap(), above);
+            assert!(off(&plain, &drawn) < 40, "{tool}: {} values more than 8 apart", off(&plain, &drawn));
+        }
+        let cubes = picture(&gpu, "simple-instancing", model::load(Format::Glb, model::tests::SIMPLE_INSTANCING).unwrap(), above);
+        assert!(covered(&cubes) > 1000, "{}", covered(&cubes));
+        // The spheres' anisotropy, a row for each strength from the top,
+        // changes them the more the stronger it is, and the last row
+        // (none) not at all.
+        let spheres = picture(&gpu, "anisotropy-spheres", model::load(Format::Glb, model::tests::ANISOTROPY).unwrap(), Style::default());
+        let mut bare = model::load(Format::Glb, model::tests::ANISOTROPY).unwrap();
+        bare.parts.iter_mut().for_each(|p| p.material.anisotropy = None);
+        let bare = picture(&gpu, "anisotropy-spheres-bare", bare, Style::default());
+        let changed = |rows: std::ops::Range<usize>| {
+            rows.flat_map(|y| (0..64).map(move |x| (x, y))).map(|p| (at(&spheres, p), at(&bare, p))).map(|(a, b)| (0..3).map(|k| u32::from(a[k].abs_diff(b[k]))).sum::<u32>()).sum::<u32>()
+        };
+        let by_strength = [changed(0..16), changed(16..32), changed(32..48), changed(48..56)];
+        assert!(by_strength[0] > 2 * by_strength[1] && by_strength[1] > 2 * by_strength[2] && by_strength[2] > 0 && by_strength[3] == 0, "{by_strength:?}");
+        // Suzanne's films color her; without them she's grey and white.
+        let tinted = |p: &[u8]| {
+            let spread: Vec<u32> = p.chunks(4).filter(|c| c[3] > 200).map(|c| u32::from(c[..3].iter().max().unwrap() - c[..3].iter().min().unwrap())).collect();
+            spread.iter().sum::<u32>() / spread.len().max(1) as u32
+        };
+        let suzanne = picture(&gpu, "iridescence-suzanne", model::load(Format::Glb, model::tests::IRIDESCENCE).unwrap(), Style::default());
+        let mut bare = model::load(Format::Glb, model::tests::IRIDESCENCE).unwrap();
+        bare.parts.iter_mut().for_each(|p| p.material.iridescence = None);
+        let bare = picture(&gpu, "iridescence-suzanne-bare", bare, Style::default());
+        assert!(tinted(&suzanne) > 40 && tinted(&bare) < 10, "{} against {}", tinted(&suzanne), tinted(&bare));
+    }
+
+    #[test]
+    #[ignore = "draws on the GPU"]
     fn anisotropy_stretches_highlights_and_iridescence_colors_them_on_the_gpu() {
         let Some(gpu) = gpu() else { return };
         // The highlight's bounds: the pixels within a little of the

@@ -30,11 +30,13 @@ when the grid narrows. Still to do:
   toward the 2 million triangles a model may have, up to 32 million drawn
   (`docs/design/gpu-instancing.md`), so a forest of big trees fits;
   skinned and see-through parts are still copied on the CPU, within the 2
-  million. Meshopt and quantized
-  files have been tried only as built in the tests, not as gltfpack writes
-  them; Draco's meshes and Basis's textures as their own encoders make them
-  (`core/src/model/testdata`), but no whole file from a glTF tool
-  (gltf-transform, gltfpack, Blender) yet. 0.1.36's (Draco, KTX2, meshopt's
+  million. Whole files as gltfpack and gltf-transform write them
+  (meshopt, quantized, Draco, WebP, instances, the newer materials) are
+  read and drawn by the tests for 0.1.48 (`core/src/model/testdata`,
+  `docs/design/gltf-tool-files.md`), which found a mesh without normals
+  drawn smooth where glTF has it flat, now flat; KTX2 textures as gltfpack
+  writes them (`-tc`, which npm's gltfpack hasn't) and Blender's own
+  exports aren't among them. 0.1.36's (Draco, KTX2, meshopt's
   version 1, spec-gloss, a camera turned) were drawn by the GPU tests on the
   Mac and Linux, and vertex colors and instancing by them on the Mac,
   Linux and Windows, but none has been placed in a live tab on any
@@ -1070,7 +1072,10 @@ AUR helper.
   left, above):
   - whole files from glTF tools (gltf-transform, gltfpack, Blender),
     meshopt and quantized ones as gltfpack writes them, placed in a live
-    tab on each system;
+    tab on each system: made from Khronos's samples and a forest of
+    Flow's own, read and drawn by the tests on the Mac, a mesh without
+    normals now flat (`docs/design/gltf-tool-files.md`); placing them in
+    a live tab, and the GPU test on Windows and Linux, still to do;
   - the newer materials: anisotropy and iridescence drawn, dispersion
     read (`docs/design/gltf-materials.md`), and `COLOR_1` and on left
     passed over (decided 2026-11-27);

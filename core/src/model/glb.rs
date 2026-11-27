@@ -208,23 +208,42 @@ pub(super) fn load(bytes: &[u8]) -> Result<Mesh, String> {
             // numbers back, as it places any mesh.
             let attribute = |semantic: gltf::Semantic| prim.get(&semantic);
             let Some(positions) = attribute(gltf::Semantic::Positions).and_then(|a| floats::<3>(&a, &buffers)) else { continue };
-            let count = positions.len();
-            let fits = |n: usize| n == count;
+            // The vertices as the file numbers them, which every attribute
+            // has as many of.
+            let read = positions.len();
+            let fits = |n: usize| n == read;
             let normals: Option<Vec<[f32; 3]>> =
                 attribute(gltf::Semantic::Normals).and_then(|a| floats::<3>(&a, &buffers)).filter(|n| fits(n.len())).map(|n| n.into_iter().map(unit).collect());
-            let uvs: Option<Vec<[f32; 2]>> = attribute(gltf::Semantic::TexCoords(0)).and_then(|a| floats::<2>(&a, &buffers)).filter(|t| fits(t.len()));
-            let uvs1: Option<Vec<[f32; 2]>> = attribute(gltf::Semantic::TexCoords(1)).and_then(|a| floats::<2>(&a, &buffers)).filter(|t| fits(t.len()));
             let mut indices: Vec<u32> = match reader.read_indices() {
                 Some(i) => i.into_u32().collect(),
-                None => (0..count as u32).collect(),
+                None => (0..read as u32).collect(),
             };
-            if indices.iter().any(|&i| i as usize >= count) {
+            if indices.iter().any(|&i| i as usize >= read) {
                 return Err("a triangle naming a vertex that isn't there".into());
             }
             indices.truncate(indices.len() / 3 * 3);
             if indices.is_empty() {
                 continue;
             }
+            // Counted before any corner is given a vertex of its own, which
+            // takes room: past the model's triangles, refused first.
+            if triangles.saturating_add(indices.len() / 3) > super::MAX_TRIANGLES {
+                return Err(format!("{} triangles, more than {}", triangles.saturating_add(indices.len() / 3), super::MAX_TRIANGLES));
+            }
+            // Without normals, glTF has a viewer work out flat ones (its
+            // spec's MUST, as three.js does), so where triangles share a
+            // vertex, each corner gets one of its own, and every attribute
+            // is spread to them as it's read (`corners`): a mesh gltfpack
+            // welded draws as faceted as the file it was made from.
+            let corners: Option<Vec<u32>> = (normals.is_none() && shares_vertices(&indices, read)).then(|| {
+                let each = (0..indices.len() as u32).collect();
+                std::mem::replace(&mut indices, each)
+            });
+            let corners = corners.as_deref();
+            let positions = spread(corners, positions);
+            let count = positions.len();
+            let uvs: Option<Vec<[f32; 2]>> = attribute(gltf::Semantic::TexCoords(0)).and_then(|a| floats::<2>(&a, &buffers)).filter(|t| fits(t.len())).map(|t| spread(corners, t));
+            let uvs1: Option<Vec<[f32; 2]>> = attribute(gltf::Semantic::TexCoords(1)).and_then(|a| floats::<2>(&a, &buffers)).filter(|t| fits(t.len())).map(|t| spread(corners, t));
             let mut material = read_material(&doc, &prim.material(), &mut images);
             // Drawn once for each of its node's instances on the GPU, unless
             // it's skinned (a skin poses each vertex after its instance) or
@@ -263,7 +282,7 @@ pub(super) fn load(bytes: &[u8]) -> Result<Mesh, String> {
                     _ => floats::<4>(&a, &buffers),
                 })
                 .filter(|c| fits(c.len()))
-                .map(|c| c.into_iter().map(vertex_color).collect());
+                .map(|c| spread(corners, c).into_iter().map(vertex_color).collect());
             let mut vertices: Vec<Vertex> = (0..count)
                 .map(|k| {
                     let v = Vertex::new(positions[k], normals.as_ref().map_or([0.0; 3], |n| n[k]), uvs.as_ref().map_or([0.0; 2], |t| t[k]));
@@ -271,6 +290,7 @@ pub(super) fn load(bytes: &[u8]) -> Result<Mesh, String> {
                 })
                 .collect();
             if normals.is_none() {
+                // Flat, each corner now its own vertex where any was shared.
                 smooth_normals(&mut vertices, &indices, |_| true);
             }
             // A normal map needs tangents, worked out where the file gives
@@ -287,7 +307,9 @@ pub(super) fn load(bytes: &[u8]) -> Result<Mesh, String> {
             };
             let has_uvs = if bump_map.set == 1 { uvs1.is_some() || uvs.is_some() } else { uvs.is_some() };
             let tangents = match material.bumps.is_some() || coat_bumps || material.anisotropy.is_some() {
-                true if has_uvs => match attribute(gltf::Semantic::Tangents).and_then(|a| floats::<4>(&a, &buffers)).filter(|t| fits(t.len())) {
+                // A file's tangents go with its normals: without them,
+                // glTF has a viewer pass its tangents over.
+                true if has_uvs => match attribute(gltf::Semantic::Tangents).filter(|_| normals.is_some()).and_then(|a| floats::<4>(&a, &buffers)).filter(|t| fits(t.len())) {
                     Some(t) => t,
                     None => {
                         let mapped: Vec<[f32; 2]> = vertices.iter().map(|v| bump_map.apply(v)).collect();
@@ -315,7 +337,8 @@ pub(super) fn load(bytes: &[u8]) -> Result<Mesh, String> {
                 None => (Vec::new(), Vec::new()),
             };
             let skin = skin.filter(|_| fits(joints.len()) && fits(weights.len()));
-            let target = |a: Option<gltf::Accessor>| a.and_then(|a| floats::<3>(&a, &buffers)).filter(|v| fits(v.len())).unwrap_or_default();
+            let (joints, weights) = if skin.is_some() { (spread(corners, joints), spread(corners, weights)) } else { (Vec::new(), Vec::new()) };
+            let target = |a: Option<gltf::Accessor>| a.and_then(|a| floats::<3>(&a, &buffers)).filter(|v| fits(v.len())).map(|v| spread(corners, v)).unwrap_or_default();
             let morphs: Vec<Morph> = prim.morph_targets().map(|m| Morph { positions: target(m.positions()), normals: target(m.normals()), tangents: target(m.tangents()) }).collect();
             // Mirrored by its node, or by an instance: the triangles turn the
             // other way round. A skinned part goes by its joints, which glTF
@@ -365,6 +388,21 @@ pub(super) fn load(bytes: &[u8]) -> Result<Mesh, String> {
 fn vertex_color(c: [f32; 4]) -> [u8; 4] {
     let byte = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
     [byte(c[0].max(0.0).powf(1.0 / 2.2)), byte(c[1].max(0.0).powf(1.0 / 2.2)), byte(c[2].max(0.0).powf(1.0 / 2.2)), byte(c[3])]
+}
+
+/// Whether any vertex is a corner of more than one of the triangles.
+fn shares_vertices(indices: &[u32], count: usize) -> bool {
+    let mut seen = vec![false; count];
+    indices.iter().any(|&i| std::mem::replace(&mut seen[i as usize], true))
+}
+
+/// An attribute's values as the vertices `corners` names have them, one for
+/// each corner; as they are where no corner was given its own.
+fn spread<T: Copy>(corners: Option<&[u32]>, values: Vec<T>) -> Vec<T> {
+    match corners {
+        Some(corners) => corners.iter().map(|&i| values[i as usize]).collect(),
+        None => values,
+    }
 }
 
 /// Where a node's instances (EXT_mesh_gpu_instancing) put copies of its
@@ -981,6 +1019,7 @@ pub mod tests {
         let pos = g.floats(&[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0], 3);
         let uv = g.floats(&[0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0], 2);
         let uv1 = g.floats(&[0.5, 0.5, 0.75, 0.5, 0.75, 0.25, 0.5, 0.25], 2);
+        let normal = g.floats(&[0.0, 0.0, 1.0].repeat(4), 3);
         let idx = g.shorts(&[0, 1, 2, 0, 2, 3], 1);
         let color = g.png(2, 1, &[255, 0, 0, 255, 0, 0, 255, 255]);
         let occlusion = g.png(1, 1, &[64, 64, 64, 255]);
@@ -988,7 +1027,7 @@ pub mod tests {
         g.finish(&format!(
             r#""extensionsUsed":["KHR_texture_transform","KHR_materials_emissive_strength"],"extensionsRequired":["KHR_texture_transform"],
             "scene":0,"scenes":[{{"nodes":[0]}}],"nodes":[{{"mesh":0}}],
-            "meshes":[{{"primitives":[{{"attributes":{{"POSITION":{pos},"TEXCOORD_0":{uv},"TEXCOORD_1":{uv1}}},"indices":{idx},"material":0}}]}}],
+            "meshes":[{{"primitives":[{{"attributes":{{"POSITION":{pos},"NORMAL":{normal},"TEXCOORD_0":{uv},"TEXCOORD_1":{uv1}}},"indices":{idx},"material":0}}]}}],
             "materials":[{{"pbrMetallicRoughness":{{"baseColorTexture":{{"index":0,"extensions":{{"KHR_texture_transform":{{"offset":[0.5,0],"rotation":1.5707964,"scale":[2,1],"texCoord":1}}}}}}}},
                 "occlusionTexture":{{"index":1,"strength":0.7,"texCoord":1}},
                 "normalTexture":{{"index":2,"extensions":{{"KHR_texture_transform":{{"scale":[3,3]}}}}}},
@@ -1557,11 +1596,12 @@ pub mod tests {
         let mut pos = vec![0.0f32; corners * 3];
         (pos[3], pos[7]) = (1.0, 1.0);
         let pos = g.floats(&pos, 3);
+        let normal = g.floats(&[0.0, 0.0, 1.0].repeat(corners), 3);
         let idx = g.shorts(&[0, 1, 2].repeat(triangles), 1);
         let attributes = make(&mut g);
         g.finish(&format!(
             r#""scene":0,"scenes":[{{"nodes":[0]}}],"nodes":[{{"mesh":0,"extensions":{{"EXT_mesh_gpu_instancing":{{"attributes":{{{attributes}}}}}}}}}],
-            "meshes":[{{"primitives":[{{"attributes":{{"POSITION":{pos}}},"indices":{idx},"material":0}}]}}],{materials}"#
+            "meshes":[{{"primitives":[{{"attributes":{{"POSITION":{pos},"NORMAL":{normal}}},"indices":{idx},"material":0}}]}}],{materials}"#
         ))
     }
 
@@ -2161,6 +2201,7 @@ pub mod tests {
     pub fn perspective_glb(orthographic: bool) -> Vec<u8> {
         let mut g = Glb::default();
         let pos = g.floats(&[-0.5, -0.5, 0.0, 0.5, -0.5, 0.0, 0.5, 0.5, 0.0, -0.5, 0.5, 0.0], 3);
+        let normal = g.floats(&[0.0, 0.0, 1.0].repeat(4), 3);
         let idx = g.shorts(&[0, 1, 2, 0, 2, 3], 1);
         let camera = if orthographic {
             r#"{"type":"orthographic","orthographic":{"xmag":2,"ymag":2,"znear":0.1,"zfar":50}}"#
@@ -2170,8 +2211,8 @@ pub mod tests {
         g.finish(&format!(
             r#""cameras":[{camera}],"scene":0,"scenes":[{{"nodes":[0,1,2,3]}}],
             "nodes":[{{"mesh":0,"translation":[-0.55,-0.45,0]}},{{"mesh":1,"translation":[0.5,0.5,-3]}},{{"mesh":2,"translation":[3,3,-9]}},{{"camera":0,"translation":[0,0,3]}}],
-            "meshes":[{{"primitives":[{{"attributes":{{"POSITION":{pos}}},"indices":{idx},"material":0}}]}},{{"primitives":[{{"attributes":{{"POSITION":{pos}}},"indices":{idx},"material":1}}]}},
-                {{"primitives":[{{"attributes":{{"POSITION":{pos}}},"indices":{idx},"material":2}}]}}],
+            "meshes":[{{"primitives":[{{"attributes":{{"POSITION":{pos},"NORMAL":{normal}}},"indices":{idx},"material":0}}]}},{{"primitives":[{{"attributes":{{"POSITION":{pos},"NORMAL":{normal}}},"indices":{idx},"material":1}}]}},
+                {{"primitives":[{{"attributes":{{"POSITION":{pos},"NORMAL":{normal}}},"indices":{idx},"material":2}}]}}],
             "materials":[{{"pbrMetallicRoughness":{{"baseColorFactor":[1,0,0,1],"metallicFactor":0}},"extensions":{{"KHR_materials_unlit":{{}}}}}},
                 {{"pbrMetallicRoughness":{{"baseColorFactor":[0,1,0,1],"metallicFactor":0}},"extensions":{{"KHR_materials_unlit":{{}}}}}},
                 {{"pbrMetallicRoughness":{{"baseColorFactor":[0,0,1,1],"metallicFactor":0}},"extensions":{{"KHR_materials_unlit":{{}}}}}}]"#
@@ -2254,13 +2295,14 @@ pub mod tests {
     pub fn dolly_glb() -> Vec<u8> {
         let mut g = Glb::default();
         let pos = g.floats(&[-1.0, -1.0, 0.0, 1.0, -1.0, 0.0, 1.0, 1.0, 0.0, -1.0, 1.0, 0.0], 3);
+        let normal = g.floats(&[0.0, 0.0, 1.0].repeat(4), 3);
         let idx = g.shorts(&[0, 1, 2, 0, 2, 3], 1);
         let times = g.floats(&[0.0, 1.0], 1);
         let carry = g.floats(&[0.0, 0.0, 8.0, 0.0, 0.0, 4.0], 3);
         g.finish(&format!(
             r#""cameras":[{{"type":"perspective","perspective":{{"yfov":0.6,"znear":0.1}}}}],"scene":0,"scenes":[{{"nodes":[0,1]}}],
             "nodes":[{{"mesh":0}},{{"camera":0,"translation":[0,0,8]}}],
-            "meshes":[{{"primitives":[{{"attributes":{{"POSITION":{pos}}},"indices":{idx}}}]}}],
+            "meshes":[{{"primitives":[{{"attributes":{{"POSITION":{pos},"NORMAL":{normal}}},"indices":{idx}}}]}}],
             "animations":[{{"samplers":[{{"input":{times},"output":{carry},"interpolation":"LINEAR"}}],"channels":[{{"sampler":0,"target":{{"node":1,"path":"translation"}}}}]}}]"#
         ))
     }
@@ -2542,5 +2584,184 @@ pub mod tests {
                 assert!(super::super::length(v.pos) <= mesh.radius + 1e-4, "{t}s: {:?} beyond {}", v.pos, mesh.radius);
             }
         }
+    }
+
+
+    /// Whole files the glTF tools wrote (`testdata`, its README says how):
+    /// Khronos's Fox (skinned, three clips) as gltfpack packs it (quantized
+    /// alone, and with KHR_meshopt_compression's codec 1 and filters) and as
+    /// gltf-transform does (Draco with a WebP texture, and meshopt with
+    /// filters), the first being the one the others are held to.
+    pub const FOXES: [(&str, &[u8]); 4] = [
+        ("gltfpack", include_bytes!("testdata/fox-gltfpack.glb")),
+        ("gltfpack -cc", include_bytes!("testdata/fox-gltfpack-cc.glb")),
+        ("gltf-transform draco", include_bytes!("testdata/fox-gltf-transform-draco.glb")),
+        ("gltf-transform meshopt", include_bytes!("testdata/fox-gltf-transform-meshopt.glb")),
+    ];
+    /// Flow's own forest (`forest_gltf.py`), 64 nodes of one tree, one of
+    /// them mirrored: plain (gltf-transform copy), then made GPU instances
+    /// by gltfpack (`-mi -c`, meshopt, its turns normalized shorts) and by
+    /// gltf-transform (`instance`, then `quantize`).
+    pub const FORESTS: [(&str, &[u8]); 3] = [
+        ("plain", include_bytes!("testdata/forest.glb")),
+        ("gltfpack", include_bytes!("testdata/forest-gltfpack.glb")),
+        ("gltf-transform", include_bytes!("testdata/forest-gltf-transform.glb")),
+    ];
+    /// Khronos's SimpleInstancing, as JglTF wrote it: a cube in 125 instances.
+    pub const SIMPLE_INSTANCING: &[u8] = include_bytes!("testdata/simple-instancing.glb");
+    /// Khronos's AnisotropyStrengthTest through gltfpack (`-c -kv`).
+    pub const ANISOTROPY: &[u8] = include_bytes!("testdata/anisotropy-gltfpack.glb");
+    /// Khronos's IridescenceSuzanne through gltf-transform (its texture made
+    /// 128 pixels square and WebP, then meshopt).
+    pub const IRIDESCENCE: &[u8] = include_bytes!("testdata/iridescence-gltf-transform.glb");
+
+    /// Each triangle's middle, as a part's copies draw it.
+    fn middles(part: &Part) -> Vec<[f32; 3]> {
+        let part = part.expanded();
+        part.indices.as_chunks::<3>().0.iter().map(|t| {
+            let [a, b, c] = t.map(|i| part.vertices[i as usize].pos);
+            [0, 1, 2].map(|k| (a[k] + b[k] + c[k]) / 3.0)
+        }).collect()
+    }
+
+    /// How far the farthest of `a`'s points is from the nearest of `b`'s,
+    /// with as many of each.
+    fn farthest_apart(a: &[[f32; 3]], b: &[[f32; 3]]) -> f32 {
+        assert_eq!(a.len(), b.len());
+        a.iter().map(|p| b.iter().map(|q| super::super::length(sub(*p, *q))).fold(f32::MAX, f32::min)).fold(0.0, f32::max)
+    }
+
+    #[test]
+    fn a_mesh_without_normals_is_flat_however_its_triangles_share_vertices() {
+        // A square folded along its diagonal, its four corners shared by
+        // its two triangles, with uvs and a file's tangents but no normals.
+        let mut g = Glb::default();
+        let pos = g.floats(&[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0], 3);
+        let uv = g.floats(&[0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0], 2);
+        let tangent = g.floats(&[0.0, 0.0, 1.0, 1.0].repeat(4), 4);
+        let idx = g.shorts(&[0, 1, 2, 0, 2, 3], 1);
+        let bumps = g.png(1, 1, &[128, 128, 255, 255]);
+        let folded = g.finish(&format!(
+            r#""scene":0,"scenes":[{{"nodes":[0]}}],"nodes":[{{"mesh":0}}],
+            "meshes":[{{"primitives":[{{"attributes":{{"POSITION":{pos},"TEXCOORD_0":{uv},"TANGENT":{tangent}}},"indices":{idx},"material":0}}]}}],
+            "materials":[{{"normalTexture":{{"index":0}}}}],"textures":[{{"source":0}}],"images":[{{"bufferView":{bumps},"mimeType":"image/png"}}]"#
+        ));
+        let part = &load(Format::Glb, &folded).unwrap().parts[0];
+        assert_eq!((part.vertices.len(), part.indices.len()), (6, 6), "each corner its own");
+        for t in part.indices.as_chunks::<3>().0 {
+            let [a, b, c] = t.map(|i| part.vertices[i as usize]);
+            let face = normalize(cross(sub(b.pos, a.pos), sub(c.pos, a.pos)));
+            assert!([a, b, c].iter().all(|v| dot(v.normal, face) > 0.9999), "flat: {:?} {:?}", a.normal, face);
+            // The file's tangents passed over, as glTF has them without
+            // normals: worked out from the uvs, along u.
+            assert!([a, b, c].iter().all(|v| v.tangent[0] > 0.7), "{:?}", a.tangent);
+        }
+        let uvs: Vec<[f32; 2]> = part.vertices.iter().map(|v| v.uv).collect();
+        assert_eq!(uvs, [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0], [1.0, 1.0], [0.0, 1.0]], "spread to the corners");
+        // Past the model's triangles, it's refused before any corner is
+        // given a vertex of its own.
+        let mut g = Glb::default();
+        let pos = g.floats(&[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0], 3);
+        let idx = g.shorts(&[0, 1, 2].repeat(super::super::MAX_TRIANGLES + 1), 1);
+        let many = g.finish(&format!(r#""scene":0,"scenes":[{{"nodes":[0]}}],"nodes":[{{"mesh":0}}],"meshes":[{{"primitives":[{{"attributes":{{"POSITION":{pos}}},"indices":{idx}}}]}}]"#));
+        assert_eq!(load(Format::Glb, &many).unwrap_err(), "2000001 triangles, more than 2000000");
+    }
+
+    #[test]
+    fn the_fox_reads_alike_as_gltfpack_and_gltf_transform_packed_it() {
+        let foxes: Vec<_> = FOXES.iter().map(|(tool, file)| (*tool, load(Format::Glb, file).unwrap_or_else(|e| panic!("{tool}: {e}")))).collect();
+        let (_, first) = &foxes[0];
+        for (tool, fox) in &foxes {
+            assert_eq!(fox.parts.len(), 1, "{tool}");
+            let part = &fox.parts[0];
+            // It has no normals, so it's flat: each corner its own vertex,
+            // gltfpack's and Draco's shared ones too.
+            assert_eq!((part.indices.len(), part.vertices.len()), (576 * 3, 576 * 3), "{tool}");
+            assert!(part.instances.is_empty(), "{tool}");
+            assert!(part.material.texture.as_ref().is_some_and(|t| (t.width, t.height) == (128, 128)), "{tool}: its texture");
+            let rig = fox.rig.as_ref().unwrap_or_else(|| panic!("{tool}: rigged"));
+            assert_eq!(rig.skins.len(), 1, "{tool}");
+            // Survey, Walk and Run, gltfpack's resampled at 30 a second.
+            let lengths: Vec<f32> = rig.clips.iter().map(|c| c.duration).collect();
+            assert!(lengths.len() == 3 && lengths.iter().zip([3.417, 0.708, 1.158]).all(|(a, b)| (a - b).abs() < 0.03), "{tool}: {lengths:?}");
+            assert!(fox.extent.iter().zip(first.extent).all(|(a, b)| (a - b).abs() < 0.003), "{tool}: {:?} against {:?}", fox.extent, first.extent);
+            // Every triangle where the first file has it, at rest and as
+            // each clip has it a moment in (gltf-transform's some 0.0014
+            // off, its box fitted over clips gltfpack didn't resample).
+            let rest = middles(part);
+            let near = farthest_apart(&rest, &middles(&first.parts[0]));
+            assert!(near < 0.003, "{tool}: at rest, {near} apart");
+            for clip in 0..3 {
+                let posed = |mesh: &Mesh| {
+                    let pose = mesh.posed(clip, 0.3).unwrap();
+                    middles(&Part { vertices: pose.vertices[0].clone(), ..mesh.parts[0].clone() })
+                };
+                assert!(farthest_apart(&posed(fox), &rest) > 0.02, "{tool}: clip {clip} moves it");
+                let near = farthest_apart(&posed(fox), &posed(first));
+                assert!(near < 0.003, "{tool}: clip {clip}, {near} apart");
+            }
+        }
+    }
+
+    #[test]
+    fn forests_the_tools_made_instances_of_read_as_the_plain_one_does() {
+        let forests: Vec<_> = FORESTS.iter().map(|(tool, file)| (*tool, load(Format::Glb, file).unwrap_or_else(|e| panic!("{tool}: {e}")))).collect();
+        let every = |mesh: &Mesh| mesh.parts.iter().flat_map(middles).collect::<Vec<_>>();
+        let (_, plain) = &forests[0];
+        // Plain, 64 nodes of a tree's two parts, leaves and trunk.
+        assert_eq!(plain.parts.len(), 128);
+        assert!(plain.parts.iter().all(|p| p.instances.is_empty() && p.indices.len() == 24 * 3));
+        for (tool, forest) in &forests[1..] {
+            // Instanced, each of the two parts drawn 64 times on the GPU,
+            // one of them mirrored.
+            assert_eq!(forest.parts.len(), 2, "{tool}");
+            for part in &forest.parts {
+                assert_eq!((part.instances.len(), part.indices.len()), (64, 24 * 3), "{tool}");
+                assert_eq!(part.instances.iter().filter(|m| det(**m) < 0.0).count(), 1, "{tool}: one mirrored");
+                // Each copy faces the way its normals do, the mirrored one too.
+                let copies = part.expanded();
+                for t in copies.indices.as_chunks::<3>().0 {
+                    let [a, b, c] = t.map(|i| copies.vertices[i as usize]);
+                    assert!(dot(cross(sub(b.pos, a.pos), sub(c.pos, a.pos)), a.normal) > 0.0, "{tool}: a triangle wound against its normal");
+                }
+            }
+            assert!(forest.extent.iter().zip(plain.extent).all(|(a, b)| (a - b).abs() < 1e-4), "{tool}: {:?}", forest.extent);
+            let near = farthest_apart(&every(forest), &every(plain));
+            assert!(near < 1e-4, "{tool}: {near} apart");
+        }
+        // Khronos's cube, in 125 instances five a side, all in the box.
+        let cubes = load(Format::Glb, SIMPLE_INSTANCING).unwrap();
+        assert_eq!((cubes.parts.len(), cubes.parts[0].instances.len(), cubes.parts[0].indices.len()), (1, 125, 36));
+        let corners = cubes.parts[0].expanded().vertices;
+        let reach = (0..3).map(|k| corners.iter().map(|v| v.pos[k].abs()).fold(0.0, f32::max)).fold(0.0, f32::max);
+        assert!((reach - 0.5).abs() < 1e-3, "{reach}");
+    }
+
+    #[test]
+    fn anisotropy_and_iridescence_read_from_files_the_tools_packed() {
+        // 49 spheres in seven columns, their anisotropy's strength from 1
+        // down to none in sixths, then the labels' plane, its texture
+        // moved by gltfpack's transform.
+        let spheres = load(Format::Glb, ANISOTROPY).unwrap();
+        assert_eq!(spheres.parts.len(), 50);
+        let strengths: Vec<f32> = spheres.parts[..49].iter().map(|p| p.material.anisotropy.as_ref().map_or(0.0, |a| a.strength)).collect();
+        for (k, s) in strengths.iter().enumerate() {
+            assert!((s - (6 - k % 7) as f32 / 6.0).abs() < 1e-3, "sphere {k}: {s}");
+        }
+        // Each one's way along it, from the tangents gltfpack kept (`-kv`;
+        // without, it drops them where no texture maps them).
+        let tangent = |v: &Vertex| v.tangent[..3].iter().map(|c| c * c).sum::<f32>().sqrt();
+        assert!(spheres.parts[..49].iter().filter(|p| p.material.anisotropy.is_some()).all(|p| p.vertices.iter().all(|v| tangent(v) > 0.9)), "the tangents gltfpack kept");
+        let label = &spheres.parts[49];
+        assert!(label.material.texture.is_some() && label.material.anisotropy.is_none());
+        assert_ne!(label.material.maps[Tex::Base as usize], super::super::UvMap::PLAIN, "its texture's transform");
+        // Suzanne thrice: of glass under a film whose thickness is a WebP
+        // texture, and grey twice under films of their own; its light.
+        let suzanne = load(Format::Glb, IRIDESCENCE).unwrap();
+        assert_eq!((suzanne.parts.len(), suzanne.lights.len()), (3, 1));
+        let films: Vec<_> = suzanne.parts.iter().map(|p| p.material.iridescence.clone().expect("a film")).collect();
+        assert!(films[0].map.as_ref().is_some_and(|t| (t.width, t.height) == (128, 128)) && suzanne.parts[0].material.see_through());
+        assert!((films[0].ior - 1.8).abs() < 1e-4 && (films[0].thinnest, films[0].thickest) == (200.0, 600.0));
+        assert!(films[1..].iter().all(|f| f.map.is_none() && (f.ior - 1.33).abs() < 1e-4 && (f.thinnest, f.thickest) == (100.0, 400.0)));
     }
 }

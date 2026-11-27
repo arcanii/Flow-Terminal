@@ -91,5 +91,8 @@ which can only make the box a little larger.
   a file). `pick`'s test finds each instance. The GPU test draws the
   instances and a moving node's, the mirrored one lit as the others are
   (267 against 594 with its flag left out, which the test catches).
-- To try: the GPU test on Windows and Linux, and a forest from a glTF
-  tool placed in a live tab.
+- Forests gltfpack (`-mi`) and gltf-transform (`instance`) made instances
+  of, and Khronos's SimpleInstancing, read as the plain forest and drawn
+  alike by the tests on the Mac (`docs/design/gltf-tool-files.md`).
+- To try: the GPU tests on Windows and Linux, and those forests placed in
+  a live tab.

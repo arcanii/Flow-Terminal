@@ -2146,7 +2146,18 @@ the document made and checked (`gltf::Document::from_json`).
 `model/testdata` holds Draco meshes and KTX2 textures that Google's and
 Binomial's own encoders made (its README says with which versions and
 how), which the tests wrap in GLBs; draco-core's encoder, a
-dev-dependency, makes the rest.
+dev-dependency, makes the rest. From 0.1.48 it holds whole GLBs too, as
+gltfpack and gltf-transform wrote them from Khronos's samples and Flow's
+own forest (`forest_gltf.py`; `docs/design/gltf-tool-files.md`):
+`glb::tests::FOXES` (skinned, three clips), `FORESTS` (plain and made GPU
+instances by each tool), `SIMPLE_INSTANCING`, `ANISOTROPY` and
+`IRIDESCENCE`, which `glb`'s tests read and the GPU test
+`whole_files_from_gltf_tools_draw_on_the_gpu` draws. A primitive without
+normals is drawn flat, as glTF has a viewer draw it: where its triangles
+share a vertex (`shares_vertices`), each corner gets one of its own,
+every attribute spread to them as it's read (`spread`: positions, uvs,
+colors, joints, weights, morph targets), once its triangles are counted
+against `MAX_TRIANGLES`, and the file's tangents are passed over.
 `buffers::floats` reads positions, normals, tangents, uvs and morph
 targets of any component type, normalized or not, sparse too
 (KHR_mesh_quantization, the nodes scaling them back), where the gltf

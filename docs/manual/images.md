@@ -236,7 +236,10 @@ targets blending. `clip=<n>` on `p` or `u` picks which of its animations
 cells over the whole animation, so it never leaves them. Its materials show
 too: metal and roughness (factors and texture), normal maps (with tangents
 worked out where the file has none), occlusion maps (with their strength) and
-emission (made stronger by `KHR_materials_emissive_strength`). Its vertex
+emission (made stronger by `KHR_materials_emissive_strength`). A mesh the
+file gives no normals is drawn flat, each triangle lit as the way it faces,
+as glTF has a viewer draw it, however the file shares its vertices
+(gltfpack's welded ones and Draco's too). Its vertex
 colors (`COLOR_0`: RGB or RGBA, floats or normalized bytes or shorts,
 however the file is packed) tint the base color and its texture, blended
 across each triangle, their alpha with the material's; further sets
@@ -270,7 +273,9 @@ million (and make 6 million vertices at most). A file past any of these
 isn't shown, and the error says so. Flat artwork drawn in instances isn't
 made thick for `depth`.
 
-A file packed small, as gltfpack packs one, reads as it would unpacked:
+A file packed small, as gltfpack or gltf-transform packs one, reads as it
+would unpacked (Flow's tests read and draw files both tools wrote, Khronos's
+Fox among them, skinned and animated):
 
 | Extension | What's read |
 |-----------|-------------|

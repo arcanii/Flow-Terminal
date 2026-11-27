@@ -89,6 +89,9 @@ over, and the manual says so; the backlog's item is closed.
   draws a glossy ball's highlight stretched round it and, its way turned a
   quarter, from pole to pole, and a white ball under a 400 nm film colored
   where the bare one is grey.
-- To try: the same GPU test on Windows (Direct3D 12, Vulkan) and Linux
+- Files from the glTF tools using them (Khronos's AnisotropyStrengthTest
+  through gltfpack, IridescenceSuzanne through gltf-transform) are read and
+  drawn by the tests on the Mac (`docs/design/gltf-tool-files.md`).
+- To try: the same GPU tests on Windows (Direct3D 12, Vulkan) and Linux
   (Vulkan, OpenGL), where the sixteen textures are every one a stage may
-  sample; and a file from a glTF tool using them, placed in a live tab.
+  sample; and those files placed in a live tab.

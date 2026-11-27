@@ -1891,7 +1891,7 @@ pub mod tests {
 
     pub use glb::tests::{
         ball_glb, ball_v1_glb, basis_ball_glb, colored_triangle, crossed_glb, draco_ball, draco_glb, instanced_glb, layers_glb, material_glb, moving_lights_glb, orbiting_camera_glb, perspective_cube_glb, perspective_glb, plank_glb,
-        sliding_crossed_glb, spec_gloss_glb, BASIS_CHECKERS, CORNER_COLORS, DRACO_IDS, GOOGLES_DRACO, GOOGLES_IDS,
+        sliding_crossed_glb, spec_gloss_glb, ANISOTROPY, BASIS_CHECKERS, CORNER_COLORS, DRACO_IDS, FORESTS, FOXES, GOOGLES_DRACO, GOOGLES_IDS, IRIDESCENCE, SIMPLE_INSTANCING,
     };
 
     fn b64(bytes: &[u8]) -> String {
