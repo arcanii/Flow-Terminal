@@ -1195,7 +1195,14 @@ repaints (on leaving that screen, and after each resize) blank them from the
 top. So on Windows `session::advance` watches for those (`?1049l`, or
 `Session::resize`), notes the logo's rows, and puts back those the repaint's
 frame (`?25l` … `?25h`) left blank (`Banner`); a clear has neither and still
-takes the logo away.
+takes the logo away. A model's cells are Flow's own too, so they're kept
+the same way, cell by cell since a model sits among a program's text
+(`Emulator::models`, which `place_model` and `clear_model` keep, and
+`Repaint::cells`, noted on either screen and put back on that one, only
+for a model still placed; `docs/design/models-through-conpty.md`). Below
+the cursor, where ConPTY's screen is blank, it paints over them again
+whenever a line there wraps, with no repaint due, so a program makes its
+rows first (`windows/tests/models.rs`).
 
 Sixel pictures (a DCS, `ESC P … q … ESC \`, `Marker::Sixel`, found by the
 scanner's `Dcs` states up to `MAX_DCS`; a DCS with anything but digits and
@@ -1398,7 +1405,10 @@ a `BTreeMap` by image, so that's one range lookup). A model's cells, though,
 are Flow's own, which ConPTY doesn't know of, and it paints what a program
 wrote a moment after writing it: so a placement from the pipe waits for
 ConPTY's output to stop (`wait_for_paint`), and Flow Rogue sends its models
-after the screen they're over.
+after the screen they're over. A click's answer to a model that asked for
+them goes through ConPTY's input as everywhere, which passes an APC on only
+to a program whose console is in VT-input mode (`ENABLE_VIRTUAL_TERMINAL_INPUT`;
+in plain raw mode it's dropped), as `show_model` reads it there.
 
 **Double lines and mosaics.** DEC's line sizes (`ESC # 3` and `ESC # 4`
 the halves of a double-height line, `ESC # 6` double width, `ESC # 5`
@@ -3694,7 +3704,8 @@ carried it until 0.1.33; from 0.1.34 it's in flow-sdk's download, which
 `flow-core-themes` (see Themes); `skill_package` packs `flow-skills`
 from `assets/skills/` (a folder per skill, its `SKILL.md`), each skill
 read back as Flow reads them, for `app_catalog --skills`; `show_model` sends a model to the
-terminal with the Ratty protocol, to try 3D models by hand; `sounds` writes
+terminal with the Ratty protocol, to try 3D models by hand (on Windows down
+the tab's pipe, Flow-SDK's `Pipe`, with the cursor from the console); `sounds` writes
 each of Flow's sounds to a WAV file, to listen to them away from Flow; `make_icon` redraws `assets/icon/`,
 `make_movie` turns one style's `--record` frames into a looping animated WebP
 (like those in the public Flow-releases README),

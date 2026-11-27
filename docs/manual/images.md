@@ -395,12 +395,18 @@ To try one, run `cargo run --release --example show_model -- model.glb` in a
 Flow tab (`--animate`, `--cols 40`, `--rows 12`, `--color 7ce7ff`, `--depth 2`,
 `--rx`, `--ry`, `--rz`, `--clip 1`, `--clicks`, which prints the answers to
 clicks until a key is pressed): it checks the terminal speaks the protocol,
-sends the file and places it below the prompt. It needs a Unix tty.
+sends the file and places it below the prompt.
 
 On Windows, ConPTY drops the protocol's escapes as it drops kitty's, so a
 program sends them down the tab's pipe for images (`FLOW_IMAGE_PIPE`), which
-takes them too and answers `s` there; `show_model` doesn't do that yet. Flow
-writes a model's cells itself, which ConPTY doesn't know about: so a
-placement down the pipe waits until ConPTY has painted what the program
-wrote before it (send a model after the screen it sits on), and a repaint of
-those rows (after a resize, say) can still take a model away.
+takes them too and answers `s` there, as `show_model` does. Flow writes a
+model's cells itself, which ConPTY doesn't know about: so a placement down
+the pipe waits until ConPTY has painted what the program wrote before it
+(send a model after the screen it sits on), and Flow puts the model back
+after ConPTY repaints the screen (as a full-screen program leaves, or after
+a resize), as it does the startup logo. Place a model in rows your program
+has made, above the cursor, as `show_model` does: below the cursor, ConPTY
+paints its blank screen again whenever a line there wraps, and the model
+goes. A clear (`cls`, `clear`) takes a model away, as everywhere. A click's
+answer comes through ConPTY only to a program whose console is in VT-input
+mode (`ENABLE_VIRTUAL_TERMINAL_INPUT`); in plain raw mode ConPTY drops it.

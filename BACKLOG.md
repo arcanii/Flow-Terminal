@@ -52,11 +52,13 @@ when the grid narrows. Still to do:
   by its ior's head-on reflection linearly while its colors are display
   values, so a very high ior (a spec-gloss file read with glTF-Transform's
   1000, which Flow sidesteps) reflects far too brightly.
-- **Windows:** a model's cells are Flow's own, so ConPTY's repaint after a
-  resize (or on leaving the alternate screen) goes over them, as it did the
-  startup logo's before `Banner`; a placement down the pipe already waits
-  for ConPTY to paint what came before it. `show_model` writing down the
-  pipe for images, and clicks answered through ConPTY's input, are untried.
+- **Windows:** a model's cells, Flow's own, are kept through ConPTY's
+  repaints after a resize and as a full-screen program leaves, as the
+  startup logo's are, `show_model` places its models down the pipe for
+  images, and a click's answer reaches a program reading its console in
+  VT-input mode (2026-11-27, `docs/design/models-through-conpty.md`). A
+  model below the cursor, in rows ConPTY holds blank, still goes when a
+  line there wraps; a program in plain raw mode never sees a click.
 - **Rewrapping on Windows:** pictures are cut and filled out again around
   Flow's own resize, but ConPTY repaints from its own rewrapped buffer, so a
   picture that came through ConPTY can still split there.
@@ -1087,7 +1089,9 @@ AUR helper.
     (`docs/design/gpu-instancing.md`);
   - on Windows: a model's cells kept through ConPTY's repaints, as the
     startup logo's are (`Banner`), `show_model` down the pipe for images,
-    and clicks answered through ConPTY's input.
+    and clicks answered through ConPTY's input: built on the PC
+    (2026-11-27, `docs/design/models-through-conpty.md`), clicks needing no
+    change in Flow, only a program reading its console in VT-input mode.
 
 ## The assistant's panel: what's left
 

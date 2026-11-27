@@ -292,6 +292,13 @@ pub struct Emulator {
     pub term: Term<EventProxy>,
     processor: Processor<StdSyncHandler>,
     banner: Option<Banner>,
+    /// The image ids of the models placed here (`place_model`), whose cells
+    /// are Flow's own as the logo's are, so kept through ConPTY's repaints
+    /// too.
+    models: Vec<u32>,
+    /// A repaint ConPTY is about to send, with what it may blank of Flow's
+    /// own cells.
+    repaint: Option<Repaint>,
     /// A program has made a line double here (`crate::line_size`), so the
     /// emulator keeps such a line's right margin at its half
     /// ([`line_size::Margins`], which every letter goes through, for the
@@ -318,24 +325,29 @@ pub struct Emulator {
 /// resize, blanks the logo's rows from the top. So when one of those repaints
 /// is due, the logo's rows are noted, and those its frame (`?25l` … `?25h`)
 /// leaves blank go back. A clear (`cls`) comes without one and takes the
-/// logo away, as it should.
+/// logo away, as it should. A model's cells are kept the same way, cell by
+/// cell, since it sits among a program's text (`docs/design/models-through-conpty.md`).
 struct Banner {
     image: u32,
     placement: u32,
-    due: Option<Repaint>,
 }
 
 /// A repaint ConPTY is about to send.
 struct Repaint {
     /// The logo's rows on screen, by line, when it became due.
     rows: Vec<(usize, Row<Cell>)>,
+    /// The cells showing a model on the screen in use then, by line and
+    /// column.
+    cells: Vec<(usize, usize, Cell)>,
+    /// Whether that screen was the alternate one.
+    alternate: bool,
     /// Whether its frame has begun.
     begun: bool,
 }
 
 impl Emulator {
     fn new(term: Term<EventProxy>) -> Self {
-        Self { term, processor: Processor::new(), banner: None, sized: false, sixel_display: false, sixel_right: false, conpty: false }
+        Self { term, processor: Processor::new(), banner: None, models: Vec::new(), repaint: None, sized: false, sixel_display: false, sixel_right: false, conpty: false }
     }
 
     /// Carries out the terminal's output: once a program has made a line
@@ -681,46 +693,70 @@ impl Emulator {
         text.trim_matches('\n').to_string()
     }
 
-    /// Notes the startup logo's rows on screen as ConPTY is about to repaint
-    /// it (see [`Banner`]). Once none are left, the logo is gone for good.
+    /// Notes what of Flow's own ConPTY is about to repaint over: the startup
+    /// logo's rows on screen (see [`Banner`]), and on Windows the cells of
+    /// the models shown on the screen in use. Once none of the logo's rows
+    /// are left, it's gone for good.
     fn repaint_due(&mut self) {
-        let Some(banner) = &self.banner else { return };
-        // The logo is on the main screen; leaving the other brings a repaint.
-        if self.term.mode().contains(TermMode::ALT_SCREEN) {
-            return;
-        }
-        let logo = (banner.image, banner.placement);
+        let alternate = self.term.mode().contains(TermMode::ALT_SCREEN);
         let grid = self.term.grid();
-        let rows: Vec<(usize, Row<Cell>)> = (0..grid.screen_lines())
-            .filter_map(|l| {
+        let (lines, cols) = (grid.screen_lines(), grid.columns());
+        // The logo is on the main screen; leaving the other brings a repaint.
+        let logo = self.banner.as_ref().filter(|_| !alternate).map(|b| (b.image, b.placement));
+        let rows: Vec<(usize, Row<Cell>)> = logo.map_or_else(Vec::new, |logo| {
+            (0..lines)
+                .filter_map(|l| {
+                    let row = &grid[Line(l as i32)];
+                    let shows = (0..cols).any(|c| graphics::read_placeholder(&row[Column(c)]).is_some_and(|m| (m.id, m.placement) == logo));
+                    shows.then(|| (l, row.clone()))
+                })
+                .collect()
+        });
+        let mut cells = Vec::new();
+        if self.conpty && !self.models.is_empty() {
+            for l in 0..lines {
                 let row = &grid[Line(l as i32)];
-                let shows = (0..grid.columns()).any(|c| graphics::read_placeholder(&row[Column(c)]).is_some_and(|m| (m.id, m.placement) == logo));
-                shows.then(|| (l, row.clone()))
-            })
-            .collect();
-        match &mut self.banner {
-            Some(banner) if !rows.is_empty() => banner.due = Some(Repaint { rows, begun: false }),
-            _ => self.banner = None,
+                for c in 0..cols {
+                    if graphics::read_placeholder(&row[Column(c)]).is_some_and(|m| self.models.contains(&m.id)) {
+                        cells.push((l, c, row[Column(c)].clone()));
+                    }
+                }
+            }
         }
+        if logo.is_some() && rows.is_empty() {
+            self.banner = None;
+        }
+        self.repaint = (!rows.is_empty() || !cells.is_empty()).then_some(Repaint { rows, cells, alternate, begun: false });
     }
 
     /// Follows ConPTY's frames while a repaint is due: the first to begin is
-    /// the repaint, and as it ends, the logo's rows it blanked go back.
+    /// the repaint, and as it ends, the logo's rows it blanked go back, and
+    /// the models' cells it blanked, of those still placed (one placed again
+    /// or deleted meanwhile has another image or none), on the screen they
+    /// were noted on.
     fn frame(&mut self, begins: bool) {
-        let Some(Banner { due: Some(repaint), .. }) = &mut self.banner else { return };
+        let Some(repaint) = &mut self.repaint else { return };
         if begins || !repaint.begun {
             repaint.begun |= begins;
             return;
         }
-        let Some(Repaint { rows, .. }) = self.banner.as_mut().and_then(|b| b.due.take()) else { return };
-        if self.term.mode().contains(TermMode::ALT_SCREEN) {
+        let Some(Repaint { rows, cells, alternate, .. }) = self.repaint.take() else { return };
+        if self.term.mode().contains(TermMode::ALT_SCREEN) != alternate {
             return;
         }
+        let models = &self.models;
         let grid = self.term.grid_mut();
+        let (lines, cols) = (grid.screen_lines(), grid.columns());
         for (l, row) in rows {
             let line = Line(l as i32);
-            if l < grid.screen_lines() && row.len() == grid.columns() && (0..grid.columns()).all(|c| grid[line][Column(c)].c == ' ') {
+            if l < lines && row.len() == cols && (0..cols).all(|c| grid[line][Column(c)].c == ' ') {
                 grid[line] = row;
+            }
+        }
+        for (l, c, cell) in cells {
+            let placed = graphics::read_placeholder(&cell).is_some_and(|m| models.contains(&m.id));
+            if placed && l < lines && c < cols && grid[Line(l as i32)][Column(c)].c == ' ' {
+                grid[Line(l as i32)][Column(c)] = cell;
             }
         }
     }
@@ -1368,7 +1404,7 @@ impl Session {
         e.run(format!("\x1b[{};1H", ROWS + 2).as_bytes());
         // ConPTY never sees the logo, so it's kept through ConPTY's repaints.
         if cfg!(windows) {
-            e.banner = Some(Banner { image: place.id, placement: place.placement, due: None });
+            e.banner = Some(Banner { image: place.id, placement: place.placement });
         }
     }
 
@@ -2283,11 +2319,12 @@ fn place_logo(e: &mut Emulator, replies: &Replies, logo: Image, centered: bool) 
 }
 
 /// Feeds the terminal's output to the emulator. With a startup logo to keep
-/// ([`Banner`]), it also follows ConPTY: leaving the alternate screen
-/// (`?1049l`) brings a repaint, and each frame begins with `?25l` and ends
-/// with `?25h`.
+/// ([`Banner`]), or through ConPTY models, it also follows ConPTY: leaving
+/// the alternate screen (`?1049l`) brings a repaint, and each frame begins
+/// with `?25l` and ends with `?25h`.
 fn advance(e: &mut Emulator, bytes: &[u8]) {
-    if e.banner.is_none() {
+    let keeps_own_cells = e.banner.is_some() || (e.conpty && !e.models.is_empty());
+    if !keeps_own_cells {
         e.run(bytes);
         return;
     }
@@ -2757,6 +2794,7 @@ fn place_model(
     }
     let top = e.term.grid().history_size() as i64 + top as i64;
     models.shown.insert(id, model::Showing { image: place.id, top, left, cols, rows, pixels, shown });
+    e.models.push(place.id);
 }
 
 /// The pixels of a model's picture over `cols` × `rows` cells: whole pixels
@@ -2853,6 +2891,7 @@ fn clear_model(e: &mut Emulator, images: &Mutex<ImageStore>, s: &model::Showing)
             }
         }
     }
+    e.models.retain(|&id| id != s.image);
     images.lock().forget_own(s.image);
 }
 
@@ -3919,6 +3958,97 @@ mod tests {
         assert_eq!(click(&emu, (0, 1), (0.1, 0.1)), None, "in the picture but off the square");
         assert_eq!(click(&emu, (0, 0), (0.5, 0.5)), None, "not on the model");
         assert_eq!(click(&emu, (9, 0), (0.5, 0.5)), None, "off the screen");
+    }
+
+    #[test]
+    fn a_model_comes_back_cell_by_cell_when_conpty_repaints_over_it() {
+        use base64::Engine as _;
+        let writer = ToShell::direct(Box::new(Vec::new()));
+        let state = Arc::new(Mutex::new(ShellState::default()));
+        let size = Arc::new(Mutex::new(WindowSize { num_lines: 6, num_cols: 20, cell_width: 10, cell_height: 20 }));
+        let proxy = EventProxy { ink: tab_ink(), writer: writer.clone(), state: state.clone(), size: size.clone(), waker: Waker::from_fn(|_| {}) };
+        let term = Term::new(TermConfig { scrolling_history: 100, ..TermConfig::default() }, &GridSize { cols: 20, rows: 6 }, proxy);
+        let mut emu = Emulator::new(term);
+        emu.conpty = true;
+        let (images, models) = (Arc::new(Mutex::new(ImageStore::default())), Arc::new(Mutex::new(ModelStore::default())));
+        let replies = Replies { writer, size, images, models: models.clone() };
+        let square = base64::engine::general_purpose::STANDARD.encode(model::tests::SQUARE);
+        let send = |emu: &mut Emulator, cmd: &str| feed(emu, &state, &replies, format!("\x1b_ratty;g;{cmd}\x1b\\").as_bytes());
+        // Which cells show a model, and the text there is.
+        let model_cells = |emu: &Emulator| {
+            let grid = emu.term.grid();
+            (0..6).flat_map(|l| (0..20).map(move |c| (l, c))).filter(|&(l, c)| graphics::read_placeholder(&grid[Line(l)][Column(c)]).is_some()).collect::<Vec<_>>()
+        };
+        let line = |emu: &Emulator, l: i64| emu.text_between(l, l + 1).trim_end().to_string();
+        // ConPTY's repaint of the main screen as it knows it: its text, and
+        // nothing where the model is, which it never saw.
+        let repaint = "\x1b[?25l\x1b[Hhello\x1b[K\r\n\x1b[K\r\n\x1b[K\x1b[3;11Hbeside\x1b[K\r\n\x1b[K\r\n\x1b[K\r\n\x1b[K\x1b[4;1H\x1b[?25h";
+        feed(&mut emu, &state, &replies, b"hello\x1b[3;11Hbeside\x1b[4;1H");
+        send(&mut emu, &format!("r;id=5;fmt=obj;source=payload;more=0;{square}"));
+        // Rows 1 to 3, columns 1 to 4: on the line with "beside" after it.
+        send(&mut emu, "p;id=5;row=2;col=3;w=4;h=3");
+        let placed = model_cells(&emu);
+        assert_eq!(placed.len(), 12);
+
+        // A full-screen program, then ConPTY repaints the main screen.
+        feed(&mut emu, &state, &replies, b"\x1b[?1049h\x1b[?25l\x1b[H#####\x1b[?25h");
+        feed(&mut emu, &state, &replies, format!("\x1b[?1049l{repaint}").as_bytes());
+        assert_eq!(model_cells(&emu), placed, "every cell back where it was");
+        assert!(line(&emu, 0) == "hello" && line(&emu, 2).ends_with("beside"), "and the text ConPTY knows: {:?}", line(&emu, 2));
+
+        // A resize's repaint, and one that writes over a cell of the model.
+        emu.repaint_due();
+        feed(&mut emu, &state, &replies, repaint.replace("\x1b[4;1H", "\x1b[2;2HX\x1b[4;1H").as_bytes());
+        assert_eq!(model_cells(&emu).len(), 11, "the text written wins");
+        assert!(line(&emu, 1).contains('X'));
+
+        // Placed again while a repaint is due: the old copy doesn't come back.
+        send(&mut emu, "p;id=5;row=2;col=3;w=4;h=3");
+        emu.repaint_due();
+        send(&mut emu, "p;id=5;row=4;col=16;w=2;h=2");
+        feed(&mut emu, &state, &replies, repaint.as_bytes());
+        assert!(model_cells(&emu).iter().all(|&(l, c)| l >= 3 && c >= 15), "{:?}", model_cells(&emu));
+
+        // Deleted while one is due: nothing comes back.
+        emu.repaint_due();
+        send(&mut emu, "d;id=5");
+        feed(&mut emu, &state, &replies, repaint.as_bytes());
+        assert!(model_cells(&emu).is_empty());
+
+        // On the alternate screen too, which a game's models are on.
+        feed(&mut emu, &state, &replies, b"\x1b[?1049h\x1b[H@ game");
+        send(&mut emu, "p;id=5;row=3;col=6;w=2;h=2");
+        let game = model_cells(&emu);
+        emu.repaint_due();
+        feed(&mut emu, &state, &replies, b"\x1b[?25l\x1b[H@ game\x1b[K\r\n\x1b[K\r\n\x1b[K\r\n\x1b[K\x1b[?25h");
+        assert_eq!(model_cells(&emu), game);
+        // Not put back on the other screen, whose cells were never noted.
+        emu.repaint_due();
+        feed(&mut emu, &state, &replies, b"\x1b[?1049l\x1b[?25l\x1b[H\x1b[K\x1b[?25h");
+        assert!(model_cells(&emu).is_empty());
+    }
+
+    #[test]
+    fn a_model_is_kept_through_repaints_only_where_conpty_sits_between() {
+        use base64::Engine as _;
+        let writer = ToShell::direct(Box::new(Vec::new()));
+        let state = Arc::new(Mutex::new(ShellState::default()));
+        let size = Arc::new(Mutex::new(WindowSize { num_lines: 6, num_cols: 20, cell_width: 10, cell_height: 20 }));
+        let proxy = EventProxy { ink: tab_ink(), writer: writer.clone(), state: state.clone(), size: size.clone(), waker: Waker::from_fn(|_| {}) };
+        let term = Term::new(TermConfig { scrolling_history: 100, ..TermConfig::default() }, &GridSize { cols: 20, rows: 6 }, proxy);
+        let mut emu = Emulator::new(term);
+        let (images, models) = (Arc::new(Mutex::new(ImageStore::default())), Arc::new(Mutex::new(ModelStore::default())));
+        let replies = Replies { writer, size, images, models };
+        let square = base64::engine::general_purpose::STANDARD.encode(model::tests::SQUARE);
+        feed(&mut emu, &state, &replies, format!("\x1b_ratty;g;r;id=5;fmt=obj;source=payload;more=0;{square}\x1b\\").as_bytes());
+        feed(&mut emu, &state, &replies, b"\x1b_ratty;g;p;id=5;row=2;col=3;w=4;h=3\x1b\\");
+        // A terminal's own program repaints nothing it didn't draw: what
+        // blanks the screen there is the program's, and stays.
+        emu.repaint_due();
+        assert!(emu.repaint.is_none());
+        feed(&mut emu, &state, &replies, b"\x1b[?25l\x1b[H\x1b[J\x1b[?25h");
+        let grid = emu.term.grid();
+        assert!((0..6).all(|l| (0..20).all(|c| graphics::read_placeholder(&grid[Line(l)][Column(c)]).is_none())));
     }
 
     #[test]
@@ -5244,7 +5374,7 @@ mod tests {
             }
         }
         e.processor.advance(&mut e.term, b"\x1b[2;6HFlow 0.1.19\x1b[6;1H$ ");
-        e.banner = Some(Banner { image: 7, placement: 1, due: None });
+        e.banner = Some(Banner { image: 7, placement: 1 });
         e
     }
 
