@@ -83,18 +83,32 @@ struct Out {
     @location(3) tangent: vec4<f32>,
     @location(4) uv1: vec2<f32>,
     @location(5) color: vec4<f32>,
+    // 1 where the instance mirrors the part, so its triangles' backs face
+    // the way their fronts did.
+    @location(6) @interpolate(flat) mirror: f32,
 };
 
+// Each vertex through its instance's matrix (`place`, the identity for a
+// part drawn once: render/models.rs's second vertex buffer), its normal
+// through that matrix's cofactors (its inverse transpose up to a scale),
+// turned by the determinant's sign so a mirrored copy's still face out,
+// and its tangent through the matrix.
 @vertex
-fn vs_model(@location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) uv: vec2<f32>, @location(3) tangent: vec4<f32>, @location(4) uv1: vec2<f32>, @location(5) color: vec4<f32>) -> Out {
+fn vs_model(@location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) uv: vec2<f32>, @location(3) tangent: vec4<f32>, @location(4) uv1: vec2<f32>, @location(5) color: vec4<f32>,
+    @location(6) c0: vec4<f32>, @location(7) c1: vec4<f32>, @location(8) c2: vec4<f32>, @location(9) c3: vec4<f32>) -> Out {
+    let place = mat4x4<f32>(c0, c1, c2, c3);
+    let det = dot(c0.xyz, cross(c1.xyz, c2.xyz));
+    let turn = mat3x3<f32>(cross(c1.xyz, c2.xyz), cross(c2.xyz, c0.xyz), cross(c0.xyz, c1.xyz)) * select(1.0, -1.0, det < 0.0);
+    let p = place * vec4<f32>(pos, 1.0);
     var o: Out;
-    o.pos = d.mvp * vec4<f32>(pos, 1.0);
-    o.normal = (d.model * vec4<f32>(normal, 0.0)).xyz;
+    o.pos = d.mvp * p;
+    o.normal = (d.model * vec4<f32>(turn * normal, 0.0)).xyz;
     o.uv = uv;
-    o.at = (d.model * vec4<f32>(pos, 1.0)).xyz;
-    o.tangent = vec4<f32>((d.model * vec4<f32>(tangent.xyz, 0.0)).xyz, tangent.w);
+    o.at = (d.model * p).xyz;
+    o.tangent = vec4<f32>((d.model * place * vec4<f32>(tangent.xyz, 0.0)).xyz, tangent.w);
     o.uv1 = uv1;
     o.color = color;
+    o.mirror = select(0.0, 1.0, det < 0.0);
     return o;
 }
 
@@ -193,7 +207,9 @@ fn lighting(n: vec3<f32>, v: vec3<f32>, at: vec3<f32>, along: vec3<f32>) -> Lit 
 }
 
 @fragment
-fn fs_model(i: Out, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
+fn fs_model(i: Out, @builtin(front_facing) shown_front: bool) -> @location(0) vec4<f32> {
+    // A mirrored instance's triangles turn the other way round on screen.
+    let front = shown_front != (i.mirror > 0.5);
     // Every texture first: sampling must not wait on a branch. (The
     // extensions' textures below are sampled at their one level, which
     // needs nothing from the pixels around, so they can wait on whether

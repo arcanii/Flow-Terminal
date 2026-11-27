@@ -2096,16 +2096,33 @@ those it doesn't (diffuse transmission, say), and lets the crate check the
 rest of the file.
 EXT_mesh_gpu_instancing is JSON on the node to the crate:
 `glb::instances` reads each instance's TRANSLATION, ROTATION and SCALE
-(through `buffers::floats`, so quantized too) as a matrix, and `glb::load`
-copies the node's primitives' vertices once for each (`Part::vertices`
-one copy after another, each copy's triangles numbering its own, wound
-round where the node and the instance mirror it differently), keeping the
-matrices in `Rest::instances`, which `Rig::pose_part` puts between the
-morph targets and the node (or the skin's joints), so posing at rest, the
-clips, the box's sweep, the see-through cuts and `pick::cast` all take
-the copies as they take any vertices. The copies' triangles count toward
-`MAX_TRIANGLES` and their vertices toward `glb::MAX_INSTANCED` (three a
-triangle) before they're made, refused past either. Its bytes are
+(through `buffers::floats`, so quantized too) as a matrix. From 0.1.48
+(`docs/design/gpu-instancing.md`) a part not skinned and not see-through
+is drawn once per instance on the GPU: `glb::load` keeps one set of its
+vertices, in its node's own space (`Rest::drawn`, which `Rig::pose_part`
+leaves there, morphs alone moving it), and `Part::instances` the matrices
+that draw each copy in the unit box (`Rig::instances_at`: the box's, the
+node's as posed, the instance's; `Pose::instances` as an animation has
+them), which the fit and the box's sweep take through `model::each_drawn`
+(every point within `EXACT`, else each instance's corners of the part's
+box), `pick::cast` takes by casting in each instance's space, `render/models.rs`
+draws as its second vertex buffer (`GpuPart::places`, a placement's
+`placed` as posed, one identity for a part drawn once) with as many
+instances, and `model.wgsl`'s `vs_model` puts through it (normals by its
+cofactors, its `mirror` flag turning `fs_model`'s front about);
+`model::expand` and `Part::expanded` make the copies on the CPU, and such
+flat artwork isn't made thick for `depth`. A skinned or see-through part
+is still copied (`Part::vertices` one copy after another, each copy's
+triangles numbering its own, wound round where the node and the instance
+mirror it differently), its matrices in `Rest::instances`, which
+`Rig::pose_part` puts between the morph targets and the node (or the
+skin's joints), so posing at rest, the clips, the box's sweep, the
+see-through cuts and `pick::cast` all take the copies as they take any
+vertices. A part on the GPU counts its triangles once toward
+`MAX_TRIANGLES`, and every instance's toward `glb::MAX_DRAWN` (32
+million); copies count their triangles toward `MAX_TRIANGLES` and their
+vertices toward `glb::MAX_INSTANCED` (three a triangle) before they're
+made, refused past any. Its bytes are
 Flow's to read (`model/buffers.rs`): `buffers::read` takes the binary chunk
 and data URIs (no files) and gives meshopt's fallback buffers zeros, then
 unpacks every view EXT_meshopt_compression (or KHR_meshopt_compression)

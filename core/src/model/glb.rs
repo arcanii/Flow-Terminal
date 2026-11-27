@@ -77,6 +77,12 @@ pub const REQUIRABLE: [&str; 21] = [
 /// than a model may hold.
 const MAX_INSTANCED: usize = 3 * super::MAX_TRIANGLES;
 
+/// The triangles a file's instances may draw on the GPU, all told: each
+/// instance draws its mesh's again, and a part drawn in instances counts
+/// its triangles once toward `MAX_TRIANGLES`, so a few bytes of instances
+/// can't ask a GPU for a billion (`docs/design/gpu-instancing.md`).
+pub const MAX_DRAWN: usize = 32_000_000;
+
 /// The file's document and buffers, as `gltf::import_slice` reads them,
 /// but with its required extensions checked against what Flow reads
 /// rather than what the crate does, and its buffers as Flow reads them
@@ -180,8 +186,9 @@ pub(super) fn load(bytes: &[u8]) -> Result<Mesh, String> {
     let lights: Vec<Light> = (0..gltf_nodes.len()).filter(|&i| in_scene[i]).filter_map(|i| Some(read_light(&gltf_nodes[i].light()?, i, world[i]))).collect();
     let mut images = Images::new(&doc, &buffers);
     let (mut parts, mut rests) = (Vec::new(), Vec::new());
-    // The triangles read so far, and the vertices instances have made.
-    let (mut triangles, mut instanced) = (0usize, 0usize);
+    // The triangles read so far, the vertices instances have made on the
+    // CPU, and the triangles all instances draw.
+    let (mut triangles, mut instanced, mut drawn) = (0usize, 0usize, 0usize);
     let mut seen = vec![false; gltf_nodes.len()];
     let mut stack = roots;
     while let Some(i) = stack.pop() {
@@ -218,17 +225,30 @@ pub(super) fn load(bytes: &[u8]) -> Result<Mesh, String> {
             if indices.is_empty() {
                 continue;
             }
-            // Its copies, one for each of its node's instances, counted
-            // before they're made.
+            let mut material = read_material(&doc, &prim.material(), &mut images);
+            // Drawn once for each of its node's instances on the GPU, unless
+            // it's skinned (a skin poses each vertex after its instance) or
+            // see-through (whose triangles sort one by one, every copy's
+            // among them): those are copied on the CPU, as before.
+            let on_gpu = places.is_some() && skin.is_none() && !material.see_through();
+            // Its copies, one for each instance, counted before they're
+            // made; one drawn on the GPU counts once, but draws them all.
             let copies = places.as_ref().map_or(1, Vec::len);
-            triangles = triangles.saturating_add((indices.len() / 3).saturating_mul(copies));
+            let made = if on_gpu { 1 } else { copies };
+            triangles = triangles.saturating_add((indices.len() / 3).saturating_mul(made));
             if places.is_some() {
-                instanced = instanced.saturating_add(count.saturating_mul(copies));
+                if !on_gpu {
+                    instanced = instanced.saturating_add(count.saturating_mul(copies));
+                }
+                drawn = drawn.saturating_add((indices.len() / 3).saturating_mul(copies));
                 if triangles > super::MAX_TRIANGLES {
                     return Err(format!("{triangles} triangles with its instances, more than {}", super::MAX_TRIANGLES));
                 }
                 if instanced > MAX_INSTANCED {
                     return Err(format!("its instances make {instanced} vertices, more than {MAX_INSTANCED}"));
+                }
+                if drawn > MAX_DRAWN {
+                    return Err(format!("its instances draw {drawn} triangles, more than {MAX_DRAWN}"));
                 }
             }
             if copies == 0 {
@@ -244,7 +264,6 @@ pub(super) fn load(bytes: &[u8]) -> Result<Mesh, String> {
                 })
                 .filter(|c| fits(c.len()))
                 .map(|c| c.into_iter().map(vertex_color).collect());
-            let mut material = read_material(&doc, &prim.material(), &mut images);
             let mut vertices: Vec<Vertex> = (0..count)
                 .map(|k| {
                     let v = Vertex::new(positions[k], normals.as_ref().map_or([0.0; 3], |n| n[k]), uvs.as_ref().map_or([0.0; 2], |t| t[k]));
@@ -305,6 +324,10 @@ pub(super) fn load(bytes: &[u8]) -> Result<Mesh, String> {
             let mirrored = skin.is_none() && det(world[i]) < 0.0;
             let wound = |flip: bool, base: u32| indices.as_chunks::<3>().0.iter().flat_map(move |t| if flip { [t[0], t[2], t[1]] } else { *t }).map(move |v| v + base);
             let (vertices, indices) = match &places {
+                // One set, in its node's space: each instance's matrix
+                // places it, and mirrors it where it mirrors (the shader
+                // takes the back of a triangle as its front there).
+                Some(_) if on_gpu => (vertices, indices),
                 // A copy of the vertices for each instance, one after another,
                 // each copy's triangles numbering its own.
                 Some(places) => {
@@ -316,16 +339,21 @@ pub(super) fn load(bytes: &[u8]) -> Result<Mesh, String> {
                 }
                 None => (vertices, if mirrored { wound(true, 0).collect() } else { indices }),
             };
-            let instances = places.clone().unwrap_or_default();
-            rests.push(Rest { node: i, skin, positions, normals, tangents, joints, weights, morphs, instances });
-            parts.push(Part { vertices, indices, material, node: Some(i) });
+            let (instances, drawn) = match places.clone() {
+                Some(places) if on_gpu => (Vec::new(), places),
+                places => (places.unwrap_or_default(), Vec::new()),
+            };
+            rests.push(Rest { node: i, skin, positions, normals, tangents, joints, weights, morphs, instances, drawn });
+            parts.push(Part { vertices, indices, material, node: Some(i), instances: Vec::new() });
         }
     }
-    // Posed at rest, in the file's units: the mesh centers and scales them.
+    // Posed at rest, in the file's units: the mesh centers and scales them,
+    // and puts its box on the instances drawn on the GPU.
     rig.parts = rests;
-    let posed = rig.pose_parts(None, 0.0, &parts);
-    for (part, vertices) in parts.iter_mut().zip(posed) {
-        part.vertices = vertices;
+    let (world, weights) = rig.pose(None, 0.0);
+    let posed = rig.pose_parts_at(&world, &weights, &parts);
+    for ((part, vertices), instances) in parts.iter_mut().zip(posed).zip(rig.instances_at(&world)) {
+        (part.vertices, part.instances) = (vertices, instances);
     }
     let moving = rig.clips.iter().any(Clip::moves);
     Mesh::with_rig(parts, Format::Glb, moving.then_some(rig), lights, lens)
@@ -1471,8 +1499,11 @@ pub mod tests {
     fn a_nodes_instances_each_draw_its_mesh_placed_in_its_own_space_before_the_node_places_it() {
         let mesh = load(Format::Glb, &instanced_glb(false)).expect("Flow reads the instancing it requires");
         let close = |a: [f32; 3], b: [f32; 3]| a.iter().zip(b).all(|(x, y)| (x - y).abs() < 1e-5);
-        assert_eq!(mesh.parts.len(), 1, "one part, a copy for each instance");
-        let p = &mesh.parts[0];
+        assert_eq!(mesh.parts.len(), 1, "one part, drawn for each instance");
+        let gpu = &mesh.parts[0];
+        assert_eq!((gpu.vertices.len(), gpu.instances.len(), gpu.node), (3, 3, Some(0)), "its triangle once, and three instances to draw it");
+        // Drawn, a copy for each.
+        let p = &gpu.expanded();
         assert_eq!((p.vertices.len(), p.node), (9, Some(0)));
         // In the box that holds them all, from (8, 0) to (10, 6): less its
         // middle, over its longest side.
@@ -1500,8 +1531,9 @@ pub mod tests {
         assert!(close(mesh.extent, [0.2, 1.0, 0.0]), "{:?}", mesh.extent);
         for (secs, up) in [(0.0, 0.0), (0.5, 2.0), (1.0, 4.0)] {
             let posed = mesh.posed(0, secs).expect("it plays");
-            assert_eq!(posed.vertices[0].len(), 9);
-            for (v, [x, y]) in posed.vertices[0].iter().zip(INSTANCED_CORNERS) {
+            let (vertices, _) = crate::model::expand(&posed.vertices[0], &mesh.parts[0].indices, &posed.instances[0]);
+            assert_eq!(vertices.len(), 9);
+            for (v, [x, y]) in vertices.iter().zip(INSTANCED_CORNERS) {
                 assert!(close(v.pos, [(x - 9.0) / 10.0, (y + up - 5.0) / 10.0, 0.0]), "{secs}s: {:?}, not ({x}, {})", v.pos, y + up);
             }
         }
@@ -1511,6 +1543,16 @@ pub mod tests {
     /// `triangles` triangles (all that one), on a node whose instances'
     /// `attributes` (the JSON object's insides) `make` writes.
     fn instanced(corners: usize, triangles: usize, make: impl FnOnce(&mut Glb) -> String) -> Vec<u8> {
+        instanced_in(r#""materials":[{}]"#, corners, triangles, make)
+    }
+
+    /// As [`instanced`], its material see-through, so its instances are
+    /// copied on the CPU.
+    fn copied(corners: usize, triangles: usize, make: impl FnOnce(&mut Glb) -> String) -> Vec<u8> {
+        instanced_in(r#""materials":[{"pbrMetallicRoughness":{"baseColorFactor":[1,1,1,0.5]},"alphaMode":"BLEND"}]"#, corners, triangles, make)
+    }
+
+    fn instanced_in(materials: &str, corners: usize, triangles: usize, make: impl FnOnce(&mut Glb) -> String) -> Vec<u8> {
         let mut g = Glb::default();
         let mut pos = vec![0.0f32; corners * 3];
         (pos[3], pos[7]) = (1.0, 1.0);
@@ -1519,18 +1561,27 @@ pub mod tests {
         let attributes = make(&mut g);
         g.finish(&format!(
             r#""scene":0,"scenes":[{{"nodes":[0]}}],"nodes":[{{"mesh":0,"extensions":{{"EXT_mesh_gpu_instancing":{{"attributes":{{{attributes}}}}}}}}}],
-            "meshes":[{{"primitives":[{{"attributes":{{"POSITION":{pos}}},"indices":{idx}}}]}}]"#
+            "meshes":[{{"primitives":[{{"attributes":{{"POSITION":{pos}}},"indices":{idx},"material":0}}]}}],{materials}"#
         ))
     }
 
     #[test]
     fn instances_past_what_a_model_holds_or_that_cant_be_read_are_refused_saying_why() {
         let moved = |n: usize| move |g: &mut Glb| format!(r#""TRANSLATION":{}"#, g.floats(&vec![0.0; 3 * n], 3));
-        // Their triangles count toward the model's 2 million, before
-        // they're made; and their vertices are at most 6 million.
-        assert!(load(Format::Glb, &instanced(3, 500, moved(4000))).is_ok(), "2 million triangles, as many as a model may have");
-        assert_eq!(load(Format::Glb, &instanced(3, 1000, moved(2001))).unwrap_err(), "2001000 triangles with its instances, more than 2000000");
-        assert_eq!(load(Format::Glb, &instanced(3000, 1, moved(2001))).unwrap_err(), "its instances make 6003000 vertices, more than 6000000");
+        // Drawn on the GPU, a part counts its triangles once toward the
+        // model's 2 million: a forest of a hundred trees of 30,000 loads,
+        // three million drawn; but no more than 32 million drawn, all told.
+        let forest = load(Format::Glb, &instanced(3, 30_000, moved(100))).expect("3 million triangles drawn, 30,000 counted");
+        assert_eq!((forest.parts[0].indices.len(), forest.parts[0].instances.len()), (90_000, 100));
+        assert!(load(Format::Glb, &instanced(3, 1000, moved(2001))).is_ok(), "2001000 drawn, 1000 counted");
+        assert_eq!(load(Format::Glb, &instanced(3, 20_000, moved(1601))).unwrap_err(), "its instances draw 32020000 triangles, more than 32000000");
+        // Copied on the CPU (see-through), their triangles count toward the
+        // model's 2 million before they're made, and their vertices are at
+        // most 6 million.
+        let glass = load(Format::Glb, &copied(3, 500, moved(4000))).expect("2 million triangles, as many as a model may have");
+        assert!(glass.parts[0].instances.is_empty() && glass.parts[0].vertices.len() == 12_000, "copied");
+        assert_eq!(load(Format::Glb, &copied(3, 1000, moved(2001))).unwrap_err(), "2001000 triangles with its instances, more than 2000000");
+        assert_eq!(load(Format::Glb, &copied(3000, 1, moved(2001))).unwrap_err(), "its instances make 6003000 vertices, more than 6000000");
         // More instances than a model's triangles, refused before they're
         // read: a sparse accessor of zeros, two million and one long.
         let many = instanced(3, 1, |g| {
@@ -1549,9 +1600,9 @@ pub mod tests {
         assert_eq!(load(Format::Glb, &nowhere).unwrap_err(), "node 0's instances' ROTATION names no accessor");
         // A program's own attribute counts them too, each where the node
         // puts its mesh.
-        let ids = load(Format::Glb, &instanced(3, 1, |g| format!(r#""_ID":{}"#, g.floats(&[0.0, 1.0], 1)))).unwrap();
-        assert_eq!((ids.parts[0].vertices.len(), &ids.parts[0].indices[..]), (6, &[0, 1, 2, 3, 4, 5][..]));
-        assert_eq!(ids.parts[0].vertices[0].pos, ids.parts[0].vertices[3].pos);
+        let ids = load(Format::Glb, &instanced(3, 1, |g| format!(r#""_ID":{}"#, g.floats(&[0.0, 1.0], 1)))).unwrap().parts[0].expanded();
+        assert_eq!((ids.vertices.len(), &ids.indices[..]), (6, &[0, 1, 2, 3, 4, 5][..]));
+        assert_eq!(ids.vertices[0].pos, ids.vertices[3].pos);
     }
 
 

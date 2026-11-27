@@ -4,7 +4,9 @@
 //! and camera hang from nodes too, so a clip that moves those moves them,
 //! posed with the rest, and so do the copies of a mesh its node's
 //! instances make (EXT_mesh_gpu_instancing), each placed in the mesh's own
-//! space before the node places it.
+//! space before the node places it: copies made on the CPU, or, for a part
+//! drawn in instances on the GPU, the matrices that draw them
+//! ([`Rig::instances_at`]).
 //!
 //! On the CPU rather than in the vertex shader because Flow draws wherever
 //! wgpu does, OpenGL ES and software adapters too, where a vertex shader may
@@ -224,6 +226,10 @@ pub struct Rest {
     /// joints) places it; the part's vertices are a copy of these for
     /// each, one after another. Empty: drawn once, as its node has it.
     pub instances: Vec<Mat4>,
+    /// Its node's instances where it's drawn in them on the GPU, its
+    /// vertices kept in its node's own space ([`Rig::instances_at`] makes
+    /// the matrices that draw them); empty for one drawn once or copied.
+    pub drawn: Vec<Mat4>,
 }
 
 /// What moves a glTF's parts: its nodes, skins and animations, and each
@@ -363,15 +369,34 @@ impl Rig {
             .collect()
     }
 
+    /// Each part's instances drawn on the GPU (its `drawn`), as matrices
+    /// taking its vertices (in its node's space) to each copy in the mesh's
+    /// box, with the nodes where `world` has them: the box's, the node's,
+    /// then the instance's. Empty for a part drawn once or copied.
+    pub fn instances_at(&self, world: &[Mat4]) -> Vec<Vec<Mat4>> {
+        let (center, longest) = self.frame;
+        let s = 1.0 / longest.max(1e-12);
+        let into = [[s, 0.0, 0.0, 0.0], [0.0, s, 0.0, 0.0], [0.0, 0.0, s, 0.0], [-center[0] * s, -center[1] * s, -center[2] * s, 1.0]];
+        self.parts
+            .iter()
+            .map(|rest| {
+                let placed = mul(into, world.get(rest.node).copied().unwrap_or(IDENTITY));
+                rest.drawn.iter().map(|&at| mul(placed, at)).collect()
+            })
+            .collect()
+    }
+
     /// A part's vertices posed, each copy its node's instances make placed
     /// by its own instance, and all a vertex carries besides (its uvs, its
-    /// color) kept from `from`.
+    /// color) kept from `from`. One drawn in instances on the GPU stays in
+    /// its node's own space, its morph targets alone moving it.
     fn pose_part(&self, rest: &Rest, from: &[Vertex], world: &[Mat4], joints: &[Vec<Mat4>], weights: &[Vec<f32>]) -> Vec<Vertex> {
-        let node = world.get(rest.node).copied().unwrap_or(IDENTITY);
+        let local = !rest.drawn.is_empty();
+        let node = if local { IDENTITY } else { world.get(rest.node).copied().unwrap_or(IDENTITY) };
         let skin = rest.skin.and_then(|s| joints.get(s));
         let morphs: Vec<(&Morph, f32)> =
             weights.get(rest.node).map(|w| w.iter().zip(&rest.morphs).filter(|(k, _)| **k != 0.0).map(|(k, m)| (m, *k)).collect()).unwrap_or_default();
-        let (center, longest) = self.frame;
+        let (center, longest) = if local { ([0.0; 3], 1.0) } else { self.frame };
         let shrink = 1.0 / longest.max(1e-12);
         let count = rest.positions.len();
         let copies = rest.instances.len().max(1);
@@ -414,14 +439,15 @@ impl Rig {
     /// model takes long to load.
     pub fn sweep(&self, parts: &[Part], mut f: impl FnMut([f32; 3])) {
         const BUDGET: usize = 2_000_000;
-        let vertices: usize = parts.iter().map(|p| p.vertices.len()).sum();
+        let vertices: usize = parts.iter().map(|p| p.vertices.len().saturating_mul(p.instances.len().max(1)).min(super::EXACT)).sum();
         let moving: Vec<usize> = (0..self.clips.len()).filter(|&i| self.clips[i].moves()).collect();
         let samples = (BUDGET / (vertices * moving.len()).max(1)).clamp(2, 24);
         for &c in &moving {
             for s in 0..samples {
                 let t = self.clips[c].duration * s as f32 / (samples - 1) as f32;
-                for part in self.pose_parts(Some(c), t, parts) {
-                    part.iter().for_each(|v| f(v.pos));
+                let (world, weights) = self.pose(Some(c), t);
+                for (part, instances) in self.pose_parts_at(&world, &weights, parts).iter().zip(self.instances_at(&world)) {
+                    super::each_drawn(part, &instances, &mut f);
                 }
             }
         }
@@ -648,7 +674,7 @@ mod tests {
             ],
             ..Rest::default()
         });
-        let part = Part { vertices: vec![Vertex::new([1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.25, 0.75])], indices: vec![0, 0, 0], material: Material::default(), node: Some(1) };
+        let part = Part { vertices: vec![Vertex::new([1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.25, 0.75])], indices: vec![0, 0, 0], material: Material::default(), node: Some(1), instances: Vec::new() };
         (rig, vec![part])
     }
 

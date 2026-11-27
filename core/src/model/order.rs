@@ -535,7 +535,7 @@ mod tests {
     /// A see-through square in the plane its `corners` span, of one part.
     fn pane(corners: [[f32; 3]; 4], color: [f32; 4]) -> Part {
         let vertices = corners.iter().map(|&p| Vertex::new(p, [0.0, 0.0, 1.0], [0.0, 0.0])).collect();
-        Part { vertices, indices: vec![0, 1, 2, 0, 2, 3], material: Material { color, alpha: Alpha::Blend, ..Material::default() }, node: None }
+        Part { vertices, indices: vec![0, 1, 2, 0, 2, 3], material: Material { color, alpha: Alpha::Blend, ..Material::default() }, node: None, instances: Vec::new() }
     }
 
     /// Two see-through squares crossing in an X seen from above: one

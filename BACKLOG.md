@@ -25,10 +25,12 @@ when the grid narrows. Still to do:
 - **More of glTF:** anisotropy and iridescence are drawn and dispersion
   read for 0.1.48 (`docs/design/gltf-materials.md`), and `COLOR_1` and on,
   and instances' own attributes (`_ID`, say), stay passed over, as glTF
-  gives them no meaning (decided 2026-11-27). Instancing makes
-  a copy of the mesh for each instance on the CPU, within the 2 million
-  triangles a model may have, rather than drawing one mesh many times on
-  the GPU, so a forest of many big trees is refused. Meshopt and quantized
+  gives them no meaning (decided 2026-11-27). Instancing draws solid and
+  cut-out parts once per instance on the GPU for 0.1.48, counted once
+  toward the 2 million triangles a model may have, up to 32 million drawn
+  (`docs/design/gpu-instancing.md`), so a forest of big trees fits;
+  skinned and see-through parts are still copied on the CPU, within the 2
+  million. Meshopt and quantized
   files have been tried only as built in the tests, not as gltfpack writes
   them; Draco's meshes and Basis's textures as their own encoders make them
   (`core/src/model/testdata`), but no whole file from a glTF tool
@@ -1073,7 +1075,8 @@ AUR helper.
     read (`docs/design/gltf-materials.md`), and `COLOR_1` and on left
     passed over (decided 2026-11-27);
   - instancing drawn on the GPU rather than copied on the CPU, so a
-    forest of big trees fits;
+    forest of big trees fits: built for solid and cut-out parts
+    (`docs/design/gpu-instancing.md`);
   - on Windows: a model's cells kept through ConPTY's repaints, as the
     startup logo's are (`Banner`), `show_model` down the pipe for images,
     and clicks answered through ConPTY's input.

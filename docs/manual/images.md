@@ -260,10 +260,15 @@ for each of its instances, each moved, turned and sized as its
 and shorts `KHR_mesh_quantization` allows) in the node's own space, before
 the node places it: so the instances go with the node as the file's
 animation moves it, Flow fits the model to its cells with all of them in,
-and a click on any of them names the node. Flow makes a copy of the mesh
-for each, so their triangles count toward the 2 million a model may have
-(and they make 6 million vertices at most); a file whose instances would
-pass either isn't shown, and the error says so.
+and a click on any of them names the node. A solid or cut-out part is
+drawn once for each instance on the GPU, so its triangles count once
+toward the 2 million a model may have, however many instances draw it, up
+to 32 million triangles drawn in all: a forest of a hundred trees of
+30,000 triangles each shows. A see-through part, or one moved by a skin,
+is copied for each instance instead, and those copies count toward the 2
+million (and make 6 million vertices at most). A file past any of these
+isn't shown, and the error says so. Flat artwork drawn in instances isn't
+made thick for `depth`.
 
 A file packed small, as gltfpack packs one, reads as it would unpacked:
 

@@ -610,6 +610,11 @@ pub struct Part {
     pub material: Material,
     /// The glTF node it's a mesh of, which a click names.
     pub node: Option<usize>,
+    /// Where its node's instances (EXT_mesh_gpu_instancing) draw it on the
+    /// GPU: each a matrix taking its vertices, kept in its node's own space,
+    /// to that copy in the mesh's unit box (`docs/design/gpu-instancing.md`).
+    /// Empty: drawn once, its vertices where they are.
+    pub instances: Vec<[[f32; 4]; 4]>,
 }
 
 impl Part {
@@ -617,7 +622,74 @@ impl Part {
     /// alpha is short of 1.
     pub fn plain(color: [f32; 4], gloss: f32) -> Self {
         let alpha = if color[3] < 1.0 { Alpha::Blend } else { Alpha::Opaque };
-        Self { vertices: Vec::new(), indices: Vec::new(), material: Material { color, gloss, alpha, ..Material::default() }, node: None }
+        Self { vertices: Vec::new(), indices: Vec::new(), material: Material { color, gloss, alpha, ..Material::default() }, node: None, instances: Vec::new() }
+    }
+
+    /// As drawn, with a copy of its vertices for each of its instances made
+    /// on the CPU ([`expand`]), and so none left; as it is without any.
+    pub fn expanded(&self) -> Part {
+        let (vertices, indices) = expand(&self.vertices, &self.indices, &self.instances);
+        Part { vertices, indices, material: self.material.clone(), node: self.node, instances: Vec::new() }
+    }
+}
+
+/// A part's `vertices` and `indices` copied for each of `instances` as
+/// they're drawn: each copy's vertices through its matrix (its normals
+/// through the matrix's inverse transpose, its tangents through it), one
+/// copy after another, each copy's triangles numbering its own and wound
+/// the other way round where its matrix mirrors it, so each still faces
+/// the way its normals do. Without instances, as they are.
+pub fn expand(vertices: &[Vertex], indices: &[u32], instances: &[[[f32; 4]; 4]]) -> (Vec<Vertex>, Vec<u32>) {
+    if instances.is_empty() {
+        return (vertices.to_vec(), indices.to_vec());
+    }
+    let count = vertices.len() as u32;
+    let mut out = (Vec::with_capacity(vertices.len() * instances.len()), Vec::with_capacity(indices.len() * instances.len()));
+    for (k, &m) in instances.iter().enumerate() {
+        let turn = anim::normal_matrix(&m);
+        out.0.extend(vertices.iter().map(|v| {
+            let t = normalize(transform(m, [v.tangent[0], v.tangent[1], v.tangent[2]], 0.0));
+            let tangent = if v.tangent[3] == 0.0 { [0.0; 4] } else { [t[0], t[1], t[2], v.tangent[3]] };
+            Vertex { pos: transform(m, v.pos, 1.0), normal: normalize(anim::apply3(turn, v.normal)), tangent, ..*v }
+        }));
+        let flip = det(m) < 0.0;
+        let base = k as u32 * count;
+        out.1.extend(indices.as_chunks::<3>().0.iter().flat_map(|t| if flip { [t[0], t[2], t[1]] } else { *t }).map(|i| i + base));
+    }
+    out
+}
+
+/// The points a part draws at most that [`each_drawn`] takes one by one:
+/// past them, each instance's corners of the part's own box.
+const EXACT: usize = 4_000_000;
+
+/// Calls `f` with each point a part of `vertices` draws through
+/// `instances` (each vertex as it is, without any): every vertex of every
+/// instance within [`EXACT`], else each instance's corners of the box the
+/// vertices take, which holds them all, a little roomier where an instance
+/// turns it.
+pub fn each_drawn(vertices: &[Vertex], instances: &[[[f32; 4]; 4]], mut f: impl FnMut([f32; 3])) {
+    if instances.is_empty() {
+        vertices.iter().for_each(|v| f(v.pos));
+    } else if vertices.len().saturating_mul(instances.len()) <= EXACT {
+        for &m in instances {
+            vertices.iter().for_each(|v| f(transform(m, v.pos, 1.0)));
+        }
+    } else {
+        let (mut lo, mut hi) = ([f32::INFINITY; 3], [f32::NEG_INFINITY; 3]);
+        for v in vertices {
+            for i in 0..3 {
+                (lo[i], hi[i]) = (lo[i].min(v.pos[i]), hi[i].max(v.pos[i]));
+            }
+        }
+        if !lo[0].is_finite() {
+            return;
+        }
+        for &m in instances {
+            for c in 0..8 {
+                f(transform(m, [0, 1, 2].map(|i| if c >> i & 1 == 0 { lo[i] } else { hi[i] }), 1.0));
+            }
+        }
     }
 }
 
@@ -737,6 +809,9 @@ pub struct Pose {
     pub see_through: Option<SeeThrough>,
     /// The file's lights where the animation has them, if it moves any.
     pub lights: Option<Vec<Light>>,
+    /// Each part's instances as posed now (as `Part::instances` has them at
+    /// rest); empty for a part drawn once.
+    pub instances: Vec<Vec<[[f32; 4]; 4]>>,
 }
 
 /// How a thick mesh was made from flat artwork that moves by its glTF's
@@ -773,7 +848,9 @@ impl Mesh {
                 hi[i] = hi[i].max(p[i]);
             }
         };
-        parts.iter().flat_map(|p| &p.vertices).for_each(|v| grow(v.pos));
+        for p in &parts {
+            each_drawn(&p.vertices, &p.instances, &mut grow);
+        }
         if let Some(rig) = &rig {
             rig.sweep(&parts, &mut grow);
         }
@@ -787,9 +864,18 @@ impl Mesh {
         let center = [0, 1, 2].map(|i| (lo[i] + hi[i]) * 0.5);
         let longest = (0..3).map(|i| hi[i] - lo[i]).fold(1e-6f32, f32::max);
         let mut radius = 0f32;
-        for v in parts.iter_mut().flat_map(|p| &mut p.vertices) {
-            v.pos = [0, 1, 2].map(|i| (v.pos[i] - center[i]) / longest);
-            radius = radius.max(length(v.pos));
+        // Into the box: a part drawn in instances by its matrices, its
+        // vertices left in its node's space.
+        let into = boxed(center, longest);
+        for p in &mut parts {
+            if p.instances.is_empty() {
+                for v in &mut p.vertices {
+                    v.pos = [0, 1, 2].map(|i| (v.pos[i] - center[i]) / longest);
+                }
+            } else {
+                p.instances.iter_mut().for_each(|m| *m = mul(into, *m));
+            }
+            each_drawn(&p.vertices, &p.instances, |q| radius = radius.max(length(q)));
         }
         if let Some(rig) = rig.as_mut() {
             rig.frame = (center, longest);
@@ -850,7 +936,7 @@ impl Mesh {
         let rig = self.rig.as_ref()?;
         let (world, weights) = rig.pose(Some(i), secs);
         let lights = rig.moves_lights.get(i).copied().unwrap_or(false).then(|| rig.place_lights(&world, &self.lights));
-        Some(Pose { vertices: rig.pose_parts_at(&world, &weights, &self.parts), see_through: None, lights })
+        Some(Pose { vertices: rig.pose_parts_at(&world, &weights, &self.parts), see_through: None, lights, instances: rig.instances_at(&world) })
     }
 
     /// How to draw it once `model` has placed it (z toward the viewer): the
@@ -905,7 +991,7 @@ impl Mesh {
                 }
                 let vertices = thicken(&p.vertices, &outline, half);
                 outlines.push(outline);
-                Part { vertices, indices, material: p.material.clone(), node: p.node }
+                Part { vertices, indices, material: p.material.clone(), node: p.node, instances: Vec::new() }
             })
             .collect();
         let extent = [self.extent[0], self.extent[1], half * 2.0];
@@ -1078,6 +1164,12 @@ fn settle_over_clips(rig: &Rig, lights: &mut [Light], radius: f32) {
 }
 
 const IDENTITY: [[f32; 4]; 4] = [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]];
+
+/// Into the mesh's unit box: less `center`, over `longest`.
+fn boxed(center: [f32; 3], longest: f32) -> [[f32; 4]; 4] {
+    let s = 1.0 / longest.max(1e-12);
+    [[s, 0.0, 0.0, 0.0], [0.0, s, 0.0, 0.0], [0.0, 0.0, s, 0.0], [-center[0] * s, -center[1] * s, -center[2] * s, 1.0]]
+}
 
 /// `a` × `b`, column-major as glTF's matrices are.
 fn mul(a: [[f32; 4]; 4], b: [[f32; 4]; 4]) -> [[f32; 4]; 4] {
@@ -1388,8 +1480,11 @@ impl Shown {
         };
         let posed = self.posed(&mesh, now);
         let (k, point) = match &posed {
-            Some(posed) => pick::cast(posed.vertices.iter().zip(&mesh.parts).map(|(v, p)| (&v[..], &p.indices[..])), origin, dir, from),
-            None => pick::cast(mesh.parts.iter().map(|p| (&p.vertices[..], &p.indices[..])), origin, dir, from),
+            Some(posed) => {
+                let instances = |i: usize| posed.instances.get(i).filter(|m| !m.is_empty()).unwrap_or(&mesh.parts[i].instances);
+                pick::cast(posed.vertices.iter().zip(&mesh.parts).enumerate().map(|(i, (v, p))| (&v[..], &p.indices[..], &instances(i)[..])), origin, dir, from)
+            }
+            None => pick::cast(mesh.parts.iter().map(|p| (&p.vertices[..], &p.indices[..], &p.instances[..])), origin, dir, from),
         }?;
         Some(Hit { point, node: mesh.parts[k].node })
     }
@@ -1398,7 +1493,8 @@ impl Shown {
     pub fn mesh(&self) -> Option<Arc<Mesh>> {
         let base = self.slot.get()?;
         let depth = self.style().depth;
-        if depth <= 0.0 || !base.flat() {
+        // Flat artwork drawn in instances on the GPU stays flat.
+        if depth <= 0.0 || !base.flat() || base.parts.iter().any(|p| !p.instances.is_empty()) {
             return Some(base);
         }
         let key = (depth * 100.0).round() as u32;
@@ -2211,7 +2307,7 @@ pub mod tests {
         let view = shown.view(&mesh, (100.0, 100.0), Turn::REST);
         // The middle of each instance's triangle, as drawn: clicked there,
         // it's met, the node named.
-        let p = &mesh.parts[0];
+        let p = &mesh.parts[0].expanded();
         for copy in 0..3 {
             let corners = [0, 1, 2].map(|k| p.vertices[p.indices[3 * copy + k] as usize].pos);
             let middle = [0, 1, 2].map(|c| corners.iter().map(|v| v[c]).sum::<f32>() / 3.0);

@@ -15,7 +15,7 @@
 //! press that misses the model (through its picture's empty corners) gets
 //! no answer, and goes on as a click would without the model.
 
-use super::{add, cross, dot, sub, Vertex};
+use super::{add, cross, dot, invert_affine, sub, transform, Vertex};
 
 /// The mouse button pressed on a model.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,15 +57,25 @@ pub fn answer(id: u32, button: Button, hit: &Hit) -> String {
 /// nearest the viewer. Drawn straight on, the line runs both ways from
 /// `origin`, which is on the picture's plane with the model about it
 /// (`from` is minus infinity); seen through a camera, it runs from the
-/// eye, and what's nearer than the camera draws isn't met.
-pub fn cast<'a>(parts: impl IntoIterator<Item = (&'a [Vertex], &'a [u32])>, origin: [f32; 3], dir: [f32; 3], from: f32) -> Option<(usize, [f32; 3])> {
+/// eye, and what's nearer than the camera draws isn't met. A part drawn in
+/// instances (its matrices, the third of each) is met in each instance's
+/// own space: the line taken there by the instance's inverse, which keeps
+/// how far along it each point is, so the nearest is the nearest of all.
+pub fn cast<'a>(parts: impl IntoIterator<Item = (&'a [Vertex], &'a [u32], &'a [[[f32; 4]; 4]])>, origin: [f32; 3], dir: [f32; 3], from: f32) -> Option<(usize, [f32; 3])> {
     let mut best: Option<(f32, usize)> = None;
-    for (k, (vertices, indices)) in parts.into_iter().enumerate() {
-        for t in indices.as_chunks::<3>().0 {
-            let [Some(a), Some(b), Some(c)] = t.map(|i| vertices.get(i as usize).map(|v| v.pos)) else { continue };
-            if let Some(s) = through(origin, dir, [a, b, c]).filter(|&s| s >= from) {
-                if best.is_none_or(|(nearest, _)| s < nearest) {
-                    best = Some((s, k));
+    for (k, (vertices, indices, instances)) in parts.into_iter().enumerate() {
+        let lines: Vec<([f32; 3], [f32; 3])> = if instances.is_empty() {
+            vec![(origin, dir)]
+        } else {
+            instances.iter().filter_map(|&m| invert_affine(m)).map(|inv| (transform(inv, origin, 1.0), transform(inv, dir, 0.0))).collect()
+        };
+        for (o, d) in lines {
+            for t in indices.as_chunks::<3>().0 {
+                let [Some(a), Some(b), Some(c)] = t.map(|i| vertices.get(i as usize).map(|v| v.pos)) else { continue };
+                if let Some(s) = through(o, d, [a, b, c]).filter(|&s| s >= from) {
+                    if best.is_none_or(|(nearest, _)| s < nearest) {
+                        best = Some((s, k));
+                    }
                 }
             }
         }
@@ -101,6 +111,9 @@ fn through(origin: [f32; 3], dir: [f32; 3], [a, b, c]: [[f32; 3]; 3]) -> Option<
 mod tests {
     use super::*;
 
+    /// A part drawn once, with no instances.
+    const NONE: &[[[f32; 4]; 4]] = &[];
+
     fn square(z: f32) -> (Vec<Vertex>, Vec<u32>) {
         let v = |x: f32, y: f32| Vertex::new([x, y, z], [0.0, 0.0, 1.0], [0.0; 2]);
         (vec![v(-0.5, -0.5), v(0.5, -0.5), v(0.5, 0.5), v(-0.5, 0.5)], vec![0, 1, 2, 0, 2, 3])
@@ -112,18 +125,18 @@ mod tests {
         let (back, bi) = square(-0.25);
         let down = [0.0, 0.0, -1.0];
         // The back square listed first: the front one is still the nearer.
-        let hit = cast([(&back[..], &bi[..]), (&front[..], &fi[..])], [0.1, 0.2, 0.0], down, f32::NEG_INFINITY);
+        let hit = cast([(&back[..], &bi[..], NONE), (&front[..], &fi[..], NONE)], [0.1, 0.2, 0.0], down, f32::NEG_INFINITY);
         assert_eq!(hit, Some((1, [0.1, 0.2, 0.25])));
         // Only the back one, behind the origin: met all the same.
-        assert_eq!(cast([(&back[..], &bi[..])], [0.1, 0.2, 0.0], down, f32::NEG_INFINITY), Some((0, [0.1, 0.2, -0.25])));
+        assert_eq!(cast([(&back[..], &bi[..], NONE)], [0.1, 0.2, 0.0], down, f32::NEG_INFINITY), Some((0, [0.1, 0.2, -0.25])));
         // Beside them, and along their plane: nothing.
-        assert_eq!(cast([(&front[..], &fi[..])], [0.7, 0.0, 0.0], down, f32::NEG_INFINITY), None);
-        assert_eq!(cast([(&front[..], &fi[..])], [0.0, 0.0, 0.25], [1.0, 0.0, 0.0], f32::NEG_INFINITY), None);
+        assert_eq!(cast([(&front[..], &fi[..], NONE)], [0.7, 0.0, 0.0], down, f32::NEG_INFINITY), None);
+        assert_eq!(cast([(&front[..], &fi[..], NONE)], [0.0, 0.0, 0.25], [1.0, 0.0, 0.0], f32::NEG_INFINITY), None);
         // On the diagonal two triangles share, and slanted.
-        assert!(cast([(&front[..], &fi[..])], [0.3, 0.3, 0.0], down, f32::NEG_INFINITY).is_some());
+        assert!(cast([(&front[..], &fi[..], NONE)], [0.3, 0.3, 0.0], down, f32::NEG_INFINITY).is_some());
         // Slanted, the front square is met behind the origin, lower down.
         let slant = super::super::normalize([0.0, 1.0, -1.0]);
-        let hit = cast([(&front[..], &fi[..])], [0.0, -0.1, 0.0], slant, f32::NEG_INFINITY).unwrap().1;
+        let hit = cast([(&front[..], &fi[..], NONE)], [0.0, -0.1, 0.0], slant, f32::NEG_INFINITY).unwrap().1;
         assert!((hit[1] + 0.35).abs() < 1e-5 && (hit[2] - 0.25).abs() < 1e-5, "{hit:?}");
     }
 
@@ -131,7 +144,7 @@ mod tests {
     fn a_ray_from_a_cameras_eye_meets_nothing_nearer_than_it_draws() {
         let (front, fi) = square(0.25);
         let (back, bi) = square(-0.25);
-        let both = || [(&back[..], &bi[..]), (&front[..], &fi[..])];
+        let both = || [(&back[..], &bi[..], NONE), (&front[..], &fi[..], NONE)];
         // From an eye at z 1, two units along `dir` reach z -1.
         let (eye, dir) = ([0.1, 0.2, 1.0], [0.0, 0.0, -1.0]);
         assert_eq!(cast(both(), eye, dir, 0.5), Some((1, [0.1, 0.2, 0.25])), "the front square, 0.75 along");

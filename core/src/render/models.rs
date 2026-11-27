@@ -98,6 +98,11 @@ struct GpuPart {
     vertices: wgpu::Buffer,
     indices: wgpu::Buffer,
     count: u32,
+    /// Its instances' matrices at rest (`Part::instances`), the pipeline's
+    /// second vertex buffer, and how many: one, the identity, for a part
+    /// drawn once.
+    places: wgpu::Buffer,
+    copies: u32,
     /// In `model::Tex`'s order.
     textures: [wgpu::TextureView; TEXTURES],
 }
@@ -121,6 +126,10 @@ struct Target {
     /// pose one mesh differently. The vertices its see-through triangles'
     /// cuts made follow, as many as each frame makes, so it grows.
     posed: Vec<(wgpu::Buffer, u64)>,
+    /// Each part's instances as the animation poses them, where it's drawn
+    /// in instances and the mesh moves (none otherwise): the placement's
+    /// own, as its posed vertices are.
+    placed: Vec<Option<wgpu::Buffer>>,
     /// The see-through triangles' corners in the order last drawn, and the
     /// bytes it holds: the placement's own, as each sees the mesh from its
     /// own side.
@@ -194,6 +203,8 @@ impl Models {
         // As `Vertex` lays them out: its color in bytes, which the shader
         // reads as 0 to 1.
         let attrs = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3, 2 => Float32x2, 3 => Float32x4, 4 => Float32x2, 5 => Unorm8x4];
+        // Each instance's matrix, by its columns, a step for each instance.
+        let place = wgpu::vertex_attr_array![6 => Float32x4, 7 => Float32x4, 8 => Float32x4, 9 => Float32x4];
         // Solid parts write the depth and replace what's there; see-through
         // ones blend over it, premultiplied, and leave the depth for the
         // solid ones behind them.
@@ -205,11 +216,10 @@ impl Models {
                     module: &shader,
                     entry_point: Some("vs_model"),
                     compilation_options: Default::default(),
-                    buffers: &[Some(wgpu::VertexBufferLayout {
-                        array_stride: std::mem::size_of::<Vertex>() as u64,
-                        step_mode: wgpu::VertexStepMode::Vertex,
-                        attributes: &attrs,
-                    })],
+                    buffers: &[
+                        Some(wgpu::VertexBufferLayout { array_stride: std::mem::size_of::<Vertex>() as u64, step_mode: wgpu::VertexStepMode::Vertex, attributes: &attrs }),
+                        Some(wgpu::VertexBufferLayout { array_stride: std::mem::size_of::<[[f32; 4]; 4]>() as u64, step_mode: wgpu::VertexStepMode::Instance, attributes: &place }),
+                    ],
                 },
                 // Both sides: an open model's inside faces the viewer too.
                 primitive: wgpu::PrimitiveState { cull_mode: None, ..Default::default() },
@@ -318,6 +328,8 @@ impl Models {
             } else {
                 Vec::new()
             };
+            // And for the instances drawn on the GPU, as posed.
+            target.placed = mesh.parts.iter().map(|p| (mesh.moves() && !p.instances.is_empty()).then(|| places_buffer(device, p.instances.len()))).collect();
         }
         target.drawn = key;
         let posed = shown.posed(&mesh, now).filter(|p| p.vertices.len() == target.posed.len());
@@ -330,6 +342,11 @@ impl Models {
                     (*buffer, *room) = posed_buffer(device, bytes + bytes / 4);
                 }
                 queue.write_buffer(buffer, 0, bytemuck::cast_slice(vertices));
+            }
+            for (buffer, instances) in target.placed.iter().zip(&posed.instances) {
+                if let Some(buffer) = buffer.as_ref().filter(|b| b.size() == std::mem::size_of_val(&instances[..]) as u64) {
+                    queue.write_buffer(buffer, 0, bytemuck::cast_slice(instances));
+                }
             }
         }
 
@@ -429,22 +446,30 @@ impl Models {
             (Some(_), Some((posed, _))) => posed,
             _ => &gpu.parts[i].vertices,
         };
+        // Its instances, as posed where the mesh moves.
+        let places = |i: usize| match (&posed, target.placed.get(i)) {
+            (Some(_), Some(Some(placed))) => placed,
+            _ => &gpu.parts[i].places,
+        };
         pass.set_pipeline(&self.pipeline);
         for i in order.solid {
             let (Some(part), Some((_, bind))) = (gpu.parts.get(i), target.draws.get(i)) else { continue };
             pass.set_bind_group(0, bind, &[]);
             pass.set_vertex_buffer(0, vertices(i).slice(..));
+            pass.set_vertex_buffer(1, places(i).slice(..));
             pass.set_index_buffer(part.indices.slice(..), wgpu::IndexFormat::Uint32);
-            pass.draw_indexed(0..part.count, 0, 0..1);
+            pass.draw_indexed(0..part.count, 0, 0..part.copies);
         }
         if let Some((sorted, _)) = target.sorted.as_ref().filter(|_| !order.runs.is_empty()) {
             pass.set_pipeline(&self.blended);
             pass.set_index_buffer(sorted.slice(..), wgpu::IndexFormat::Uint32);
             let mut start = 0;
             for (i, count) in order.runs {
-                if let (Some(_), Some((_, bind))) = (gpu.parts.get(i), target.draws.get(i)) {
+                if let (Some(part), Some((_, bind))) = (gpu.parts.get(i), target.draws.get(i)) {
                     pass.set_bind_group(0, bind, &[]);
                     pass.set_vertex_buffer(0, vertices(i).slice(..));
+                    // A see-through part is copied on the CPU: drawn once.
+                    pass.set_vertex_buffer(1, part.places.slice(..));
                     pass.draw_indexed(start..start + count, 0, 0..1);
                 }
                 start += count;
@@ -466,6 +491,7 @@ impl Models {
         let own = views.map(|v| texture_bytes(v.texture())).sum::<u64>()
             + target.draws.iter().map(|(b, _)| b.size()).sum::<u64>()
             + target.posed.iter().map(|(b, _)| b.size()).sum::<u64>()
+            + target.placed.iter().flatten().map(wgpu::Buffer::size).sum::<u64>()
             + target.sorted.as_ref().map_or(0, |(b, _)| b.size());
         let mesh = target.drawn.and_then(|(_, mesh)| self.meshes.get(&mesh)).map_or(0, |mesh| {
             // A texture two parts share counts once, and the white one
@@ -477,7 +503,7 @@ impl Models {
                     textures.push(texture);
                 }
             }
-            mesh.parts.iter().map(|p| p.vertices.size() + p.indices.size()).sum::<u64>() + textures.into_iter().map(texture_bytes).sum::<u64>()
+            mesh.parts.iter().map(|p| p.vertices.size() + p.indices.size() + p.places.size()).sum::<u64>() + textures.into_iter().map(texture_bytes).sum::<u64>()
         });
         own + mesh
     }
@@ -522,6 +548,7 @@ fn new_target(device: &wgpu::Device, (w, h): (u32, u32), samples: u32, owner: us
         view: make("model", FORMAT, 1, attach | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC),
         draws: Vec::new(),
         posed: Vec::new(),
+        placed: Vec::new(),
         sorted: None,
         drawn: None,
         used: Instant::now(),
@@ -535,6 +562,15 @@ fn posed_buffer(device: &wgpu::Device, bytes: u64) -> (wgpu::Buffer, u64) {
     let size = bytes.next_multiple_of(wgpu::COPY_BUFFER_ALIGNMENT).max(wgpu::COPY_BUFFER_ALIGNMENT);
     let buffer = device.create_buffer(&wgpu::BufferDescriptor { label: Some("model posed"), size, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
     (buffer, size)
+}
+
+/// The one instance of a part drawn once: where its vertices are.
+const IDENTITY_PLACE: [[[f32; 4]; 4]; 1] = [[[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]];
+
+/// Room for `n` instances' matrices as an animation poses them.
+fn places_buffer(device: &wgpu::Device, n: usize) -> wgpu::Buffer {
+    let size = (n * std::mem::size_of::<[[f32; 4]; 4]>()) as u64;
+    device.create_buffer(&wgpu::BufferDescriptor { label: Some("model instances posed"), size, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })
 }
 
 /// A mesh's buffers and textures, a texture shared by parts made once. A
@@ -565,6 +601,12 @@ fn upload(device: &wgpu::Device, queue: &wgpu::Queue, mesh: &Mesh, white: &wgpu:
                     usage: wgpu::BufferUsages::INDEX,
                 }),
                 count: p.indices.len() as u32,
+                places: device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("model instances"),
+                    contents: bytemuck::cast_slice(if p.instances.is_empty() { &IDENTITY_PLACE[..] } else { &p.instances[..] }),
+                    usage: wgpu::BufferUsages::VERTEX,
+                }),
+                copies: p.instances.len().max(1) as u32,
                 textures,
             }
         })
@@ -1017,6 +1059,13 @@ mod tests {
         let row = |y: usize| (0..64).filter(|&x| at(&instanced, (x, y))[3] > 128).count();
         assert!([5, 10, 36, 48, 54, 58].iter().all(|&y| row(y) > 0), "{:?}", (0..64).map(row).collect::<Vec<_>>());
         assert!((15..30).all(|y| row(y) == 0), "{:?}", (0..64).map(row).collect::<Vec<_>>());
+        // Drawn on the GPU, each faces the viewer lit alike, the mirrored
+        // third too, whose triangle's back is its front there.
+        let lit = |rows: std::ops::Range<usize>| {
+            let shades: Vec<u32> = rows.flat_map(|y| (0..64).map(move |x| (x, y))).map(|p| at(&instanced, p)).filter(|c| c[3] > 250).map(|c| u32::from(c[0]) + u32::from(c[1]) + u32::from(c[2])).collect();
+            shades.iter().sum::<u32>() / shades.len().max(1) as u32
+        };
+        assert!(lit(3..12) > 100 && lit(3..12).abs_diff(lit(52..60)) < 20, "the mirrored {}, the first {}", lit(3..12), lit(52..60));
         // As the node slides up, they go with it.
         let moved = picture_at(&gpu, "instanced-moving", model::load(Format::Glb, &model::tests::instanced_glb(true)).unwrap(), Style::default(), Some(1.0));
         let top = |p: &[u8]| (0..64).find(|&y| (0..64).any(|x| at(p, (x, y))[3] > 128));
