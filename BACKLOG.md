@@ -1678,65 +1678,26 @@ Tried live on the Mac, where both worked. What's left:
 
 Asked for on 2026-11-27, with a picture of another app's sidebar: a
 panel that pops out from the window's left edge, listing the tabs, which
-can be put into groups, the groups kept between launches. In the
-picture, each group has a name and a colored mark and folds open and
-shut. Under it are its tabs, each with a name and a line saying what
-it's doing: a command's tests passed with a ✓, a server's
-`localhost:8765` with a dot, or a git branch and how many files it has
-changed. The tab in front is lit, a tab can fold open to show what's
-under it, and the foot has buttons for a new tab and a new group.
-Nothing is started. What's known:
+can be put into groups, the groups kept between launches. Designed on
+2026-11-28 (`docs/design/tab-groups.md`). Nothing is built yet.
 
-- **What it builds on:**
-  - The tab bar is `App::tabs`, drawn in the title bar, and each `Tab`
-    has its panes (`panes::Split`).
-  - `tabs.json` keeps them between launches (`config::OpenTabs` and
-    `OpenTab`, a split tab's panes in `more`), and they're reopened
-    where `shell.reopen_tabs` says.
-  - The assistant's panel already opens from the right edge, and the
-    layout makes room for it (`Layout::compute`). A sidebar on the left
-    could take its room the same way, or lie over the terminal while
-    it's out.
-  - A tab can't be named yet: its name is its shell's (`tab_names`:
-    zsh 1, zsh 2). Groups want tabs named in place, typed as Settings'
-    text rows are.
-- **Keeping the groups:** each `OpenTab` would name its group, and
-  `OpenTabs` would list the groups (name, color, folded or open, order).
-  - To decide: whether a group outlives its tabs, kept empty as a place
-    to open tabs into. That would take a file of its own beside
-    `tabs.json`, since `tabs.json` is removed once the last tab closes
-    and isn't read where `shell.reopen_tabs` is off.
-- **The line under each tab:** most of it Flow knows already.
-  - The command running, and how the last one ended (the shell's marks,
-    `Finished`, `marks.rs`'s done and failed).
-  - Its folder (OSC 7, 633's `Cwd`).
-  - A program's progress (OSC 9;4).
-  - A bell or an alert, as the tab bar's glow shows them now.
-  - The assistant's own pane and an outside app's.
-  - New would be a git branch and its changed files, read from the
-    folder's `.git` on a thread, never on the event loop.
-  - Also new would be a server's address, from the ports the tab's
-    programs listen on (through `Platform::processes`) or from what it
-    printed.
-- **To decide:**
-  - Whether it pops out over the terminal, pushes it aside, or can be
-    pinned.
-  - Whether the title bar shows every tab, only the front group's, or
-    none while the sidebar is out.
-  - What a group does beyond sorting: opening all its tabs at once, one
-    theme for all of them, closing it whole.
-  - Dragging tabs into order and between groups, in the sidebar and in
-    the title bar.
-  - Its key (a `Command` in `keys::TABLE`, which Keys can change), the
-    palette's items, the Mac's View menu, and a button in the title bar.
-- **Everything else a new screen takes:**
-  - screen readers, as a tree of groups and tabs in `access.rs` (AccessKit
-    has `Tree` and `TreeItem` roles);
-  - a help page, and the manual's
-    [The terminal](docs/manual/terminal.md);
-  - every word in en.json and ja.json;
-  - a snapshot with made-up groups (`tab-sidebar.png`).
-- **The design** goes in `docs/design/tab-groups.md` before it's built.
+- **Decided:**
+  - It pops out over the terminal, and a pin keeps it out, beside a
+    terminal narrowed for it.
+  - The title bar keeps every tab, each marked with its group's color.
+  - A group folds, closes whole and may wear a theme for its tabs.
+  - A group lives in `tabs.json` with its tabs and goes with its last
+    one.
+- **Its steps,** a commit each:
+  1. tab names typed in place;
+  2. groups, their marks and the palette's items;
+  3. the sidebar over the terminal;
+  4. pinned;
+  5. dragging, in the sidebar and the title bar;
+  6. a group's theme;
+  7. the git branch on each tab's line.
+- **Left for a design of its own:** a server's address on the line,
+  which needs each OS to read the ports a tab's programs listen on.
 
 ## A Homebrew tap
 
