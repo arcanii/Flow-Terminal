@@ -1066,9 +1066,11 @@ AUR helper.
   - a package of themes installed while Flow runs, and Export…, tried in
     a live window;
   - the notanAmiga's frame in the Mac's and Linux's live windows.
-- **Efficient mode, tried for real on battery:** unplugged and in Low
-  Power Mode on a Mac, and on Windows' and Linux's laptops (Efficient
-  mode: what's left, below).
+- **Efficient mode, tried for real on battery:** unplugged on a Mac
+  (2026-11-27), where it came on only up to half a minute later, the
+  power read every 30 seconds while Flow was in front, and now within 2
+  seconds; Low Power Mode on a Mac, and Windows' and Linux's laptops,
+  still to try (Efficient mode: what's left, below).
 - **3D models: more of glTF, and Windows' checks** (3D models: what's
   left, above):
   - whole files from glTF tools (gltf-transform, gltfpack, Blender),
@@ -1136,8 +1138,9 @@ Efficient mode, the cursor's speed, the turning logo held still, and
 Efficient on battery are in (the docs, [Settings](docs/manual/settings.md)).
 Still to do:
 
-- **On battery, tried for real:** unplugged and in Low Power Mode on a
-  Mac, and on Windows' and Linux's laptops.
+- **On battery, tried for real:** unplugged on a Mac (2026-11-27,
+  `POWER_EVERY` now 2 seconds, not 30); Low Power Mode on a Mac, and
+  Windows' and Linux's laptops, still to try.
 - **A start screen typed faster than its baud** is left for now (each
   theme's own cursor speed is in, 0.1.31).
 - **A shorter word for its pill,** to give the title bar room for

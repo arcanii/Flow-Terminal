@@ -326,10 +326,13 @@ Settings' **Efficient mode** shows on and says why, and a toast says when
 it comes on and what ended when it goes off (plugged in, Low Power Mode or
 energy saver off). Switch efficient mode off then and it stays off until
 that ends or Flow quits: that isn't saved, so Flow opened again on battery
-turns it on again. Switch it on and it's your own, staying on after. It
-never changes the saved switch. Flow asks how the
-computer is powered at the start, when its window comes to the front, and
-at most every 30 seconds while it's in use (the Mac's power sources and Low
+turns it on again. Switch it on and it's your own, staying on after;
+switched off on battery (or in Low Power Mode, or with energy saver on),
+it stays on for that, as the title bar and a toast say, and off again it
+stays off until that ends. The power never changes the saved switch.
+Flow asks how the computer is powered at the start, when its window comes
+to the front, and
+at most every 2 seconds while it's in use (the Mac's power sources and Low
 Power Mode, Windows' power status, Linux's `/sys/class/power_supply`); a
 computer that doesn't say counts as plugged in, and snapshots and
 recordings never ask.

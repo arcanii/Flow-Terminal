@@ -117,7 +117,7 @@ pub trait Platform: Sync {
     /// in (the Mac's Low Power Mode, Windows' energy saver), or plugged in,
     /// as it is where the system doesn't say. Efficient mode follows it
     /// where the settings say (`ui.efficient_on_battery`): read on a thread
-    /// of its own, at the start, on focus and at most every 30 seconds.
+    /// of its own, at the start, on focus and at most every 2 seconds.
     fn power(&self) -> crate::power::Power {
         crate::power::Power::Plugged
     }

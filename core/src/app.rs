@@ -546,8 +546,11 @@ const PROMPT_WAIT: Duration = Duration::from_secs(3);
 /// password, yes or no) before it's handed back as still running.
 const QUESTION_WAIT: Duration = Duration::from_secs(600);
 /// How often, at most, Flow asks how the computer is powered while
-/// efficient mode follows it, besides at the start and on focus.
-const POWER_EVERY: Duration = Duration::from_secs(30);
+/// efficient mode follows it, besides at the start and on focus: soon
+/// enough that pulling the cable with Flow in front shows at once (half a
+/// minute looked like nothing at all). It's asked only as Flow wakes for
+/// something else, and a reading takes a millisecond or two on a thread.
+const POWER_EVERY: Duration = Duration::from_secs(2);
 
 /// `--record`: frame rate, frames of flow before saving starts, frames saved per style.
 const RECORD_FPS: f32 = 24.0;
@@ -10126,15 +10129,22 @@ impl App {
     }
 
     /// Efficient mode on or off by the user's hand, saved, and said so.
-    /// Off while the power kept it on, it stays off until the computer
-    /// stops saving power; on, it's the user's and stays on after.
+    /// Off while the power alone kept it on, it stays off until the
+    /// computer stops saving power; on, it's the user's and stays on after.
+    /// Their own switch off while the power would keep it on leaves it on
+    /// for the power, which the toast and the title bar say.
     fn set_efficient(&mut self, on: bool) {
         let was = self.efficient();
-        self.power.switched(on, self.config.ui.efficient_on_battery);
+        self.power.switched(on, self.config.ui.efficient, self.config.ui.efficient_on_battery);
         self.config.ui.efficient = on;
         self.save_config();
         self.efficiency_changed(was);
-        self.show_toast(t(if on { "toast.efficient_on" } else { "toast.efficient_off" }));
+        let key = match self.efficient_for_power() {
+            Some(power) if !on => kept_on_by(power),
+            _ if on => "toast.efficient_on",
+            _ => "toast.efficient_off",
+        };
+        self.show_toast(t(key));
         self.request_redraw();
     }
 
@@ -10222,8 +10232,7 @@ impl App {
             use crate::power::Power;
             // On, why; off, what ended.
             let key = match (self.efficient_for_power(), before) {
-                (Some(Power::Battery), _) => "toast.efficient_battery",
-                (Some(_), _) => crate::platform::keys("toast.efficient_low_power_mac", "toast.efficient_low_power"),
+                (Some(power), _) => kept_on_by(power),
                 (None, Some(Power::Battery)) => "toast.efficient_plugged_in",
                 (None, _) => crate::platform::keys("toast.efficient_low_power_off_mac", "toast.efficient_low_power_off"),
             };
@@ -14970,6 +14979,15 @@ fn same_folder(judged: Option<&str>, now: Option<&str>) -> bool {
     let (judged, now) = (tools::resolve_path(judged, None), tools::resolve_path(now, None));
     let real = |p: &std::path::Path| crate::link::on_this_computer(p).then(|| std::fs::canonicalize(p).ok()).flatten();
     judged == now || real(&judged).is_some_and(|j| real(&now) == Some(j))
+}
+
+/// The toast that says the power keeps efficient mode on: the battery, or
+/// the Mac's Low Power Mode and the others' energy saver.
+fn kept_on_by(power: crate::power::Power) -> &'static str {
+    match power {
+        crate::power::Power::Battery => "toast.efficient_battery",
+        _ => crate::platform::keys("toast.efficient_low_power_mac", "toast.efficient_low_power"),
+    }
 }
 
 #[cfg(test)]

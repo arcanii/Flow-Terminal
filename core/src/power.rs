@@ -114,10 +114,12 @@ impl Follow {
     }
 
     /// The user turned efficient mode `on`, or off; off while the power
-    /// kept it on, it stays off until the computer stops saving power or
-    /// Flow quits (it isn't saved).
-    pub fn switched(&mut self, on: bool, follow: bool) {
-        self.waived = !on && self.keeps_on(follow).is_some();
+    /// alone kept it on, it stays off until the computer stops saving power
+    /// or Flow quits (it isn't saved). Off while their own switch (`own`)
+    /// had it on, only that goes, and the power keeps it on if it would:
+    /// off again, it's waived.
+    pub fn switched(&mut self, on: bool, own: bool, follow: bool) {
+        self.waived = !on && !own && self.keeps_on(follow).is_some();
     }
 
     /// The setting turned on or off: what's known of the power is
@@ -217,7 +219,7 @@ mod tests {
         assert_eq!(follow.keeps_on(false), None, "only while the setting says so");
         assert!(!follow.read(Power::Battery), "the same again changes nothing");
         // Turned off by hand, it stays off, through Low Power Mode too.
-        follow.switched(false, true);
+        follow.switched(false, false, true);
         assert_eq!(follow.keeps_on(true), None);
         follow.read(Power::LowPower);
         assert_eq!(follow.keeps_on(true), None);
@@ -226,11 +228,19 @@ mod tests {
         follow.read(Power::Battery);
         assert_eq!(follow.keeps_on(true), Some(Power::Battery));
         // Turned on by hand, it's the user's own switch that keeps it on.
-        follow.switched(true, true);
+        follow.switched(true, false, true);
         assert_eq!(follow.keeps_on(true), Some(Power::Battery));
+        // Their own switch off on battery leaves it on for the battery,
+        // and off again it's waived.
+        follow.switched(false, true, true);
+        assert_eq!(follow.keeps_on(true), Some(Power::Battery));
+        follow.switched(false, false, true);
+        assert_eq!(follow.keeps_on(true), None);
+        follow.read(Power::Plugged);
+        follow.read(Power::Battery);
         // Turned off while plugged in, nothing's waived.
         follow.read(Power::Plugged);
-        follow.switched(false, true);
+        follow.switched(false, true, true);
         follow.read(Power::LowPower);
         assert_eq!(follow.keeps_on(true), Some(Power::LowPower));
         follow.reset();
