@@ -171,6 +171,10 @@ pub struct ThemeConfig {
     /// What its machine sounded like, as `looks::Sounds::named` reads it:
     /// "quiet", "tube", "tones", "teletype" and the like.
     pub sounds: String,
+    /// A shell window's frame round each pane wearing it, the Flow
+    /// notanAmiga CLI's (`looks::framed`): begun from the machine it began
+    /// from, and switched under Theme.
+    pub frame: bool,
 }
 
 /// The tabs open when Flow quit, in their order, which the next start

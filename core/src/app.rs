@@ -8841,6 +8841,13 @@ impl App {
                     self.config.worn_theme_mut().baud = baud;
                 }
             }
+            // Each pane wearing it framed or not, as Theme details' switch
+            // does for a machine's: its room changes.
+            SettingId::OwnFrame => {
+                let theme = self.config.worn_theme_mut();
+                theme.frame = flip(theme.frame);
+                self.relayout();
+            }
             SettingId::OwnSounds => {
                 self.config.worn_theme_mut().sounds = settings::THEME_SOUNDS[pick].to_string();
                 // A key's sound, as the machine makes it, where they're heard,

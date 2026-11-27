@@ -300,7 +300,7 @@ pub fn export(saved: &SavedTheme) -> Result<ThemeFile, String> {
         prompt: Some(saved.theme.prompt.clone()).filter(|p| !p.is_empty()),
         sounds: Sounds::named(&saved.theme.sounds).name().into(),
         screen: None,
-        frame: false,
+        frame: saved.theme.frame,
         logo: String::new(),
         keys,
     };
@@ -697,7 +697,7 @@ mod tests {
         (night.fx.style, night.fx.sun) = ("rain".into(), 0.3);
         let night = save_as(&night, "Night shift");
         let mut tube = wear(&base, OWN);
-        tube.theme = ThemeConfig { start: vec!["^HELLO".into(), String::new()], baud: 300, prompt: "{cwd}> ".into(), sounds: "tones".into() };
+        tube.theme = ThemeConfig { start: vec!["^HELLO".into(), String::new()], baud: 300, prompt: "{cwd}> ".into(), sounds: "tones".into(), frame: false };
         (tube.fx.crt, tube.crt.curvature, tube.colors.border) = (0.8, 0.42, "#102030".into());
         tube.font.families.insert(0, "Monaco".into());
         let tube = save_as(&tube, "夜");
@@ -714,6 +714,47 @@ mod tests {
         // Flow's fonts follow a theme's own, so only its own are named.
         assert_eq!(export(&tube).unwrap().themes[0].fonts, ["Monaco"]);
         assert_eq!(export(&night).unwrap().themes[0].fonts, Vec::<String>::new());
+    }
+
+    #[test]
+    fn your_own_and_saved_themes_keep_a_frame_and_take_it_to_another_computer() {
+        let base = Config::default();
+        // Your own, begun from the notanAmiga, has its frame, unless Theme
+        // details had it off.
+        let amiga = wear(&base, "amiga");
+        let own = wear(&amiga, OWN);
+        assert!(own.theme.frame && crate::looks::framed(&own));
+        let mut bare = amiga.clone();
+        bare.ui.look_frame = false;
+        assert!(!wear(&bare, OWN).theme.frame, "begun from a frame switched off");
+        // One begun from a machine without a frame has it switched on; Theme
+        // details' switch is a machine's, not its.
+        let mut green = wear(&wear(&base, "green"), OWN);
+        assert!(!crate::looks::framed(&green));
+        green.theme.frame = true;
+        green.ui.look_frame = false;
+        assert!(crate::looks::framed(&green));
+        // Saved, it keeps it, and wearing that is framed.
+        let saved = save_as(&green, "Framed green");
+        assert!(saved.theme.frame);
+        let mut cfg = base.clone();
+        cfg.themes.save(saved.clone());
+        assert!(crate::looks::framed(&wear(&cfg, "saved:Framed green")));
+        // A machine's saved as Theme details leave it.
+        assert!(save_as(&amiga, "Boing").theme.frame && !save_as(&bare, "Boing").theme.frame);
+        // A tab's own look carries it.
+        let mut tab = wear(&base, OWN);
+        crate::looks::put_tab_part(&mut tab, &crate::looks::tab_part(&green));
+        assert!(crate::looks::framed(&tab));
+        // Exported and installed on another computer, it's framed there,
+        // and saved again there as it was.
+        let file = export(&saved).unwrap();
+        assert!(file.themes[0].frame);
+        set(package(&file).unwrap());
+        let worn = wear(&base, &file.themes[0].id);
+        assert!(crate::looks::framed(&worn));
+        assert_eq!(save_as(&worn, &saved.name), saved);
+        set(Vec::new());
     }
 
     #[test]

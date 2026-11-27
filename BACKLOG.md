@@ -692,12 +692,15 @@ controls (as decided), the text's room inset so the grid, the
 mouse and the Fit rows count it. `flow-core-themes` carries it from its
 next version (`ThemeEntry::frame`), and 0.1.0's notanAmiga keeps the
 built-in's. Tried in a live window on Windows and Linux for 0.1.36, a
-split tab of two framed panes too. What's left: the Mac's live window
-(only snapshots there, `theme-amiga.png`), your own and saved themes
-keeping a frame (`THEME_KEYS`), `flow-core-themes`' next version
-carrying it, and Flow-SDK's theme entry writing `frame` in its next
-version (until then `packaged.rs`' test of the SDK's package compares
-without it).
+split tab of two framed panes too. Your own and saved themes keep a frame
+for 0.1.48 (`[theme] frame`, a Window frame row under Theme, kept by
+Export…), and `flow-core-themes` 0.1.1, which writes the notanAmiga's
+`frame`, is packed on the Mac. What's left: the Mac's live window (only
+snapshots there, `theme-amiga.png`), publishing `flow-core-themes` 0.1.1
+(signed on the Mac and entered with `app_catalog --themes --platform
+any`), and Flow-SDK's theme entry writing `frame` in its next version
+(until then `packaged.rs`' test of the SDK's package compares without
+it).
 
 - **As the machine drew it** (2026-11-17, from a picture of the real
   AmigaShell's window in WinUAE under Kickstart 1.3;
@@ -1051,8 +1054,9 @@ AUR helper.
   - the phosphor's floor for saturated colors kept (decided 2026-11-27),
     and the glow without the tube, clipped channel by channel, brought back
     by a last pass of the phosphor's own (`docs/design/phosphor-glow.md`);
-  - your own and saved themes keeping a window frame (`THEME_KEYS`), and
-    `flow-core-themes`' next version carrying it;
+  - your own and saved themes keeping a window frame: built
+    (`[theme] frame`, `docs/design/window-frame.md`), and
+    `flow-core-themes` 0.1.1 packed, to publish on the user's word;
   - a package of themes installed while Flow runs, and Export…, tried in
     a live window;
   - the notanAmiga's frame in the Mac's and Linux's live windows.

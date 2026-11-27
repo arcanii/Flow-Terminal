@@ -612,7 +612,7 @@ pub const THEME_KEYS: [(&str, &[&str]); 5] = [
 /// the config is Flow's, every tab's; [`THEME_KEYS`] are among them.
 pub const TAB_KEYS: [(&str, &[&str]); 7] = [
     ("ui", &["look", "logo", "look_start", "look_prompt", "look_font", "look_crt", "look_colors", "look_frame", "look_real_numbers"]),
-    ("theme", &["start", "baud", "prompt", "sounds"]),
+    ("theme", &["start", "baud", "prompt", "sounds", "frame"]),
     ("colors", &["text", "cursor", "background", "border", "ansi", "phosphor"]),
     ("cursor", &["shape", "blink", "speed"]),
     ("font", &["families", "size", "line_height"]),
@@ -706,6 +706,8 @@ pub fn wear(base: &Config, id: &str) -> Config {
         let last = find(&config.ui.look);
         if config.theme == crate::config::ThemeConfig::default() && last.machine() {
             config.theme = last.as_theme();
+            // Its frame as Theme details left it.
+            config.theme.frame &= config.ui.look_frame;
         }
         config.ui.look = OWN.into();
     } else if let Some(name) = saved_name(id) {
@@ -742,6 +744,7 @@ pub fn save_as(config: &Config, name: &str) -> SavedTheme {
             if !look.machine() || !config.ui.look_prompt {
                 theme.prompt.clear();
             }
+            theme.frame &= config.ui.look_frame;
             theme
         }
         InUse::Own(_, theme) => theme.clone(),
@@ -830,11 +833,15 @@ pub(crate) fn builtin_frame(id: &str) -> bool {
     LOOKS.iter().any(|l| l.id == id && l.frame)
 }
 
-/// Whether `config` wears a look with a frame, Theme details' Window frame
-/// on: each pane wearing it draws one round its terminal.
+/// Whether `config` wears a look with a frame, each pane wearing it drawing
+/// one round its terminal: a machine's (or a package's) with Theme
+/// details' Its window frame on, or your own or a saved theme's with its
+/// Window frame on (`ThemeConfig::frame`).
 pub fn framed(config: &Config) -> bool {
-    let look = find(&config.ui.look);
-    config.ui.look_frame && look.id == config.ui.look && look.frame
+    match InUse::of(config) {
+        InUse::Builtin(look) => config.ui.look_frame && look.frame,
+        InUse::Own(_, theme) => theme.frame,
+    }
 }
 
 /// The glass a machine's theme sets: opaque, as its screen was.
@@ -1503,7 +1510,8 @@ impl Look {
     /// The user's own theme, begun from this look: its start screen, the
     /// speed it's typed at, its prompt and its sounds.
     pub fn as_theme(&self) -> ThemeConfig {
-        ThemeConfig { start: self.start.iter().map(|l| l.to_string()).collect(), baud: self.baud, prompt: self.prompt.unwrap_or("").into(), sounds: self.sounds.name().into() }
+        let start = self.start.iter().map(|l| l.to_string()).collect();
+        ThemeConfig { start, baud: self.baud, prompt: self.prompt.unwrap_or("").into(), sounds: self.sounds.name().into(), frame: self.frame }
     }
 }
 
@@ -1879,7 +1887,7 @@ mod tests {
         (fx.style, fx.water_view, fx.palette) = ("water".into(), "below".into(), "ember".into());
         (fx.sun, fx.electricity, fx.speed, fx.ambient, fx.text_ripple, fx.caustics, fx.opacity, fx.glow, fx.crt, fx.rain) = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95);
         c.crt = CrtConfig { scanlines: 0.1, interlace: false, glow: 0.2, decay: 0.03, grille: 0.3, vignette: 0.4, curvature: 0.5, presets: Vec::new() };
-        c.theme = ThemeConfig { start: vec!["MINE".into()], baud: 1200, prompt: "$(mine) ".into(), sounds: "tube".into() };
+        c.theme = ThemeConfig { start: vec!["MINE".into()], baud: 1200, prompt: "$(mine) ".into(), sounds: "tube".into(), frame: false };
         c.ui.look = OWN.into();
         save_as(&c, name)
     }
@@ -2054,7 +2062,7 @@ mod tests {
         want.sort();
         assert_eq!(held, want);
         assert_eq!(theme.look["fx"]["opacity"], serde_json::json!(0.7), "fractions as they're set");
-        assert_eq!(theme.theme, ThemeConfig { start: vec!["MINE".into()], baud: 1200, prompt: "$(mine) ".into(), sounds: "tube".into() }, "its own start screen, prompt and sounds");
+        assert_eq!(theme.theme, ThemeConfig { start: vec!["MINE".into()], baud: 1200, prompt: "$(mine) ".into(), sounds: "tube".into(), frame: false }, "its own start screen, prompt and sounds");
         // A machine's start screen, prompt and sounds where Theme details
         // leave them on; Flow's look has none, and programs' sixteen colors
         // are Flow's own where a config from before them has none.

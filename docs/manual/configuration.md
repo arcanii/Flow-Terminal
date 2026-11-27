@@ -78,8 +78,9 @@ Notable settings:
     switches in Theme details, the first two of which your own theme
     doesn't use, the last the Flow notanAmiga CLI's alone), and
     `theme.start`,
-    `theme.baud`, `theme.prompt` and `theme.sounds` for your own, which
-    Settings sets too (see [Themes](themes.md))
+    `theme.baud`, `theme.prompt`, `theme.sounds` and `theme.frame` (default
+    false: the Flow notanAmiga CLI's window frame round each pane) for your
+    own, which Settings sets too (see [Themes](themes.md))
   - `[[themes.saved]]`: the themes saved under a name (**Save as theme…**),
     each a `name` and the look's sections as a preset file holds them, with
     what a theme sets: `[themes.saved.colors]` (all of it),
@@ -87,9 +88,9 @@ Notable settings:
     (`families`), `[themes.saved.fx]` (`style`, `water_view`, `sun`,
     `electricity`, `speed`, `ambient`, `text_ripple`, `caustics`, `palette`,
     `opacity`, `glow`, `crt`), `[themes.saved.crt]` (its parts, not its
-    presets) and `[themes.saved.theme]` (its own `start`, `baud`, `prompt`
-    and `sounds`, which it brings in place of `[theme]`'s without changing
-    them). Wearing one changes only what it holds, so one written by hand
+    presets) and `[themes.saved.theme]` (its own `start`, `baud`, `prompt`,
+    `sounds` and `frame`, which it brings in place of `[theme]`'s without
+    changing them). Wearing one changes only what it holds, so one written by hand
     can hold a few; the text's size, the liquid's switches, the cursor's
     speed and the backdrop stay yours
   - `ui.closed_sections`, Settings' sections shown closed (`general`, `theme`,

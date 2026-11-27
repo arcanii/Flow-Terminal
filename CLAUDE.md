@@ -1795,7 +1795,8 @@ from `[theme]` (`ThemeConfig`), begun from the last machine
 (`Look::as_theme`, `App::take_own_look`); `looks::InUse` is the look new
 tabs and the machines' sounds go by, built-in or own. `theme` is one of
 `PRESET_SECTIONS`, and a preset with a start screen or a prompt chooses it.
-While it's chosen, Settings shows its rows under Theme (`settings::own_rows`)
+While it's chosen, Settings shows its rows under Theme (`settings::own_rows`:
+its start screen, prompt, speed, sounds and window frame)
 in place of `ui.look_start` and `ui.look_prompt`'s switches, which it doesn't
 use (an empty start screen or prompt is none): the start screen and prompt
 are `Control::Text` rows typed in place. Enter or a click puts a
@@ -1896,7 +1897,11 @@ Flow's in its place when off. A look whose desktop drew its shell window's
 frame (`Look::frame`, the notanAmiga's; a package's `ThemeEntry::frame`, and
 one taking a built-in's place keeps the built-in's, `builtin_frame`) has it
 drawn round each pane wearing it while `looks::framed` (Its window frame,
-`ui.look_frame`, on at first): `App::pane_layouts_in` takes which panes are
+`ui.look_frame`, on at first; for your own or a saved theme, `InUse::Own`,
+its own `[theme] frame`, `ThemeConfig::frame`, begun from its machine's as
+Theme details left it by `Look::as_theme`, `wear` and `save_as`, switched
+by the Window frame row among its rows, `SettingId::OwnFrame`, carried by
+`TAB_KEYS` and Export…, `docs/design/window-frame.md`): `App::pane_layouts_in` takes which panes are
 framed (`App::frames`: the one in front by the config worn, those behind by
 `PaneLook::framed`, a tab behind's by `pane_config`) and gives each a
 `Layout` inside a `ui::Frame` (`Frame::round`: an outline two of the scale's

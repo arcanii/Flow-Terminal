@@ -27,6 +27,7 @@ pub enum SettingId {
     OwnBaud,
     /// What your own theme's machine sounds like.
     OwnSounds,
+    OwnFrame,
     /// Save as theme…, and Delete for the saved theme chosen.
     SavedTheme,
     /// Opens the theme gallery: the catalog's packages of themes.
@@ -2223,6 +2224,7 @@ pub fn config_key(id: SettingId) -> Option<String> {
         OwnPrompt => "theme.prompt",
         OwnBaud => "theme.baud",
         OwnSounds => "theme.sounds",
+        OwnFrame => "theme.frame",
         SavedTheme => "themes.saved",
         LiquidStyle => "fx.style",
         WaterView => "fx.water_view",
@@ -2735,7 +2737,7 @@ fn saved_theme_row(cfg: &Config) -> Entry {
 /// Your own theme's rows, under Theme, or the saved theme's chosen: its
 /// start screen and prompt, typed in place, how fast the start screen is
 /// typed out, and its machine's sounds.
-fn own_rows(cfg: &Config, theme: &ThemeConfig) -> [Entry; 4] {
+fn own_rows(cfg: &Config, theme: &ThemeConfig) -> [Entry; 5] {
     let text = |id: SettingId, name: &str, multiline: bool| {
         row(id, name, words(name, "hint"), Control::Text { value: row_text(cfg, id), multiline, empty: words(name, "empty") })
     };
@@ -2746,6 +2748,7 @@ fn own_rows(cfg: &Config, theme: &ThemeConfig) -> [Entry; 4] {
         text(SettingId::OwnPrompt, "own_prompt", false),
         row(SettingId::OwnBaud, "own_baud", words("own_baud", "hint"), Control::Choice { options: bauds.into(), index: baud }),
         row(SettingId::OwnSounds, "own_sounds", words("own_sounds", "hint"), choice("own_sounds", &THEME_SOUNDS, sounds)),
+        row(SettingId::OwnFrame, "own_frame", words("own_frame", "hint"), Control::Toggle(theme.frame)),
     ]
 }
 
@@ -4051,9 +4054,9 @@ mod tests {
     }
 
     #[test]
-    fn your_own_theme_shows_its_start_screen_prompt_speed_and_sounds_in_place_of_the_switches() {
+    fn your_own_theme_shows_its_start_screen_prompt_speed_sounds_and_frame_in_place_of_the_switches() {
         let mut cfg = Config::default();
-        let own = [SettingId::OwnStart, SettingId::OwnPrompt, SettingId::OwnBaud, SettingId::OwnSounds];
+        let own = [SettingId::OwnStart, SettingId::OwnPrompt, SettingId::OwnBaud, SettingId::OwnSounds, SettingId::OwnFrame];
         let switches = [SettingId::ThemeStart, SettingId::ThemePrompt];
         let flow = ids(&cfg);
         assert!(own.iter().chain(&switches).all(|id| !flow.contains(id)), "Flow's look has neither");
@@ -4067,7 +4070,7 @@ mod tests {
         cfg.theme = crate::looks::find("green").as_theme();
         cfg.ui.look = crate::looks::OWN.into();
         let mine = ids(&cfg);
-        assert_eq!(mine[at + 1..at + 5], own);
+        assert_eq!(mine[at + 1..at + 6], own);
         assert!(switches.iter().all(|id| !mine.contains(id)));
         let Control::Text { value, multiline: true, .. } = row_of(&cfg, SettingId::OwnStart).control else { panic!("a box of lines") };
         assert_eq!(value, "FLOW-11 MINICOMPUTER\n{memory} OF CORE\n\nBOOTING TIME-SHARING SYSTEM ...\n");
@@ -4084,6 +4087,11 @@ mod tests {
         assert_eq!(options[index], "Quiet");
         let Control::Choice { options, index } = row_of(&cfg, SettingId::OwnBaud).control else { panic!() };
         assert_eq!((options[index].as_str(), options.len()), ("110", BAUDS.len() + 1));
+        // No frame from the green screen, whose desktop drew none; the
+        // notanAmiga's from its.
+        assert!(matches!(row_of(&cfg, SettingId::OwnFrame).control, Control::Toggle(false)));
+        cfg.theme = crate::looks::find("amiga").as_theme();
+        assert!(matches!(row_of(&cfg, SettingId::OwnFrame).control, Control::Toggle(true)));
     }
 
     #[test]
@@ -4108,7 +4116,7 @@ mod tests {
         assert_eq!(actions(&cfg), ["Save as theme…", "Export…", "Delete"]);
         let rows = ids(&cfg);
         let at = rows.iter().position(|id| *id == SettingId::Theme).unwrap();
-        assert_eq!(rows[at + 1..at + 6], [SettingId::OwnStart, SettingId::OwnPrompt, SettingId::OwnBaud, SettingId::OwnSounds, SettingId::SavedTheme]);
+        assert_eq!(rows[at + 1..at + 7], [SettingId::OwnStart, SettingId::OwnPrompt, SettingId::OwnBaud, SettingId::OwnSounds, SettingId::OwnFrame, SettingId::SavedTheme]);
         // What's typed there goes into it, and your own stays as it was.
         let mut cfg = cfg;
         cfg.theme.prompt = "mine> ".into();

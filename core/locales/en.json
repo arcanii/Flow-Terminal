@@ -270,6 +270,10 @@
       "label": "Sounds",
       "hint": "What your machine sounds like, with Machines' sounds on under Sound: a tube's hum and its keys' clicks; a video terminal's sharper clicks and its beep; a tube with a disk drive seeking as it starts, with a fan or without; with a floppy drive seeking as it starts and as its disk goes in, and clicking while it's empty; with a chord as it starts; a sound chip's beep as it starts and its honk for the bell; with a printer printing a command's output; or a teletype clattering as it types, its bell near a line's end, its carriage at each return and its paper tape punch as output comes."
     },
+    "own_frame": {
+      "label": "Window frame",
+      "hint": "A shell window's frame round each pane wearing it, as the Flow notanAmiga CLI's desktop drew it: a title bar with the tab's name, three lines and depth gadgets that bring the window in front of the others and send it behind them, a sizing gadget in the corner, and an outline. It begins as the machine your theme began from had it."
+    },
     "saved_theme": {
       "label": "Your themes",
       "hint": "Save as theme… keeps what's worn now under a name: the colors (programs' sixteen among them), fonts, cursor, glass, liquid and CRT, with a start screen, prompt and sounds where they're set. It comes after the built-in themes, under Theme and in the new-tab picker; a name used before is saved over. Chosen here, the rows above type its start screen and prompt, leaving your own as it is. Export… writes the one chosen as a theme package, a .tar.gz file that flowapp install puts among the themes on another computer, its fonts named but not carried. Delete removes the one chosen, leaving its colors, fonts and CRT on under your own theme. A preset file saved while one is worn moves it too.",

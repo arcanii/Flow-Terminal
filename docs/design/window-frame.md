@@ -89,6 +89,35 @@ picture's pixels.
 - **Screen readers** get the close box alone. The system arranges windows for
   them its own way, and a reader can't drag.
 
+## Your own and saved themes (0.1.48)
+
+Decided 2026-11-27: a theme of your own, or one saved under a name, may
+wear the frame too, rather than only carrying the one its machine had.
+
+- **Kept** as `[theme] frame` (`ThemeConfig::frame`, off by default), so a
+  saved theme keeps it in its own `theme`, a tab's own look carries it
+  (`looks::TAB_KEYS`), and a preset file moves it with the rest.
+- **Begun** from the machine your own theme began from, as Theme details
+  left it (`Look::as_theme`, `looks::wear` with `ui.look_frame`), and a
+  machine's theme saved under a name keeps its frame the same way
+  (`looks::save_as`).
+- **Switched** by a **Window frame** row among your own theme's rows under
+  Theme (`SettingId::OwnFrame`, `settings::own_rows`), which lays every pane
+  out again as Its window frame does. Theme details' Its window frame is a
+  machine's switch alone; your own theme has the one row.
+- **Worn**: `looks::framed` asks the look in use (`InUse`): a machine's (or
+  a package's) frame with Theme details' switch on, else the theme's own.
+- **Exported**: Export… writes it as the package's `frame`
+  (`packaged::export`), so `flowapp install` of it elsewhere frames it there.
+- **flow-core-themes 0.1.1** carries the notanAmiga's `frame` explicitly
+  (`examples/theme_package.rs --version 0.1.1`), packed on the Mac; it's
+  signed and published only on the user's word. Flow-SDK's theme entry
+  writes `frame` from its next version.
+- **Tried** on the Mac (2026-11-27): the tests carry it through your own
+  theme, a saved one, a tab's own look and an exported package, and a
+  snapshot of your own theme with it on drew the frame round its pane. Not
+  yet in a live window.
+
 ## Left out
 
 - The machine's own close gadget.

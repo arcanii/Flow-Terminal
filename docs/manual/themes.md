@@ -203,14 +203,18 @@ choosing it the first time begins it from the old machine you chose last.
   a sound chip's beep as it starts and its honk for the bell, or with a
   printer, or a teletype (heard with **Machines' sounds** on, under
   Sound).
+- **Window frame** draws the Flow notanAmiga CLI's shell window round each
+  pane wearing your theme, as **Its window frame** does for that machine
+  (see Theme details above): on where your theme began from the notanAmiga
+  with its frame on, off otherwise.
 
 Both fields take an input method's text, as the terminal does. What you type
 goes to `[theme]` in `config.toml` with the other settings, and new tabs take
 it on. In the file, `theme.start` is the start screen, a line each,
 `theme.baud` its speed (0 at once), `theme.prompt` the prompt (with a real
-new line where Settings shows `\n`) and `theme.sounds` `quiet`, `tube`,
+new line where Settings shows `\n`), `theme.sounds` `quiet`, `tube`,
 `terminal`, `disk`, `fan`, `floppy`, `chime`, `tones`, `printer` or
-`teletype`. A
+`teletype`, and `theme.frame` the window frame. A
 preset file keeps `[theme]` with the rest of the look, so a
 whole theme can be saved and shared; loading one with a start screen or a
 prompt chooses **Your own**.
@@ -219,8 +223,9 @@ prompt chooses **Your own**.
 on the Mac in the View menu), keeps what's worn now under a name you type,
 in a box over Settings as a CRT preset's name is asked: the colors
 (programs' sixteen among them), fonts, cursor, glass, liquid and CRT, with
-a start screen, prompt and sounds where they're set (an old machine's as
-Theme details leave them, and its sounds muted as they were). Saved from
+a start screen, prompt, sounds and window frame where they're set (an old
+machine's as Theme details leave them, and its sounds muted as they
+were). Saved from
 the picker or the menu while the tab in front wears a theme of its own,
 it's that tab's theme. Saved themes come after the built-in ones and your
 own, in the Theme row and in the picker, and are worn as those are, in
@@ -237,9 +242,9 @@ start screen and prompt. They're kept in `config.toml` (see
 **Export…**, beside it, writes the one chosen as a theme package where you
 say (`night-shift-theme-1.0.tar.gz` for one saved as Night shift), which
 `flowapp install` on another computer puts among its themes ([Apps:
-flowapp](flowapp.md)). There its colors, cursor, fonts and CRT are the
-theme's own, so Theme details' switches turn them off as they do an old
-machine's, and the rest of the look comes with it; its fonts are named but
+flowapp](flowapp.md)). There its colors, cursor, fonts, CRT and window
+frame are the theme's own, so Theme details' switches turn them off as
+they do an old machine's, and the rest of the look comes with it; its fonts are named but
 not carried, since their files are this computer's. Its id is its name in
 lowercase letters, digits and dashes, never a built-in theme's (one saved
 as Green is `green-theme`), so it never takes a built-in one's place. A
