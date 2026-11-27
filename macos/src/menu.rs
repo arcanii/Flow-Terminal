@@ -125,7 +125,7 @@ impl MenuTarget {
 }
 
 /// Commands without an argument, in tag order (tag = index + 1).
-const COMMANDS: [Command; 41] = [
+const COMMANDS: [Command; 42] = [
     Command::About,
     Command::CheckForUpdates,
     Command::Settings,
@@ -167,6 +167,7 @@ const COMMANDS: [Command; 41] = [
     Command::PreviousCommand,
     Command::NextCommand,
     Command::ToggleOnTop,
+    Command::RenameTab,
 ];
 /// `Command::NewTabWith(i)` is tagged `SHELL_TAG + i`, and
 /// `Command::HelpPage(i)` `HELP_TAG + i`.
@@ -365,6 +366,7 @@ pub fn install_menu_bar(waker: Waker, shells: &[String], can_update: bool) {
     m.bound(&menu, t("menu.split_right"), Command::SplitRight);
     m.bound(&menu, t("menu.split_down"), Command::SplitDown);
     m.separator(&menu);
+    m.bound(&menu, t("menu.rename_tab"), Command::RenameTab);
     m.bound(&menu, t("menu.restart_tab"), Command::RestartTab);
     m.bound(&menu, t("menu.close_tab"), Command::CloseTab);
     m.system(&menu, t("menu.close_window"), sel!(performClose:), "w", CMD | NSEventModifierFlags::Shift);

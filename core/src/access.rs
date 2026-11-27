@@ -244,6 +244,8 @@ pub enum DialogKind {
     ServerAsk,
     /// `/model`'s list of the assistant's models.
     AiModels,
+    /// A tab's name being typed in its pill in the title bar.
+    TabName,
 }
 
 /// A list in a dialog, the one chosen in it, and what choosing does.

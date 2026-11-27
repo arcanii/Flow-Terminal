@@ -1103,6 +1103,8 @@ pub struct View<'a> {
     pub shells: &'a [ShellProfile],
     pub themes: &'a [String],
     pub tab_picker: Option<&'a TabPicker>,
+    /// A tab's name being typed in its pill: the tab's place, and the field.
+    pub renaming: Option<(usize, &'a crate::settings::TextField)>,
     /// Efficient mode is on, which its pill in the title bar shows.
     pub efficient: bool,
     /// It's on only because the computer runs on battery or saves power
@@ -1245,7 +1247,8 @@ pub fn draw(c: &mut Canvas<'_>, v: &View<'_>) -> Drawn {
     let mut caret = None;
     // The cursor of the pane in front, which Caps Lock's notice keeps clear of.
     let mut cursor = None;
-    let plus = draw_title(c, v, &mut hits);
+    let mut naming = None;
+    let plus = draw_title(c, v, &mut hits, &mut naming);
     if let Some(color) = palette::ink().border {
         draw_border(c, v, color);
     }
@@ -1298,6 +1301,10 @@ pub fn draw(c: &mut Canvas<'_>, v: &View<'_>) -> Drawn {
     }
     if let Some(panel) = v.layout.panel {
         caret = draw_panel(c, v, panel, &mut hits).or(caret);
+    }
+    // A tab's name being typed has the keys, whatever else has a caret.
+    if naming.is_some() {
+        caret = naming;
     }
     if let Some((r, words)) = &v.drop {
         draw_drop(c, v, *r, words);
@@ -1578,8 +1585,10 @@ fn pill(c: &mut Canvas<'_>, v: &View<'_>, x: f32, label: &str, active: bool, col
     r
 }
 
-/// The title bar; returns where its + is, for the new-tab picker.
-fn draw_title(c: &mut Canvas<'_>, v: &View<'_>, hits: &mut Vec<(Rect, Hit)>) -> Rect {
+/// The title bar; returns where its + is, for the new-tab picker, and puts
+/// in `naming` where the caret is while a tab's name is being typed in its
+/// pill.
+fn draw_title(c: &mut Canvas<'_>, v: &View<'_>, hits: &mut Vec<(Rect, Hit)>, naming: &mut Option<Rect>) -> Rect {
     let s = v.layout.scale;
     let k = chrome();
     let t = v.layout.title;
@@ -1727,7 +1736,7 @@ fn draw_title(c: &mut Canvas<'_>, v: &View<'_>, hits: &mut Vec<(Rect, Hit)>) -> 
         }
     }
 
-    let plus = draw_tabs(c, v, tabs_x, rx, hits);
+    let plus = draw_tabs(c, v, tabs_x, rx, hits, naming);
 
     // Hairline under the title bar.
     c.rect(14.0 * s, t.h - 1.0, t.w - 28.0 * s, 1.0, rgba(k.wash, 0.06), 0.0);
@@ -1750,8 +1759,9 @@ fn fit(c: &Canvas<'_>, text: &str, room: f32) -> String {
 /// new-tab picker, between `x` and `limit`. When they don't all fit, the
 /// tabs share the room and their names are cut short. A tab whose long
 /// command finished while it was behind glows, green or red, until it's
-/// shown. Returns the ….
-fn draw_tabs(c: &mut Canvas<'_>, v: &View<'_>, x: f32, limit: f32, hits: &mut Vec<(Rect, Hit)>) -> Rect {
+/// shown. A tab whose name is being typed is a field, as wide as its name
+/// and room for more, and `naming` is where its caret is. Returns the ….
+fn draw_tabs(c: &mut Canvas<'_>, v: &View<'_>, x: f32, limit: f32, hits: &mut Vec<(Rect, Hit)>, naming: &mut Option<Rect>) -> Rect {
     let s = v.layout.scale;
     let k = chrome();
     let h = 24.0 * s;
@@ -1763,17 +1773,31 @@ fn draw_tabs(c: &mut Canvas<'_>, v: &View<'_>, x: f32, limit: f32, hits: &mut Ve
     let closable = v.tabs.len() > 1;
     let close_w = if closable { 18.0 * s } else { 0.0 };
     let dot_w = 12.0 * s;
+    // A name being typed: its field's width, with room for a few letters more.
+    let typing = |i: usize| v.renaming.filter(|(at, _)| *at == i).map(|(_, f)| f);
+    let field_w = |f: &crate::settings::TextField| (c.text_width(&f.text()) + 4.0 * c.cell.width).max(TAB_FIELD_LEAST * s) + 20.0 * s;
     let natural: Vec<f32> = v
         .tabs
         .iter()
-        .map(|t| c.text_width(&t.label) + 20.0 * s + close_w + if t.alert.is_some() { dot_w } else { 0.0 })
+        .enumerate()
+        .map(|(i, t)| match typing(i) {
+            Some(f) => field_w(f),
+            None => c.text_width(&t.label) + 20.0 * s + close_w + if t.alert.is_some() { dot_w } else { 0.0 },
+        })
         .collect();
     let room = (limit - x - plus_w - gap * v.tabs.len() as f32).max(0.0);
     let share = if natural.iter().sum::<f32>() > room { room / v.tabs.len().max(1) as f32 } else { f32::MAX };
     let mut x = x;
     for (i, t) in v.tabs.iter().enumerate() {
-        let w = natural[i].min(share).max(40.0 * s);
+        let least = if typing(i).is_some() { (TAB_FIELD_LEAST * s).min(room * 0.5) } else { 40.0 * s };
+        let w = natural[i].min(share).max(least);
         let r = Rect::new(x, y, w, h);
+        if let Some(f) = typing(i) {
+            *naming = Some(draw_tab_field(c, v, r, f));
+            hits.push((r, Hit::Tab(i)));
+            x += w + gap;
+            continue;
+        }
         let active = i == v.active_tab;
         let hovered = r.contains(v.hover);
         let alert = t.alert.map(|failed| if failed { BAD } else { k.good });
@@ -1817,6 +1841,28 @@ fn draw_tabs(c: &mut Canvas<'_>, v: &View<'_>, x: f32, limit: f32, hits: &mut Ve
     let more = pill(c, v, plus.x + plus.w + gap, "…", v.tab_picker.is_some(), ACCENT);
     hits.push((more, Hit::NewTabChoose));
     more
+}
+
+/// The least width of a tab whose name is being typed, in points.
+const TAB_FIELD_LEAST: f32 = 110.0;
+
+/// A tab whose name is being typed, in `r`: a field lit in the accent's
+/// color, the name in it scrolled to keep the caret in view, what the
+/// input method is composing among its letters. Returns the caret.
+fn draw_tab_field(c: &mut Canvas<'_>, v: &View<'_>, r: Rect, f: &crate::settings::TextField) -> Rect {
+    let s = v.layout.scale;
+    let k = chrome();
+    let ty = r.y + (r.h - c.cell.height) * 0.5;
+    c.glow(r.x, r.y, r.w, r.h, rgba(k.accent, 0.22), r.h * 0.5, 10.0 * s);
+    c.rect(r.x, r.y, r.w, r.h, rgba(k.wash, 0.10), r.h * 0.5);
+    c.outline(r.x, r.y, r.w, r.h, rgba(k.accent, 0.9), r.h * 0.5, 1.5 * s);
+    let tx = r.x + 10.0 * s;
+    let (x, _) = input_line_in(c, (tx, ty), r.w - 20.0 * s, (&f.text(), f.caret().1), v.preedit, s, k.fg);
+    // No caret while the input method converts.
+    if v.preedit.is_none_or(|p| p.caret().is_some()) {
+        c.rect(x - 0.5 * s, ty, 2.0 * s, c.cell.height, rgba(k.accent, 1.0), 0.0);
+    }
+    Rect::new(x, ty, c.cell.width, c.cell.height)
 }
 
 /// The new-tab picker, in a card under the …: the shells and the themes
@@ -2211,7 +2257,7 @@ fn draw_terminal(c: &mut Canvas<'_>, v: &View<'_>, pane: &PaneView<'_>, hits: &m
     // Cursor: eased position, soft glow, pulse instead of blink. What the
     // input method is composing takes its place, at the cell it's headed for.
     let cursor = content.cursor;
-    let focused_term = pane.focused && !v.ai.focus && v.key_dialog.is_none();
+    let focused_term = pane.focused && !v.ai.focus && v.key_dialog.is_none() && v.renaming.is_none();
     let row = (cursor.point.line.0 + offset).clamp(0, l.rows.saturating_sub(1) as i32);
     // On a double line, as wide as its cells.
     let cursor_size = sizes.get(row as usize).copied().unwrap_or_default();
@@ -2764,6 +2810,12 @@ fn draw_input(c: &mut Canvas<'_>, v: &View<'_>, p: Rect, hits: &mut Vec<(Rect, H
 /// converted. It scrolls sideways to keep the caret within `room`. Returns
 /// where the caret is drawn, and the character the line is drawn from.
 fn input_line(c: &mut Canvas<'_>, at: (f32, f32), room: f32, typed: &str, caret: usize, preedit: Option<&Preedit>, s: f32) -> (f32, usize) {
+    input_line_in(c, at, room, (typed, caret), preedit, s, FOREGROUND)
+}
+
+/// As [`input_line`], in `color`: the title bar's, which follows a light
+/// theme as the glass cards don't.
+fn input_line_in(c: &mut Canvas<'_>, at: (f32, f32), room: f32, (typed, caret): (&str, usize), preedit: Option<&Preedit>, s: f32, color: [u8; 3]) -> (f32, usize) {
     let (x, y) = at;
     // Each character, and whether it's composed: Some(true) if it's being converted.
     let mut chars: Vec<(char, Option<bool>)> = typed.chars().map(|chr| (chr, None)).collect();
@@ -2790,11 +2842,11 @@ fn input_line(c: &mut Canvas<'_>, at: (f32, f32), room: f32, typed: &str, caret:
         if cx + widths[i] > x + room {
             break;
         }
-        let next = c.text(cx, y, chr.encode_utf8(&mut [0; 4]), rgba(FOREGROUND, 1.0), false);
+        let next = c.text(cx, y, chr.encode_utf8(&mut [0; 4]), rgba(color, 1.0), false);
         spans.push((cx, next, mark));
         cx = next;
     }
-    underline_composed(c, y + c.cell.baseline + 2.0, &spans, rgba(FOREGROUND, 0.9), s);
+    underline_composed(c, y + c.cell.baseline + 2.0, &spans, rgba(color, 0.9), s);
     (caret_x.unwrap_or(cx), start)
 }
 

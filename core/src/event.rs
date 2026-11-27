@@ -100,6 +100,8 @@ pub enum Command {
     Restart,
     /// Start the tab in front afresh: its shell again, in its place.
     RestartTab,
+    /// Type a name for the tab in front, in its pill in the title bar.
+    RenameTab,
     /// Efficient mode on or off.
     ToggleEfficient,
     /// The window kept on top of every other, or not (`window.on_top`).

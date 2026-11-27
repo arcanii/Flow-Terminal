@@ -26,6 +26,7 @@ they're bound.
 | `Ctrl+L` (panel) | `⌃L` (panel) | Start a new conversation |
 | `Ctrl+Shift+T` | `⌘T` | New tab with the default shell (+ in the title bar too; … beside it picks the shell and the theme) |
 | `Ctrl+Shift+W` | `⌘W` | Close the tab (the last one closes Flow) |
+| double-click a tab, or none at first ([Keys](settings.md)) | double-click a tab, or none at first, **Shell → Rename Tab** | [Name the tab](terminal.md#naming-a-tab) in front, typed in its pill: Enter keeps the name, Esc puts back the one before, and an empty name gives the tab its shell's again |
 | `Ctrl+Shift+1..9` | `⌘1`…`⌘9` | Show tab 1–9 |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | `⌃Tab` / `⌃⇧Tab`, `⇧⌘]` / `⇧⌘[` | Next / previous tab |
 | `Ctrl+Shift+C` / `Ctrl+Shift+V` | `⌘C` / `⌘V` | Copy / paste (on Windows and Linux, `Ctrl+C` and `Ctrl+Insert` copy when text is selected, `Shift+Insert` pastes, and right-click copies or pastes) |

@@ -88,6 +88,8 @@ pub struct Front {
     pub palette: bool,
     /// The assistant's panel has the keys.
     pub assistant: bool,
+    /// A tab's name is being typed in the title bar: Flow's own page says how.
+    pub renaming: bool,
 }
 
 impl Page {
@@ -145,6 +147,8 @@ impl Page {
             Some(Page::Find)
         } else if f.assistant {
             Some(Page::Assistant)
+        } else if f.renaming {
+            Some(Page::Flow)
         } else {
             None
         }

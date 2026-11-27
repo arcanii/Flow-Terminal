@@ -2,8 +2,9 @@
 
 # Working in the terminal
 
-Scrolling back, Caps Lock, split panes, the command palette, recording the
-terminal, finding in the scrollback, the command history and Flow's help.
+Scrolling back, Caps Lock, naming tabs, split panes, the command palette,
+recording the terminal, finding in the scrollback, the command history and
+Flow's help.
 
 ## Scrolling back
 
@@ -43,6 +44,23 @@ asks the system whether Caps Lock is on, so the notice comes with any key
 typed, a digit too; on Wayland, which doesn't tell a program, it tells from
 the letters typed (a capital without Shift, or a small one with it), so
 there it comes with the first letter typed with Caps Lock on.
+
+## Naming a tab
+
+A tab is called after its shell (**zsh**, or **zsh 1** and **zsh 2** where
+two run it), with the theme it wears where that isn't Settings' (**zsh ·
+Green screen**). Double-click a tab to give it a name of its own, or
+choose **Rename Tab** in the [command palette](#the-command-palette) (on
+the Mac, also **Shell → Rename Tab**; Settings' Keys can give it a key).
+The name is typed in the tab's own pill in the title bar, where every key
+goes meanwhile: the arrows, Home and End move the caret, Backspace and
+Delete delete, and `Ctrl+Shift+V` (`⌘V`) pastes. Enter keeps the name, and
+so does a click anywhere else; Esc puts back the one before. A name left
+empty, or typed as the shell's own, gives the tab its shell's name again.
+A tab's name is shown as typed, with no theme after it, in the title bar,
+Settings on that tab, the system's notice when a long command ends there,
+and to screen readers, and it goes with the tab when Flow opens its tabs again at the next start (Restart
+Tab keeps it too). Names keep to one line of at most 60 letters.
 
 ## Split panes
 

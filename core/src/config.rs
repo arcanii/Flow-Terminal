@@ -214,6 +214,9 @@ pub struct OpenTab {
     pub split: Option<crate::panes::Split>,
     #[serde(skip_serializing_if = "is_zero")]
     pub focus: usize,
+    /// The name the user gave it; none, its shell's.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 }
 
 fn is_zero(n: &usize) -> bool {

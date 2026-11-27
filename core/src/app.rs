@@ -49,6 +49,7 @@ mod flow_tabs;
 mod outside;
 mod server_ask;
 mod servers;
+mod tab_names;
 use crate::shell::{BashFlavor, ShellProfile};
 use crate::ui::{self, AiPanel, CardStatus, Entry, Hit, HistoryPanel, KeyDialog, Layout, ModelAsk, Preedit, Rect, SettingsView, ToolCard, View};
 use crate::{secrets, Platform, APP_NAME};
@@ -239,6 +240,8 @@ struct Tab {
     /// A long command finished here while another tab was in front, and
     /// whether it failed: the tab glows until it's shown.
     alert: Option<bool>,
+    /// The name the user gave it (`App::rename_tab`); none, its shell's.
+    name: Option<String>,
 }
 
 impl Tab {
@@ -890,6 +893,8 @@ pub struct App {
     /// The tabs the `flow` command opened, and whether this Flow is a
     /// guest's, started for one.
     flow_tabs: flow_tabs::FlowTabs,
+    /// A tab's name being typed in its pill, which has the keys meanwhile.
+    renaming: Option<tab_names::Renaming>,
     /// A model on screen moves by itself, so frames keep coming.
     models_moving: bool,
     /// When Flow's logo, resting after a click, turns on again: a frame is
@@ -1196,6 +1201,7 @@ impl App {
             update_tab: None,
             hello_tab: None,
             flow_tabs: Default::default(),
+            renaming: None,
             models_moving: false,
             models_rest: None,
             pictures_due: None,
@@ -1752,7 +1758,7 @@ impl App {
                 }
                 let pane = Pane { id: PANE_IDS.fetch_add(1, std::sync::atomic::Ordering::Relaxed), look: None, own: None, profile: idx, session, allowance: Allowance::default(), run: None, by: None };
                 let id = TAB_IDS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                self.tabs.push(Tab { id, look, own, panes: vec![pane], split: crate::panes::Split::default(), focus: 0, alert: None });
+                self.tabs.push(Tab { id, look, own, panes: vec![pane], split: crate::panes::Split::default(), focus: 0, alert: None, name: None });
                 self.select_tab(self.tabs.len() - 1);
             }
             Err(err) => {
@@ -2023,6 +2029,7 @@ impl App {
                     more: if split.is_some() { more.to_vec() } else { Vec::new() },
                     split,
                     focus: tab.focus,
+                    name: tab.name.clone(),
                 })
             })
             .collect();
@@ -2047,6 +2054,10 @@ impl App {
             let folder = tab.folder.clone().filter(|f| crate::link::on_this_computer(f) && f.is_dir());
             let count = self.tabs.len();
             self.open_tab_at(profile, look.clone(), tab.own.clone(), folder);
+            if self.tabs.len() > count {
+                // As typed in Flow; one written by hand is held to the same.
+                self.tabs[count].name = tab.name.as_deref().and_then(tab_name);
+            }
             // Its other panes, as it was split, where every one starts.
             let Some(split) = tab.split.clone().filter(|s| self.tabs.len() > count && s.fits(tab.more.len() + 1)) else { continue };
             let j = self.tabs.len() - 1;
@@ -2213,14 +2224,17 @@ impl App {
         }
     }
 
+    /// Each tab's name as it's shown: the one the user gave it, else its
+    /// shell's, with the theme it wears where that isn't Settings' (a name
+    /// of the user's stands as typed).
     fn tab_labels(&self) -> Vec<ui::TabLabel> {
-        let shells: Vec<&str> = self.tabs.iter().map(|t| self.profiles[t.profile()].label.as_str()).collect();
-        tab_names(&shells)
+        let tabs: Vec<(&str, Option<&str>)> = self.tabs.iter().map(|t| (self.profiles[t.profile()].label.as_str(), t.name.as_deref())).collect();
+        tab_names(&tabs)
             .into_iter()
             .zip(&self.tabs)
             .map(|(label, tab)| {
                 let user = self.base.as_ref().unwrap_or(&self.config);
-                let label = match tab.look.as_ref().filter(|id| **id != user.ui.look) {
+                let label = match tab.look.as_ref().filter(|id| **id != user.ui.look && tab.name.is_none()) {
                     Some(id) => format!("{label} · {}", crate::looks::name(id)),
                     None => label,
                 };
@@ -2337,6 +2351,11 @@ impl App {
 
     /// Runs a command from the macOS menu bar or context menu.
     fn on_command(&mut self, cmd: Command, el: &ActiveEventLoop) {
+        // A name being typed takes a paste; anything else the menus do keeps
+        // it first, as a click elsewhere does.
+        if cmd != Command::Paste {
+            self.finish_renaming(true);
+        }
         match cmd {
             Command::About => self.open_about(),
             Command::CheckForUpdates => self.platform.check_for_updates(),
@@ -2353,6 +2372,7 @@ impl App {
             // carries ⇧⌘B.
             Command::Restart => self.restart_by_key(),
             Command::RestartTab => self.restart_tab_by_key(),
+            Command::RenameTab => self.rename_tab(self.active),
             Command::Copy => {
                 self.copy_selection();
             }
@@ -2450,6 +2470,9 @@ impl App {
     /// whatever takes it: a dialog's field, the assistant, or the shell.
     fn paste_text(&mut self, text: String) {
         if self.server_ask_in_front() && self.server_ask_type(text.lines().next().unwrap_or_default()) {
+            return;
+        }
+        if self.renaming_at().is_some() && self.rename_type(text.trim()) {
             return;
         }
         if let Some(s) = self.menu.as_mut().filter(|m| m.editing.is_none() && m.naming.is_none() && m.picker.is_none()).and_then(|m| m.search.as_mut()) {
@@ -2932,6 +2955,14 @@ impl App {
             self.dialog_key(&event, primary, &base);
             return;
         }
+        // A tab's name being typed takes every key, as Settings' text rows
+        // do, while its tab is still open.
+        if self.renaming.is_some() {
+            if self.renaming_at().is_some() {
+                return self.rename_key(&event);
+            }
+            self.renaming = None;
+        }
         if self.about.is_some() {
             if matches!(event.logical_key, Key::Named(NamedKey::Escape | NamedKey::Enter | NamedKey::Space)) {
                 // Resources first, back to About.
@@ -3094,6 +3125,9 @@ impl App {
     /// shell.
     fn type_text(&mut self, text: &str) {
         if self.server_ask_in_front() && self.server_ask_type(text) {
+            return;
+        }
+        if self.renaming_at().is_some() && self.rename_type(text) {
             return;
         }
         if let Some(e) = self.menu.as_mut().and_then(|m| m.editing.as_mut()) {
@@ -6134,6 +6168,15 @@ impl App {
     }
 
     fn on_mouse_button(&mut self, state: ElementState, button: MouseButton, el: &ActiveEventLoop) {
+        // A press on the pill whose name is being typed leaves it typing;
+        // one anywhere else keeps the name and goes on.
+        if state == ElementState::Pressed && self.renaming.is_some() {
+            let on_it = self.renaming_at().is_some_and(|i| self.hits.iter().rev().find(|(r, _)| r.contains(self.mouse)).is_some_and(|(_, h)| *h == Hit::Tab(i)));
+            if on_it {
+                return;
+            }
+            self.finish_renaming(true);
+        }
         // A press on another pane of a split tab brings it to the front
         // first, so what the press does (a link, a program's mouse, a
         // selection) is that pane's.
@@ -6584,6 +6627,9 @@ impl App {
                 self.request_redraw();
             }
             Hit::FindPattern => self.toggle_find_pattern(),
+            // A double click on a tab names it, the first having brought it
+            // forward.
+            Hit::Tab(i) if self.clicks.1 == 2 && i == self.active => self.rename_tab(i),
             Hit::Tab(i) => self.select_tab(i),
             Hit::CloseTab(i) => self.close_tab(i, el),
             Hit::NewTab => self.new_tab(),
@@ -6768,6 +6814,7 @@ impl App {
             find: self.find.as_ref().is_some_and(|f| f.focus) && !self.ai.focus,
             palette: self.palette.is_some(),
             assistant: self.ai.focus && self.layout.panel.is_some(),
+            renaming: self.renaming_at().is_some(),
         }
     }
 
@@ -12001,6 +12048,7 @@ impl App {
             t.panes.iter().enumerate().map(|(p, pane)| (self.scrollbar_shown(&pane.session, now), self.dragging_scrollbar.is_some_and(|(held, _)| held == p))).collect()
         });
         let on_top = self.platform.on_top_possible().then(|| self.on_top());
+        let renaming_at = self.renaming_at();
         let renderer = self.renderer.as_mut()?;
         renderer.fluid.set_material(fx_style.material());
         renderer.fluid.splats.extend(stirred.splats);
@@ -12079,6 +12127,7 @@ impl App {
             shells: &self.profiles,
             themes: &themes,
             tab_picker: self.tab_picker.as_ref(),
+            renaming: renaming_at.zip(self.renaming.as_ref()).map(|(i, r)| (i, &r.field)),
             session,
             ai: &self.ai,
             key_dialog: self.key_dialog.as_ref(),
@@ -12985,20 +13034,33 @@ fn warmed_hardware() -> Option<crate::hardware::Hardware> {
     WARMED.lock().ok().and_then(|mut warmed| warmed.take())
 }
 
-/// The tabs' names: their shell's, numbered when more than one tab runs it.
-fn tab_names(shells: &[&str]) -> Vec<String> {
-    shells
-        .iter()
+/// The tabs' names, each tab's shell and the name the user gave it: that
+/// name, else its shell's, numbered when more than one tab without a name
+/// runs it.
+fn tab_names(tabs: &[(&str, Option<&str>)]) -> Vec<String> {
+    let unnamed = |shell: &str, tabs: &[(&str, Option<&str>)]| tabs.iter().filter(|(s, name)| *s == shell && name.is_none()).count();
+    tabs.iter()
         .enumerate()
-        .map(|(i, shell)| {
-            if shells.iter().filter(|s| *s == shell).count() > 1 {
-                let nth = shells[..i].iter().filter(|s| *s == shell).count() + 1;
-                format!("{shell} {nth}")
-            } else {
-                shell.to_string()
-            }
+        .map(|(i, &(shell, name))| match name {
+            Some(name) => name.to_string(),
+            None if unnamed(shell, tabs) > 1 => format!("{shell} {}", unnamed(shell, &tabs[..i]) + 1),
+            None => shell.to_string(),
         })
         .collect()
+}
+
+/// The most letters a tab's name takes: room for words, not a sentence,
+/// which the title bar would only cut short.
+const TAB_NAME_MOST: usize = 60;
+
+/// A tab's name as it's kept: typed in Flow or read from `tabs.json`, with
+/// no control characters (which could only be keys or a terminal's
+/// escapes), no blanks at its ends, at most [`TAB_NAME_MOST`] letters.
+/// None where nothing's left, which gives the tab its shell's name again.
+fn tab_name(typed: &str) -> Option<String> {
+    let clean: String = typed.chars().filter(|c| !c.is_control()).take(TAB_NAME_MOST).collect();
+    let clean = clean.trim();
+    (!clean.is_empty()).then(|| clean.to_string())
 }
 
 /// Whether the screen shows the last frame drawn, and when to draw it again
@@ -13719,6 +13781,11 @@ impl App {
                 None => Focus::Dialog(DialogKind::Help),
             };
         }
+        // A tab's name being typed has the keys, under the cards that come
+        // over it by themselves.
+        if self.renaming_at().is_some() && !matches!(Page::in_front(self.front()), Some(Page::Key | Page::Model | Page::Outside | Page::ServerAsk | Page::Updates)) {
+            return Focus::Field(DialogKind::TabName);
+        }
         let Some(page) = Page::in_front(self.front()) else {
             return match self.tabs.get(self.active) {
                 Some(tab) => Focus::Pane(tab.focus),
@@ -13762,6 +13829,17 @@ impl App {
         use access::{Button, Chooser, Dialog, DialogKind, Field, Item, List};
         let mut out = Vec::new();
         let button = |key: &str, hit: Hit| Button::new(t(key), self.rect_of(hit));
+        if let Some((i, r)) = self.renaming_at().zip(self.renaming.as_ref()) {
+            let (line, col) = r.field.caret();
+            out.push(Dialog {
+                kind: DialogKind::TabName,
+                title: t("tab_name.title").to_string(),
+                rect: self.rect_of(Hit::Tab(i)),
+                text: vec![t("tab_name.hint").to_string()],
+                field: Some(Field { caret: (line, col), ..Field::line(t("tab_name.title"), self.unnamed(i), &r.field.text(), self.rect_of(Hit::Tab(i))) }),
+                ..Dialog::default()
+            });
+        }
         if let Some(f) = &self.find {
             let count = match (f.current, f.matches.len()) {
                 _ if f.query.is_empty() => String::new(),
@@ -15075,7 +15153,12 @@ mod tests {
         // A file with less in it (one written by hand, or by a later Flow
         // with less) still reads.
         let thin: OpenTabs = serde_json::from_str(r#"{"tabs": [{"shell": "zsh"}]}"#).unwrap();
-        assert_eq!((thin.tabs[0].look.as_deref(), thin.active, thin.restart), (None, 0, false));
+        assert_eq!((thin.tabs[0].look.as_deref(), thin.active, thin.restart, thin.tabs[0].name.as_deref()), (None, 0, false, None));
+        // A tab's name goes with it, and comes back.
+        let named = OpenTabs { tabs: vec![OpenTab { shell: "zsh".into(), name: Some("web".into()), ..OpenTab::default() }], ..OpenTabs::default() };
+        let text = serde_json::to_string(&named).unwrap();
+        assert!(text.contains(r#""name":"web""#), "{text}");
+        assert_eq!(serde_json::from_str::<OpenTabs>(&text).unwrap(), named);
         assert!(thin.tabs[0].more.is_empty() && thin.tabs[0].split.is_none(), "one from before panes: one pane");
     }
 
@@ -15108,7 +15191,7 @@ mod tests {
         assert_eq!(back.tabs[0].more[0].theme.as_ref().and_then(|t| t.look.as_deref()), Some("green"), "a pane keeps its own theme");
         // An unsplit tab writes none of it.
         let one = serde_json::to_string(&OpenTab { shell: "zsh".into(), ..OpenTab::default() }).unwrap();
-        assert!(!one.contains("more") && !one.contains("split") && !one.contains("focus"), "{one}");
+        assert!(!one.contains("more") && !one.contains("split") && !one.contains("focus") && !one.contains("name"), "{one}");
         // A pane kept by a Flow before panes had themes of their own reads
         // with none, to wear its tab's.
         let old = r#"{"tabs":[{"shell":"zsh","label":"zsh","look":"amber","more":[{"shell":"bash","label":"bash"}],"split":{"Two":{"across":true,"first":{"Pane":0},"second":{"Pane":1}}},"focus":1}],"active":0}"#;
@@ -15483,8 +15566,27 @@ mod tests {
 
     #[test]
     fn tabs_running_the_same_shell_are_numbered() {
-        assert_eq!(tab_names(&["zsh"]), ["zsh"]);
-        assert_eq!(tab_names(&["zsh", "bash", "zsh", "zsh"]), ["zsh 1", "bash", "zsh 2", "zsh 3"]);
+        assert_eq!(tab_names(&[("zsh", None)]), ["zsh"]);
+        assert_eq!(tab_names(&[("zsh", None), ("bash", None), ("zsh", None), ("zsh", None)]), ["zsh 1", "bash", "zsh 2", "zsh 3"]);
+    }
+
+    #[test]
+    fn a_named_tab_shows_its_name_and_the_rest_are_numbered_without_it() {
+        let names = tab_names(&[("zsh", Some("web")), ("zsh", None), ("zsh", None), ("bash", Some("zsh 1"))]);
+        assert_eq!(names, ["web", "zsh 1", "zsh 2", "zsh 1"], "named as typed, even as another's would be");
+        // The one zsh left without a name needs no number.
+        assert_eq!(tab_names(&[("zsh", Some("web")), ("zsh", None)]), ["web", "zsh"]);
+    }
+
+    #[test]
+    fn a_tab_name_keeps_no_control_characters_or_blanks_at_its_ends() {
+        assert_eq!(tab_name("  web server  ").as_deref(), Some("web server"));
+        assert_eq!(tab_name("a\x1b[31mred\x07").as_deref(), Some("a[31mred"), "an escape can't reach the title bar");
+        assert_eq!(tab_name("two\nlines").as_deref(), Some("twolines"));
+        assert_eq!(tab_name(" \t "), None, "nothing left: its shell's name again");
+        assert_eq!(tab_name(""), None);
+        let long = "名".repeat(TAB_NAME_MOST + 10);
+        assert_eq!(tab_name(&long).map(|n| n.chars().count()), Some(TAB_NAME_MOST), "cut by letters, not bytes");
     }
 
     #[test]

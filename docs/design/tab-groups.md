@@ -117,6 +117,32 @@ the keys, or with Rename in its menu.
   the title bar, the card under a tab, screen readers, the palette and
   Settings on a tab.
 
+As built in step 1 (2026-11-28, `core/src/app/tab_names.rs`):
+
+- **Starting:** a double click on a tab names it, the first click having
+  brought it forward. Rename Tab (`Command::RenameTab`, `rename_tab` in
+  `keys::TABLE`, no key at first) does it from the palette and the Mac's
+  Shell menu.
+- **The field** is the tab's own pill (`ui::draw_tab_field`), as wide as
+  the name and room for a few letters more. It holds the tab's name, or
+  the one it's called without one, without the theme the title bar adds
+  after it.
+- **The keys:** every key goes to it while it's there
+  (`App::rename_key`), as Settings' text rows take them, and so do
+  pastes and the input method's text. Enter and Tab keep the name, and
+  so does a click anywhere but the pill, or a command from the Mac's
+  menus other than Paste.
+- **Kept:** a name is held to one line of at most `TAB_NAME_MOST` (60)
+  letters, with no control characters and no blanks at its ends
+  (`tab_name`), as typed and as read from `tabs.json` (`OpenTab::name`).
+  A name typed as the one the tab is called anyway is none, so it follows
+  its shell again, numbered as the others come and go.
+- **Shown:** a named tab shows its name as typed, with no ` · <theme>`
+  after it. The other tabs that run the same shell are numbered among
+  themselves alone.
+- **Readers** get it as a dialog of its own (`DialogKind::TabName`), its
+  field with the keys, and F1 opens Flow's own page, which says how.
+
 ### In `tabs.json`
 
 - **`OpenTabs`** gets `groups: Vec<OpenGroup>`: each group's name, color,
@@ -340,7 +366,7 @@ folder's answer until then, and never on the event loop. It runs no
 Each step is a commit of its own, tested before the next:
 
 1. **Tab names:** typed in place in the title bar, kept in `tabs.json`.
-   Useful alone.
+   Useful alone. Built on 2026-11-28 (see Names).
 2. **Groups:** `tab_groups.rs` and its tests, `tabs.json`, the title
    bar's marks, and the palette's New Group, Move Tab to Group and Go to
    Tab. Groups can then be made and used before the sidebar exists.

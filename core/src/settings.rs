@@ -564,6 +564,14 @@ impl TextField {
         field
     }
 
+    /// A field of one line holding `text`, with the caret at its end, that
+    /// takes at most `most` characters: a tab's name.
+    pub fn line(text: &str, most: usize) -> Self {
+        let mut field = TextField { lines: vec![String::new()], line: 0, col: 0, goal: None, multiline: false, most };
+        field.insert(text);
+        field
+    }
+
     /// A field of one long line holding `text`, with the caret at its end.
     pub fn long(text: &str) -> Self {
         let mut field = TextField { lines: vec![String::new()], line: 0, col: 0, goal: None, multiline: false, most: Self::LONG_CHARS };
