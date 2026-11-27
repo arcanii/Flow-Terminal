@@ -3829,9 +3829,10 @@ each of Flow's sounds to a WAV file, to listen to them away from Flow; `make_ico
   file) and `linux/scripts/make-appcast.sh --signature` takes the result.
 - `macos/scripts/release.sh --adhoc --allow-dirty` runs the whole macOS release
   (Sparkle, notices, signing, DMG) without a certificate, for this Mac only.
-- Linux 0.1.47 (x86-64, the tarball and the .deb, each signed in the
-  feed) is published as `v0.1.47-linux` (build 2008, the first from
-  Flow-Terminal), after `v0.1.46-linux` (build 766), `v0.1.45-linux`, `v0.1.44.2-linux`, `v0.1.44.1-linux`, `v0.1.43-linux`, `v0.1.42-linux`, `v0.1.41.1-linux`, `v0.1.41-linux`, `v0.1.40-linux`, `v0.1.39-linux`, `v0.1.38-linux`, `v0.1.37.4-linux`, `v0.1.37.3-linux`,
+- Linux 0.1.48 (x86-64, the tarball and the .deb, each signed in the
+  feed) is published as `v0.1.48-linux` (build 2025), after
+  `v0.1.47-linux` (build 2008, the first from Flow-Terminal),
+  `v0.1.46-linux` (build 766), `v0.1.45-linux`, `v0.1.44.2-linux`, `v0.1.44.1-linux`, `v0.1.43-linux`, `v0.1.42-linux`, `v0.1.41.1-linux`, `v0.1.41-linux`, `v0.1.40-linux`, `v0.1.39-linux`, `v0.1.38-linux`, `v0.1.37.4-linux`, `v0.1.37.3-linux`,
   `v0.1.37.2-linux`, `v0.1.37.1-linux` (the first feed with the .deb's
   signature), `v0.1.37-linux`, `v0.1.36-linux`, `v0.1.35-linux`, `v0.1.34-linux`, `v0.1.33-linux`, `v0.1.32-linux`, `v0.1.31.3-linux`, `v0.1.31.1-linux` (the first Linux tag with a
   patch's number), `v0.1.30-linux`, `v0.1.29-linux` (built from the commit

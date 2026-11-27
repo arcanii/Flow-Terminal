@@ -9,7 +9,7 @@
 members = ["core", "windows", "macos", "linux", "demos"]
 
 [workspace.package]
-version = "0.1.48"
+version = "0.1.49"
 edition = "2021"
 license = "MIT"
 
@@ -34,7 +34,7 @@ license = "MIT"
 # release before it.
 [workspace.metadata.flow]
 patch = 0
-dev = false
+dev = true
 flowapp = "0.2.2"
 build_offset = 2000
 
