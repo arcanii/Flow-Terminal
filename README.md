@@ -10,9 +10,9 @@
 <table>
   <tr>
     <td align="center" width="180">
-      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.47-macos"><img src="https://cdn.simpleicons.org/apple/A2AAAD" width="64" height="64" alt="Apple logo"></a><br>
-      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.47-macos"><b>Download for macOS</b></a><br>
-      <sub>0.1.47</sub>
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.48-macos"><img src="https://cdn.simpleicons.org/apple/A2AAAD" width="64" height="64" alt="Apple logo"></a><br>
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.48-macos"><b>Download for macOS</b></a><br>
+      <sub>0.1.48</sub>
     </td>
     <td align="center" width="180">
       <a href="https://github.com/arcanii/Flow-releases/releases/latest"><img src="assets/readme/windows.svg" width="64" height="64" alt="Windows logo"></a><br>
@@ -190,9 +190,9 @@ much the same on Windows, macOS and Linux?**
 <table>
   <tr>
     <td align="center" width="180">
-      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.47-macos"><img src="https://cdn.simpleicons.org/apple/A2AAAD" width="64" height="64" alt="Apple logo"></a><br>
-      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.47-macos"><b>Download for macOS</b></a><br>
-      <sub>0.1.47</sub>
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.48-macos"><img src="https://cdn.simpleicons.org/apple/A2AAAD" width="64" height="64" alt="Apple logo"></a><br>
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.48-macos"><b>Download for macOS</b></a><br>
+      <sub>0.1.48</sub>
     </td>
     <td align="center" width="180">
       <a href="https://github.com/arcanii/Flow-releases/releases/latest"><img src="assets/readme/windows.svg" width="64" height="64" alt="Windows logo"></a><br>
