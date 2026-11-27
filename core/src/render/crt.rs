@@ -5,7 +5,9 @@
 //! that swap fields each frame, the phosphor's afterglow, an aperture grille
 //! and darker corners. The afterglow is what the phosphor held, kept from one
 //! frame to the next in a pair of textures that take turns, which exist only
-//! while Phosphor decay is on.
+//! while Phosphor decay is on. A phosphor worn without the tube takes a
+//! last pass of its own (`CrtLayer::onto_phosphor`): the frame, drawn into
+//! the same texture, brought back onto the phosphor as the tube brings it.
 
 use std::time::Instant;
 
@@ -129,7 +131,8 @@ struct Targets {
     /// while nothing lingers (Phosphor decay at 0).
     held: Option<[wgpu::TextureView; 2]>,
     /// The glow, at quarter size, and the texture its blur passes through.
-    glow: [wgpu::TextureView; 2],
+    /// None for a phosphor without the tube, which has no glow of its own.
+    glow: Option<[wgpu::TextureView; 2]>,
 }
 
 /// The glow's size for a window `size` pixels big.
@@ -145,6 +148,8 @@ pub struct CrtLayer {
     crt: wgpu::RenderPipeline,
     /// The last pass without an afterglow to keep.
     flat: wgpu::RenderPipeline,
+    /// The last pass of a phosphor worn without the tube.
+    onto: wgpu::RenderPipeline,
     /// The passes' parameters: the bright pass and the CRT pass, then each
     /// direction of the blur.
     params: [wgpu::Buffer; 3],
@@ -231,6 +236,7 @@ impl CrtLayer {
         let blur = pipeline("crt blur", "fs_blur", &[target(HELD)]);
         let crt = pipeline("crt", "fs_crt", &[target(format), target(HELD)]);
         let flat = pipeline("crt flat", "fs_crt_flat", &[target(format)]);
+        let onto = pipeline("onto phosphor", "fs_onto_phosphor", &[target(format)]);
         let params = std::array::from_fn(|_| {
             device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("crt params"),
@@ -239,12 +245,14 @@ impl CrtLayer {
                 mapped_at_creation: false,
             })
         });
-        Self { format, layout, bright, blur, crt, flat, params, targets: None, current: 0, field: false, last: None }
+        Self { format, layout, bright, blur, crt, flat, onto, params, targets: None, current: 0, field: false, last: None }
     }
 
     /// Makes the textures for a window `size` pixels big, if they aren't,
-    /// with the pair for the afterglow only when there is one.
-    pub fn prepare(&mut self, device: &wgpu::Device, size: (u32, u32), afterglow: bool) {
+    /// with the pair for the afterglow only when there is one, and the
+    /// glow's only for the `tube` (a phosphor without it draws the frame
+    /// alone).
+    pub fn prepare(&mut self, device: &wgpu::Device, size: (u32, u32), afterglow: bool, tube: bool) {
         let size = (size.0.max(1), size.1.max(1));
         let make = |label, size: (u32, u32), format| {
             device
@@ -261,21 +269,17 @@ impl CrtLayer {
                 .create_view(&wgpu::TextureViewDescriptor::default())
         };
         let held = || [make("crt held", size, HELD), make("crt held", size, HELD)];
+        let glow = || [make("crt glow", glow_size(size), HELD), make("crt glow", glow_size(size), HELD)];
         match &mut self.targets {
             Some(t) if t.size == size => {
                 if t.held.is_some() != afterglow {
                     t.held = afterglow.then(held);
                 }
+                if t.glow.is_some() != tube {
+                    t.glow = tube.then(glow);
+                }
             }
-            _ => {
-                let glow = glow_size(size);
-                self.targets = Some(Targets {
-                    size,
-                    frame: make("crt frame", size, self.format),
-                    held: afterglow.then(held),
-                    glow: [make("crt glow", glow, HELD), make("crt glow", glow, HELD)],
-                });
-            }
+            _ => self.targets = Some(Targets { size, frame: make("crt frame", size, self.format), held: afterglow.then(held), glow: tube.then(glow) }),
         }
     }
 
@@ -283,7 +287,8 @@ impl CrtLayer {
     pub fn gpu_bytes(&self) -> u64 {
         let Some(t) = &self.targets else { return 0 };
         let held = if t.held.is_some() { 2 } else { 0 };
-        super::texture_bytes(t.size, self.format) + held * super::texture_bytes(t.size, HELD) + 2 * super::texture_bytes(glow_size(t.size), HELD)
+        let glow = if t.glow.is_some() { 2 } else { 0 };
+        super::texture_bytes(t.size, self.format) + held * super::texture_bytes(t.size, HELD) + glow * super::texture_bytes(glow_size(t.size), HELD)
     }
 
     /// The texture to draw the frame into, once prepared.
@@ -309,6 +314,7 @@ impl CrtLayer {
         let dt = frame.fixed_dt.unwrap_or_else(|| self.last.map_or(1.0, |t| t.elapsed().as_secs_f32()));
         self.last = Some(Instant::now());
         let Some(t) = &self.targets else { return };
+        let Some([glow, spread]) = &t.glow else { return };
         let glow_px = glow_size(t.size);
         let fade = look.decay * k;
         let decay = if look.steady && fade > 0.0 { (-dt / fade).exp() } else { 0.0 };
@@ -372,7 +378,6 @@ impl CrtLayer {
                 ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT), store: wgpu::StoreOp::Store },
             })
         };
-        let [glow, spread] = &t.glow;
         pass(encoder, "crt bright", &self.bright, &bind(&self.params[0], &t.frame, &t.frame, &t.frame), &[out(glow)]);
         pass(encoder, "crt blur", &self.blur, &bind(&self.params[1], glow, glow, glow), &[out(spread)]);
         pass(encoder, "crt blur", &self.blur, &bind(&self.params[2], spread, spread, spread), &[out(glow)]);
@@ -385,6 +390,53 @@ impl CrtLayer {
             // Nothing is read from the afterglow's binding here.
             None => pass(encoder, "crt", &self.flat, &bind(&self.params[0], &t.frame, &t.frame, glow), &[out(target)]),
         }
+    }
+
+    /// Shows the frame drawn into [`CrtLayer::frame`] on `target` as a
+    /// monochrome screen of `phosphor` without the tube: as it is, but each
+    /// pixel brought back onto the phosphor (`fs_onto_phosphor`), so a glow
+    /// that clipped over bright cells is the phosphor at full, not paler.
+    pub fn onto_phosphor(
+        &mut self,
+        gpu: (&wgpu::Device, &wgpu::Queue),
+        encoder: &mut wgpu::CommandEncoder,
+        sampler: &wgpu::Sampler,
+        target: &wgpu::TextureView,
+        phosphor: [f32; 4],
+        clock: &super::timing::GpuClock,
+    ) {
+        let (device, queue) = gpu;
+        let Some(t) = &self.targets else { return };
+        let params = Params { resolution: [t.size.0 as f32, t.size.1 as f32], phosphor, ..Params::zeroed() };
+        queue.write_buffer(&self.params[0], 0, bytemuck::bytes_of(&params));
+        let frame = wgpu::BindingResource::TextureView(&t.frame);
+        let bind = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("onto phosphor"),
+            layout: &self.layout,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: self.params[0].as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 1, resource: frame.clone() },
+                wgpu::BindGroupEntry { binding: 2, resource: frame.clone() },
+                wgpu::BindGroupEntry { binding: 3, resource: frame },
+                wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::Sampler(sampler) },
+            ],
+        });
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("onto phosphor"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: target,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT), store: wgpu::StoreOp::Store },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: clock.writes(),
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+        pass.set_pipeline(&self.onto);
+        pass.set_bind_group(0, &bind, &[]);
+        pass.draw(0..3, 0..1);
     }
 
     /// Frees the textures while the CRT is off.

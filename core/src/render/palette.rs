@@ -306,6 +306,40 @@ mod tests {
         assert!(on_phosphor([0xFF, 0xFF, 0], GREEN)[1] > on_phosphor([0xFF, 0, 0], GREEN)[1]);
     }
 
+    /// A pixel of the finished 8-bit frame brought back onto `p`, as the
+    /// tube's last pass does and, without the tube, `crt.wgsl`'s
+    /// `fs_onto_phosphor`: `p` as bright as the pixel's luma is of `p`'s,
+    /// and no brighter than `p` at full.
+    fn onto_phosphor(c: Rgb8, p: Rgb8) -> Rgb8 {
+        let unit = |c: Rgb8| c.map(|v| v as f32 / 255.0);
+        let (c, p) = (unit(c), unit(p));
+        let k = (luma(c) / luma(p).max(0.001)).min(1.0);
+        p.map(|v| (v * k * 255.0).round() as u8)
+    }
+
+    #[test]
+    fn a_glow_clipped_over_bright_text_goes_back_onto_the_phosphor_and_shades_stay() {
+        for p in crate::settings::PHOSPHORS.map(|(_, p)| p) {
+            // Every shade the frame was drawn in comes back as it was.
+            for c in [[0x10, 0x10, 0x10], [0x80, 0x80, 0x80], p, [0x00, 0x00, 0xFF], [0xD0, 0xFF, 0xDC], [0xFF; 3]] {
+                let shade = on_phosphor(c, p);
+                let back = onto_phosphor(shade, p);
+                assert!((0..3).all(|k| shade[k].abs_diff(back[k]) <= 1), "{shade:?} came back as {back:?} on {p:?}");
+            }
+            // The text, the phosphor sent, with a glow of it added over it:
+            // the 8-bit frame clips the strongest channel first, and the
+            // pixel drifts toward white, paler than the phosphor can be.
+            let text = on_phosphor(p, p);
+            let glow = on_phosphor(p, p).map(|v| v / 2);
+            let clipped: Rgb8 = std::array::from_fn(|k| text[k].saturating_add(glow[k]));
+            let paler = (0..3).any(|k| clipped[k] > p[k]);
+            assert!(paler, "the glow over {text:?} on {p:?} stayed within the phosphor, as {clipped:?}");
+            // Brought back, it's the phosphor at full, never paler.
+            let back = onto_phosphor(clipped, p);
+            assert!((0..3).all(|k| back[k].abs_diff(p[k]) <= 1), "{clipped:?} came back as {back:?}, not {p:?}");
+        }
+    }
+
     #[test]
     fn programs_asking_for_a_color_are_told_its_phosphor_shade() {
         let ink = Ink { phosphor: Some(GREEN), ..Ink::default() };

@@ -190,3 +190,16 @@ fn fs_crt(in: FullOut) -> CrtOut {
 fn fs_crt_flat(in: FullOut) -> @location(0) vec4<f32> {
     return tube(in.uv, vec4<f32>(0.0)).color;
 }
+
+// A phosphor worn without the tube: the frame (tex_a) as it is, but each
+// pixel brought back onto the phosphor as the tube brings it, its twin
+// palette::onto_phosphor. A glow added over bright cells clips channel by
+// channel in the 8-bit frame, the phosphor's strongest channel first, and
+// comes out paler than the phosphor; here it's the phosphor at full. Every
+// shade ui.wgsl's on_phosphor drew comes back as it was.
+@fragment
+fn fs_onto_phosphor(in: FullOut) -> @location(0) vec4<f32> {
+    let c = textureSample(tex_a, samp, in.uv);
+    let rgb = P.phosphor.rgb * min(lum(c.rgb) / max(lum(P.phosphor.rgb), 0.001), 1.0);
+    return vec4<f32>(rgb, clamp(max(c.a, max(rgb.r, max(rgb.g, rgb.b))), 0.0, 1.0));
+}

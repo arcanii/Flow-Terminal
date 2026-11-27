@@ -1963,9 +1963,13 @@ little below full, and their paler shades above it. The tube's last pass
 (`crt.wgsl`'s `tube`, handed it as `CrtFrame::phosphor`) brings what its
 glow adds back onto the phosphor, no brighter than it at full, as it'd
 otherwise whiten bright text, and draws no grille under it
-(`CrtLook::grille_over`), a monochrome tube's phosphor coating it whole; without the tube, a glow added
-over bright cells is still clipped channel by channel by the 8-bit
-target. Its twin
+(`CrtLook::grille_over`), a monochrome tube's phosphor coating it whole.
+Without the tube, the frame is drawn into the CRT layer's frame texture
+alone and `CrtLayer::onto_phosphor` (`crt.wgsl`'s `fs_onto_phosphor`,
+`docs/design/phosphor-glow.md`) brings it back onto the phosphor the same
+way, so a glow quad that clipped channel by channel over bright cells in
+the 8-bit frame is the phosphor at full, not paler; the floor for
+saturated colors stays, decided 2026-11-27. Its twin
 `palette::on_phosphor` is tested, and `palette::answered` tells programs
 asking for colors (`EventProxy`, `color_answers`) the shade they get.
 Cells' colors themselves (`palette::resolve`) stay full, so nothing is

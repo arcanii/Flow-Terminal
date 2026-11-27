@@ -654,13 +654,12 @@ as a real one had none (and on Linux, seen live). So the
 screens' text, sent in the phosphor's own color, shows a little below
 full (about 71% on both), their bright text and white above it, and
 nothing paler than the phosphor. A live look on each system, the BBS's
-welcome among them, found nothing wrong. Left:
-- **The floor for saturated colors** (`PHOSPHOR_FLOOR`, a third of the
-  brightest part) stays, though a real monitor had none, so blue on black
-  reads; whether to take it away is still to decide.
-- **Without the tube,** a glow quad added over bright cells is still
-  clipped channel by channel by the 8-bit target, a little paler where
-  it's brightest; the tube's pass is what brings it back.
+welcome among them, found nothing wrong. For 0.1.48
+(`docs/design/phosphor-glow.md`): the floor for saturated colors
+(`PHOSPHOR_FLOOR`) stays, decided 2026-11-27, so blue on black reads; and
+without the tube, a last pass brings the frame back onto the phosphor as
+the tube's does, so a glow clipped over bright cells is no longer paler.
+Left: that pass in a live window on each system.
 
 **Themes as packages** is in for 0.1.34 (the docs, [Apps:
 flowapp](docs/manual/flowapp.md)): `flowapp` installs packages of themes,
@@ -1049,8 +1048,9 @@ already: `/model` listing each provider's own models
 AUR helper.
 
 - **Themes: some polish** (Themes to come, above):
-  - the phosphor's floor for saturated colors, kept or taken away;
-  - the glow without the tube, clipped channel by channel, brought back;
+  - the phosphor's floor for saturated colors kept (decided 2026-11-27),
+    and the glow without the tube, clipped channel by channel, brought back
+    by a last pass of the phosphor's own (`docs/design/phosphor-glow.md`);
   - your own and saved themes keeping a window frame (`THEME_KEYS`), and
     `flow-core-themes`' next version carrying it;
   - a package of themes installed while Flow runs, and Export…, tried in

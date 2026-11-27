@@ -215,9 +215,12 @@ composite video and mono VGA weighed it). So black is black, white is the
 phosphor at full and never paler, as one phosphor can't be, and every color
 keeps its place between them: the green and amber screens' own text, sent
 in their phosphor's color, shows a little below full, and their bright
-text above it. The CRT's glow over bright text tops out at the phosphor
-too, and its tube has no grille, as a monochrome tube had none. Unlike a real monitor, a saturated color shows at least a third as
-bright as its brightest part, so blue on black still reads. Its row
+text above it. A glow over bright text tops out at the phosphor too,
+with the CRT on or off, and the tube has no grille, as a monochrome tube
+had none. Unlike a real monitor, a saturated color shows at least a third
+as bright as its brightest part, so a program's blue or red text on black
+still reads; by its brightness alone, pure blue would be about a ninth of
+white's, and all but vanish. Its row
 offers **Off** (full color), green, amber and white, and the picker any
 other; the picker's own field keeps its colors. The green and amber screens
 wear theirs, and your own theme or one saved keeps the one picked. The

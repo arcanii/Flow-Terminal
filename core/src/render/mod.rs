@@ -1168,11 +1168,16 @@ impl Renderer {
         } else {
             self.rain_layer.release();
         }
-        if style.crt.strength > 0.0 {
+        // With the CRT on, the frame is drawn for it to show; with a phosphor
+        // and no tube, for a last pass that brings it back onto the phosphor
+        // (`CrtLayer::onto_phosphor`).
+        let tube = style.crt.strength > 0.0;
+        let onto_phosphor = !tube && style.phosphor[3] > 0.5;
+        if tube || onto_phosphor {
             // The afterglow's pair of textures only while it lingers: with the
             // window in front, and frames coming steadily.
-            let afterglow = style.crt.steady && style.crt.decay > 0.0;
-            self.crt.prepare(&self.device, (self.config.width, self.config.height), afterglow);
+            let afterglow = tube && style.crt.steady && style.crt.decay > 0.0;
+            self.crt.prepare(&self.device, (self.config.width, self.config.height), afterglow, tube);
         } else {
             self.crt.release();
         }
@@ -1224,11 +1229,9 @@ impl Renderer {
         let glass_bind = bind(self.fluid.dye_view());
         let quad_bind = bind(&self.atlas.view);
         let image_binds: Vec<wgpu::BindGroup> = images.iter().map(|b| bind(&self.image_textures[&b.image.texture()].view)).collect();
-        // With the CRT on, the frame is drawn for it to show.
-        let crt = style.crt.strength > 0.0;
         {
             let main = match self.crt.frame() {
-                Some(frame) if crt => frame,
+                Some(frame) if tube || onto_phosphor => frame,
                 _ => view,
             };
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -1266,9 +1269,11 @@ impl Renderer {
                 pass.draw(0..6, at..quads.len() as u32);
             }
         }
-        if crt {
+        if tube {
             let frame = CrtFrame { look: style.crt, fixed_dt: self.fixed_step, scale: style.ui_scale, phosphor: style.phosphor };
             self.crt.draw((&self.device, &self.queue), &mut encoder, &self.sampler, view, frame, &self.clock);
+        } else if onto_phosphor {
+            self.crt.onto_phosphor((&self.device, &self.queue), &mut encoder, &self.sampler, view, style.phosphor, &self.clock);
         }
         encoder
     }
