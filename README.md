@@ -20,9 +20,9 @@
       <sub>0.1.47</sub>
     </td>
     <td align="center" width="180">
-      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.47-linux"><img src="https://cdn.simpleicons.org/linux/FCC624" width="64" height="64" alt="Tux, the Linux logo"></a><br>
-      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.47-linux"><b>Download for Linux</b></a><br>
-      <sub>0.1.47</sub>
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.48-linux"><img src="https://cdn.simpleicons.org/linux/FCC624" width="64" height="64" alt="Tux, the Linux logo"></a><br>
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.48-linux"><b>Download for Linux</b></a><br>
+      <sub>0.1.48</sub>
     </td>
   </tr>
 </table>
@@ -200,9 +200,9 @@ much the same on Windows, macOS and Linux?**
       <sub>0.1.47</sub>
     </td>
     <td align="center" width="180">
-      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.47-linux"><img src="https://cdn.simpleicons.org/linux/FCC624" width="64" height="64" alt="Tux, the Linux logo"></a><br>
-      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.47-linux"><b>Download for Linux</b></a><br>
-      <sub>0.1.47</sub>
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.48-linux"><img src="https://cdn.simpleicons.org/linux/FCC624" width="64" height="64" alt="Tux, the Linux logo"></a><br>
+      <a href="https://github.com/arcanii/Flow-releases/releases/tag/v0.1.48-linux"><b>Download for Linux</b></a><br>
+      <sub>0.1.48</sub>
     </td>
   </tr>
 </table>
