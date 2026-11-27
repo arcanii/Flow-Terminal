@@ -188,6 +188,9 @@ fn number(b: &[u8], kind: DataType, normalized: bool) -> f32 {
     }
 }
 
+/// Iridescence's strength and thickness maps, by their textures' indices.
+type FilmMaps = (Option<usize>, Option<usize>);
+
 /// A file's images, each decoded the first time a texture needs it.
 pub struct Images<'a> {
     doc: &'a gltf::Document,
@@ -196,11 +199,38 @@ pub struct Images<'a> {
     /// Roughness maps baked from a specular-glossiness texture's alpha, by
     /// the texture and the glossiness factor's bits.
     baked: HashMap<(usize, u32), Option<Arc<Texture>>>,
+    /// Iridescence's two maps made one, by their textures.
+    films: HashMap<FilmMaps, Option<Arc<Texture>>>,
 }
 
 impl<'a> Images<'a> {
     pub fn new(doc: &'a gltf::Document, buffers: &'a [gltf::buffer::Data]) -> Self {
-        Images { doc, buffers, decoded: HashMap::new(), baked: HashMap::new() }
+        Images { doc, buffers, decoded: HashMap::new(), baked: HashMap::new(), films: HashMap::new() }
+    }
+
+    /// KHR_materials_iridescence's strength map (its red) and thickness map
+    /// (its green) as one texture, as the shader reads them, since a
+    /// material's sixteen textures leave it one: either texture itself
+    /// where they're the same, else made from them, the strength's red and
+    /// the thickness's green, white where it has none (all its strength,
+    /// its thickest film), the size of the strength's where it has one,
+    /// the thickness's read at the same place in its own. Read through the
+    /// strength map's uvs where they differ (`glb::read_material`). Made
+    /// once for each pair, so the parts that share a material share it.
+    pub fn film(&mut self, strength: Option<&gltf::Texture>, thickness: Option<&gltf::Texture>) -> Option<Arc<Texture>> {
+        let key = (strength.map(|t| t.index()), thickness.map(|t| t.index()));
+        if let Some(made) = self.films.get(&key) {
+            return made.clone();
+        }
+        let made = match (strength, thickness) {
+            (Some(s), Some(t)) if s.index() == t.index() => self.texture(s),
+            _ => {
+                let (s, t) = (strength.and_then(|s| self.texture(s)), thickness.and_then(|t| self.texture(t)));
+                (s.is_some() || t.is_some()).then(|| Arc::new(film_of(s.as_deref(), t.as_deref())))
+            }
+        };
+        self.films.insert(key, made.clone());
+        made
     }
 
     /// A metallic-roughness texture made from a specular-glossiness one, as
@@ -264,6 +294,20 @@ impl<'a> Images<'a> {
     }
 }
 
+/// Iridescence's strength (`s`'s red) and thickness (`t`'s green) in one
+/// texture, white where either is missing, at `s`'s size where it has one;
+/// `t` is read at the same place in its own (nearest), so the two needn't
+/// be the same size.
+fn film_of(s: Option<&Texture>, t: Option<&Texture>) -> Texture {
+    let (width, height) = s.or(t).map_or((1, 1), |p| (p.width, p.height));
+    let at = |p: &Texture, x: u32, y: u32, k: usize| {
+        let (px, py) = ((x as u64 * p.width as u64 / width as u64) as u32, (y as u64 * p.height as u64 / height as u64) as u32);
+        p.rgba[(py.min(p.height - 1) as usize * p.width as usize + px.min(p.width - 1) as usize) * 4 + k]
+    };
+    let rgba = (0..height).flat_map(|y| (0..width).map(move |x| (x, y))).flat_map(|(x, y)| [s.map_or(255, |s| at(s, x, y, 0)), t.map_or(255, |t| at(t, x, y, 1)), 255, 255]).collect();
+    Texture { width, height, rgba }
+}
+
 /// The 12 bytes a KTX2 file starts with.
 const KTX2: [u8; 12] = [0xab, b'K', b'T', b'X', b' ', b'2', b'0', 0xbb, b'\r', b'\n', 0x1a, b'\n'];
 
@@ -323,4 +367,25 @@ fn to_rgba(img: &gltf::image::Data) -> Option<Texture> {
         })
         .collect();
     Some(Texture { width: img.width, height: img.height, rgba })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn iridescences_two_maps_are_made_one_at_the_strengths_size() {
+        let strength = Texture { width: 2, height: 2, rgba: vec![10, 0, 0, 255, 20, 0, 0, 255, 30, 0, 0, 255, 40, 0, 0, 255] };
+        let thickness = Texture { width: 1, height: 1, rgba: vec![0, 99, 0, 255] };
+        let both = film_of(Some(&strength), Some(&thickness));
+        assert_eq!((both.width, both.height), (2, 2));
+        assert_eq!(both.rgba.chunks(4).map(|p| (p[0], p[1])).collect::<Vec<_>>(), [(10, 99), (20, 99), (30, 99), (40, 99)]);
+        // Missing, all its strength, or its thickest film.
+        assert_eq!(film_of(None, Some(&thickness)).rgba, [255, 99, 255, 255]);
+        assert_eq!(film_of(Some(&strength), None).rgba.chunks(4).map(|p| p[1]).collect::<Vec<_>>(), [255; 4]);
+        // A thickness map wider than the strength's is read at its place.
+        let wide = Texture { width: 4, height: 1, rgba: [1, 2, 3, 4].iter().flat_map(|&g| [0, g, 0, 255]).collect() };
+        let small = Texture { width: 2, height: 1, rgba: vec![0, 0, 0, 255, 0, 0, 0, 255] };
+        assert_eq!(film_of(Some(&small), Some(&wide)).rgba.chunks(4).map(|p| p[1]).collect::<Vec<_>>(), [1, 3]);
+    }
 }

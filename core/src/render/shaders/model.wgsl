@@ -22,8 +22,10 @@
 // has it, so a part without them is drawn as it always was: unlit (its
 // color alone), specular and ior (how strongly and in what color a
 // non-metal's glaze reflects), sheen (a fabric's soft rim), clearcoat (a
-// clear glaze over the rest, with a normal of its own), and light through
-// the part (see-through under a film of its color, its reflections kept).
+// clear glaze over the rest, with a normal of its own), light through the
+// part (see-through under a film of its color, its reflections kept),
+// anisotropy (highlights stretched along a way in the surface, `more.x`),
+// and iridescence (a thin film coloring the glaze's reflections, `more.y`).
 // A glTF's own lights (`light.w` of them, in `lights`) take the place of
 // Flow's one; the room's light (the ambient, the rim, the broad light
 // above, the reflections) stays.
@@ -44,8 +46,14 @@ struct Draw {
     attenuation: vec4<f32>,
     // 1 seen through the file's perspective camera, 0 straight on.
     view: vec4<f32>,
+    // Anisotropy's strength, its way's turn (cosine, sine), 1 with a map.
+    anisotropy: vec4<f32>,
+    // Iridescence's strength, its film's ior, its thinnest and thickest (nm).
+    iridescence: vec4<f32>,
+    // 1 for anisotropy, for iridescence.
+    more: vec4<f32>,
     lights: array<vec4<f32>, 16>,
-    uv: array<vec4<f32>, 28>,
+    uv: array<vec4<f32>, 32>,
 };
 
 @group(0) @binding(0) var<uniform> d: Draw;
@@ -64,6 +72,8 @@ struct Draw {
 @group(0) @binding(13) var sheen_roughness: texture_2d<f32>;
 @group(0) @binding(14) var transmission: texture_2d<f32>;
 @group(0) @binding(15) var thickness: texture_2d<f32>;
+@group(0) @binding(16) var anisotropy_map: texture_2d<f32>;
+@group(0) @binding(17) var film_map: texture_2d<f32>;
 
 struct Out {
     @builtin(position) pos: vec4<f32>,
@@ -106,23 +116,44 @@ fn bent(n: vec3<f32>, t: vec3<f32>, w: f32, bump: vec3<f32>, scale: f32) -> vec3
     return normalize(tt * m.x + b * m.y + n * max(m.z, 0.0));
 }
 
+// A half vector `h` with its part `along` an anisotropic surface's way
+// taken down (`along` the way, as long as the square root of the share
+// taken), so a highlight reaching that way lasts further along it: none
+// taken where `along` is nothing.
+fn stretched(h: vec3<f32>, along: vec3<f32>) -> vec3<f32> {
+    return normalize(h - along * dot(h, along));
+}
+
+// The color a thin film of `ior`, `thickness` nanometres thick, reflects
+// seen at `cos_v` (the cosine of the angle from its normal): each of red,
+// green and blue (650, 532 and 450 nm) as bright as the light reflected
+// from its two sides comes back in step, 0 to 1. A film of no thickness
+// reflects white, so one thinning out leaves the surface as it was.
+fn thin_film(cos_v: f32, ior: f32, thickness: f32) -> vec3<f32> {
+    let sin2 = (1.0 - cos_v * cos_v) / (ior * ior);
+    let cos_t = sqrt(max(1.0 - sin2, 0.0));
+    let path = 2.0 * ior * thickness * cos_t;
+    return 0.5 + 0.5 * cos(6.2831853 * path / vec3<f32>(650.0, 532.0, 450.0));
+}
+
 // What the lights give a point at `at` facing `n`, seen from `v`: their
-// light on it, their glint toward the eye, and their light wrapped a way
-// round it (for a fabric's sheen), each in the lights' colors.
+// light on it, their glint toward the eye (stretched `along` an
+// anisotropic surface's way), and their light wrapped a way round it (for
+// a fabric's sheen), each in the lights' colors.
 struct Lit {
     diffuse: vec3<f32>,
     glint: vec3<f32>,
     wrap: vec3<f32>,
 };
 
-fn lighting(n: vec3<f32>, v: vec3<f32>, at: vec3<f32>) -> Lit {
+fn lighting(n: vec3<f32>, v: vec3<f32>, at: vec3<f32>, along: vec3<f32>) -> Lit {
     var o: Lit;
     let count = u32(d.light.w + 0.5);
     if (count == 0u) {
         // Flow's own: one white light from above left, in front.
         let facing = dot(n, d.light.xyz);
         o.diffuse = vec3<f32>(max(facing, 0.0));
-        o.glint = vec3<f32>(pow(max(dot(n, normalize(d.light.xyz + v)), 0.0), 60.0));
+        o.glint = vec3<f32>(pow(max(dot(n, stretched(normalize(d.light.xyz + v), along)), 0.0), 60.0));
         o.wrap = vec3<f32>(clamp(facing * 0.5 + 0.5, 0.0, 1.0));
         return o;
     }
@@ -155,7 +186,7 @@ fn lighting(n: vec3<f32>, v: vec3<f32>, at: vec3<f32>) -> Lit {
         }
         let facing = dot(n, l);
         o.diffuse = o.diffuse + max(facing, 0.0) * strength;
-        o.glint = o.glint + pow(max(dot(n, normalize(l + v)), 0.0), 60.0) * strength;
+        o.glint = o.glint + pow(max(dot(n, stretched(normalize(l + v), along)), 0.0), 60.0) * strength;
         o.wrap = o.wrap + clamp(facing * 0.5 + 0.5, 0.0, 1.0) * strength;
     }
     return o;
@@ -205,7 +236,37 @@ fn fs_model(i: Out, @builtin(front_facing) front: bool) -> @location(0) vec4<f32
     }
     let v = normalize(vec3<f32>(0.0, 0.0, d.shine.y) - i.at);
     let above = normalize(vec3<f32>(-0.3, 0.9, 0.3));
-    let light = lighting(n, v, i.at);
+    // KHR_materials_anisotropy: its way in the surface, the tangent turned
+    // toward the bitangent by its rotation (and by its map's red and green,
+    // its strength by its blue), along which its highlights stretch.
+    var along = vec3<f32>(0.0);
+    if (d.more.x > 0.5 && dot(t, t) > 1e-12) {
+        var way = vec2<f32>(1.0, 0.0);
+        var s = d.anisotropy.x;
+        if (d.anisotropy.w > 0.5) {
+            let a = textureSampleLevel(anisotropy_map, samp, mapped(14u, i.uv, i.uv1), 0.0);
+            way = a.rg * 2.0 - 1.0;
+            s = s * a.b;
+        }
+        way = vec2<f32>(way.x * d.anisotropy.y - way.y * d.anisotropy.z, way.x * d.anisotropy.z + way.y * d.anisotropy.y);
+        let ta = normalize(t - n * dot(n, t));
+        let ba = cross(n, ta) * select(1.0, -1.0, i.tangent.w < 0.0);
+        let w = ta * way.x + ba * way.y;
+        if (dot(w, w) > 1e-8) {
+            along = normalize(w) * sqrt(0.9 * clamp(s, 0.0, 1.0));
+        }
+    }
+    // KHR_materials_iridescence: a thin film over the glaze, coloring what
+    // it reflects (by twice the film's color, white on the whole), as much
+    // as its strength says.
+    var film = vec3<f32>(1.0);
+    if (d.more.y > 0.5) {
+        let f = textureSampleLevel(film_map, samp, mapped(15u, i.uv, i.uv1), 0.0);
+        let k = clamp(d.iridescence.x * f.r, 0.0, 1.0);
+        let thick = mix(d.iridescence.z, d.iridescence.w, f.g);
+        film = mix(vec3<f32>(1.0), 2.0 * thin_film(max(dot(n, v), 0.0), d.iridescence.y, thick), k);
+    }
+    let light = lighting(n, v, i.at, along);
     // How much of the room's light reaches here: all of it without an
     // occlusion map.
     let ao = 1.0 + d.alpha.z * (shade - 1.0);
@@ -225,7 +286,7 @@ fn fs_model(i: Out, @builtin(front_facing) front: bool) -> @location(0) vec4<f32
         // A glaze: a broad light high above glancing off the tops toward the
         // eye, the main light's small glint, and the room reflected all
         // over (a bright ceiling, a dim floor), more of it toward the edges.
-        let spot = pow(max(dot(n, normalize(above + v)), 0.0), 14.0);
+        let spot = pow(max(dot(n, stretched(normalize(above + v), along)), 0.0), 14.0);
         let glint = light.glint;
         let up = reflect(-v, n).y;
         let room = mix(0.05, 0.24, smoothstep(-0.8, 0.8, up)) * ao;
@@ -241,10 +302,10 @@ fn fs_model(i: Out, @builtin(front_facing) front: bool) -> @location(0) vec4<f32
             let c = textureSampleLevel(specular_color, samp, mapped(6u, i.uv, i.uv1), 0.0).rgb;
             let head_on = min(d.specular.rgb * c * s, vec3<f32>(25.0));
             let edges = d.specular.w * s;
-            reflected = gloss * ((vec3<f32>(spot * 0.35) + glint) * head_on + vec3<f32>(room) * (0.5 * head_on + edge * edges));
+            reflected = gloss * ((vec3<f32>(spot * 0.35) + glint) * head_on + vec3<f32>(room) * (0.5 * head_on + edge * edges)) * film;
             glazed = rgb * (1.0 - 0.1 * gloss * edges) + reflected;
         } else {
-            reflected = gloss * (vec3<f32>(spot * 0.35) + glint * 1.0 + vec3<f32>(room * (0.5 + edge)));
+            reflected = gloss * (vec3<f32>(spot * 0.35) + glint * 1.0 + vec3<f32>(room * (0.5 + edge))) * film;
             glazed = rgb * (1.0 - 0.1 * gloss) + reflected;
         }
         // A metal has no light of its own color under the glaze: it shows
@@ -252,7 +313,7 @@ fn fs_model(i: Out, @builtin(front_facing) front: bool) -> @location(0) vec4<f32
         // nothing, as lit as a matte color), its highlights in its color
         // too, whitening only at the very edges.
         let mirror = mix(0.12, 1.1, smoothstep(-0.7, 0.7, up)) * ao + rim;
-        let shiny = base.rgb * (mix(matte, vec3<f32>(mirror), gloss) + gloss * (vec3<f32>(spot * 0.5) + glint * 1.5)) + gloss * edge * 0.25 * (1.0 - base.rgb);
+        let shiny = (base.rgb * (mix(matte, vec3<f32>(mirror), gloss) + gloss * (vec3<f32>(spot * 0.5) + glint * 1.5)) + gloss * edge * 0.25 * (1.0 - base.rgb)) * film;
         rgb = mix(glazed, shiny, metal);
     }
     if (d.layers.y > 0.5) {
@@ -282,7 +343,7 @@ fn fs_model(i: Out, @builtin(front_facing) front: bool) -> @location(0) vec4<f32
         if (!front) {
             cn = -cn;
         }
-        let coat_light = lighting(cn, v, i.at);
+        let coat_light = lighting(cn, v, i.at, vec3<f32>(0.0));
         let spot = pow(max(dot(cn, normalize(above + v)), 0.0), 14.0);
         let room = mix(0.05, 0.24, smoothstep(-0.8, 0.8, reflect(-v, cn).y)) * ao;
         let edge = pow(1.0 - max(dot(cn, v), 0.0), 3.0);

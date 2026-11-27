@@ -22,9 +22,10 @@ attributes, WebP and Basis (KTX2) textures, clicks answered on request,
 each drawn again at a new font size, and pictures cut rather than split
 when the grid narrows. Still to do:
 
-- **More of glTF:** the newer materials (anisotropy, iridescence,
-  dispersion) are refused by name, and a file's `COLOR_1` and on, and its
-  instances' own attributes (`_ID`, say), are passed over. Instancing makes
+- **More of glTF:** anisotropy and iridescence are drawn and dispersion
+  read for 0.1.48 (`docs/design/gltf-materials.md`), and `COLOR_1` and on,
+  and instances' own attributes (`_ID`, say), stay passed over, as glTF
+  gives them no meaning (decided 2026-11-27). Instancing makes
   a copy of the mesh for each instance on the CPU, within the 2 million
   triangles a model may have, rather than drawing one mesh many times on
   the GPU, so a forest of many big trees is refused. Meshopt and quantized
@@ -1068,8 +1069,9 @@ AUR helper.
   - whole files from glTF tools (gltf-transform, gltfpack, Blender),
     meshopt and quantized ones as gltfpack writes them, placed in a live
     tab on each system;
-  - the newer materials refused by name today (anisotropy, iridescence,
-    dispersion), and `COLOR_1` and on;
+  - the newer materials: anisotropy and iridescence drawn, dispersion
+    read (`docs/design/gltf-materials.md`), and `COLOR_1` and on left
+    passed over (decided 2026-11-27);
   - instancing drawn on the GPU rather than copied on the CPU, so a
     forest of big trees fits;
   - on Windows: a model's cells kept through ConPTY's repaints, as the

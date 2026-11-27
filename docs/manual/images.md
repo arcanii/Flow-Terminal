@@ -239,16 +239,19 @@ worked out where the file has none), occlusion maps (with their strength) and
 emission (made stronger by `KHR_materials_emissive_strength`). Its vertex
 colors (`COLOR_0`: RGB or RGBA, floats or normalized bytes or shorts,
 however the file is packed) tint the base color and its texture, blended
-across each triangle, their alpha with the material's. Its alpha is
+across each triangle, their alpha with the material's; further sets
+(`COLOR_1` and on), and instances' own attributes such as `_ID`, have no
+meaning glTF gives them, so they're passed over, as other viewers pass
+them over. Its alpha is
 taken as the material says: ignored for a solid part, cut out below the
 cutoff for `MASK`, and blended for `BLEND`. A texture can read the second
 set of texture coordinates (`TEXCOORD_1`), and be offset, turned and scaled
 by `KHR_texture_transform`. After a font size change, each model is drawn
 again at the new size rather than scaled. A file may require
 (`extensionsRequired`) any of the extensions Flow reads, which are all those
-named here; one that requires something Flow doesn't do, such as anisotropy
-(`KHR_materials_anisotropy`) or iridescence (`KHR_materials_iridescence`),
-isn't shown, and the error names what it requires (in a notice for a file
+named here; one that requires something Flow doesn't do, such as diffuse
+transmission (`KHR_materials_diffuse_transmission`), isn't shown, and the
+error names what it requires (in a notice for a file
 named by a path, in Flow's log for one sent in the command).
 
 A node with GPU instancing (`EXT_mesh_gpu_instancing`) draws its mesh once
@@ -284,7 +287,20 @@ The material extensions show as well, each with its textures:
 | `KHR_materials_clearcoat` | a clear glaze over the rest, with its own roughness and normal map |
 | `KHR_materials_sheen` | a fabric's soft rim of light in the sheen's color, wider the rougher it is |
 | `KHR_materials_transmission`, `KHR_materials_volume` | see-through, under a film of the color light takes through it, its reflections kept |
+| `KHR_materials_anisotropy` | a surface brushed or spun one way: its highlights stretched along that way (its strength, its turn from the tangent, and its texture's way and strength) |
+| `KHR_materials_iridescence` | a thin film over the glaze, as on a soap bubble or an oil slick: what it reflects colored by the film's interference, changing as it's seen more aslant or the film is thicker (its strength, the film's ior and thickness, and their textures) |
+| `KHR_materials_dispersion` | read, and drawn as nothing: it parts light through glass into colors, and Flow doesn't bend light through glass (below) |
 | `KHR_materials_pbrSpecularGlossiness` | the older specular-glossiness material, read as glTF-Transform turns it into metal and roughness: its diffuse the base color, no metal, its specular color what its glaze reflects head on, its glossiness (its texture's alpha too) how smooth it is |
+
+Anisotropy and iridescence are drawn Flow's way rather than glTF's
+reference way, as its glaze always was: anisotropy stretches Flow's own
+highlights along the surface's way, which needs the mesh's tangents
+(worked out from the first set of texture coordinates where the file has
+none; a part with no texture coordinates shows no anisotropy), and
+iridescence colors what the glaze and a metal reflect by a thin film's
+color for red, green and blue light, a film of no thickness leaving it as
+it was. Iridescence's strength and thickness textures are read as one
+(through the strength texture's coordinates, where they differ).
 
 Light through a part is the one Flow can only approach: a model's picture is
 drawn on its own and laid over the terminal, so what's behind the part

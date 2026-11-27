@@ -9,7 +9,8 @@
 //! glossy parts with a highlight and a sheen,
 //! metal, normal maps, emission and occlusion as a glTF's materials have
 //! them, and the layers its
-//! extensions add (specular, clearcoat, sheen, light through it), multisampled
+//! extensions add (specular, clearcoat, sheen, light through it, anisotropy,
+//! iridescence), multisampled
 //! where the GPU can, and written premultiplied, as the images are.
 //! See-through triangles go last, farthest first (`crate::model`'s
 //! `draw_order`, written to an index buffer of the placement's own), blended
@@ -75,6 +76,15 @@ struct Draw {
     /// 1 where it's seen through the file's perspective camera, whose eye
     /// its rim faces; 0 drawn straight on, its rim as it always was.
     view: [f32; 4],
+    /// Anisotropy's strength, the cosine and sine of its way's turn from
+    /// the tangent, and 1 where it has a texture for its way.
+    anisotropy: [f32; 4],
+    /// Iridescence's strength, its film's ior, and its thinnest and
+    /// thickest film (nanometres).
+    iridescence: [f32; 4],
+    /// 1 for each of the newer layers its material has: anisotropy,
+    /// iridescence.
+    more: [f32; 4],
     /// The file's lights, four rows each (`light_rows`).
     lights: [[f32; 4]; 4 * MAX_LIGHTS],
     /// Each texture's uv map, in `Material::maps`' order: two rows of a 2 ×
@@ -158,8 +168,8 @@ impl Models {
             count: None,
         };
         // The uniforms, the base color's texture and the sampler, then the
-        // other textures from 3 (`texture_binding`): fourteen in all, within
-        // the sixteen a shader stage may sample on any GPU wgpu runs on.
+        // other textures from 3 (`texture_binding`): sixteen in all, every one
+        // a shader stage may sample on any GPU wgpu runs on.
         let mut entries = vec![
             wgpu::BindGroupLayoutEntry {
                 binding: 0,
@@ -371,7 +381,10 @@ impl Models {
             let attenuation = through.map_or([1.0; 4], |t| [t.attenuation[0], t.attenuation[1], t.attenuation[2], 1.0]);
             let layers = [on(reflects), on(m.sheen.is_some()), on(m.clearcoat.is_some()), on(through.is_some())];
             let view = [on(seen.near.is_some()), 0.0, 0.0, 0.0];
-            let draw = Draw { mvp, model, color, light, shine, emission, alpha, layers, specular, coat, sheen, transmit, attenuation, view, lights, uv };
+            let anisotropy = m.anisotropy.as_ref().map_or([0.0; 4], |a| [a.strength, a.rotation.cos(), a.rotation.sin(), on(a.map.is_some())]);
+            let iridescence = m.iridescence.as_ref().map_or([0.0; 4], |i| [i.strength, i.ior, i.thinnest, i.thickest]);
+            let more = [on(m.anisotropy.is_some()), on(m.iridescence.is_some()), 0.0, 0.0];
+            let draw = Draw { mvp, model, color, light, shine, emission, alpha, layers, specular, coat, sheen, transmit, attenuation, view, anisotropy, iridescence, more, lights, uv };
             queue.write_buffer(buffer, 0, bytemuck::bytes_of(&draw));
         }
         let order = mesh.draw_order(posed.as_ref(), model);
@@ -1009,6 +1022,58 @@ mod tests {
         let top = |p: &[u8]| (0..64).find(|&y| (0..64).any(|x| at(p, (x, y))[3] > 128));
         let start = picture_at(&gpu, "instanced-moving-start", model::load(Format::Glb, &model::tests::instanced_glb(true)).unwrap(), Style::default(), Some(0.0));
         assert!(top(&moved).zip(top(&start)).is_some_and(|(a, b)| a + 10 < b), "{:?} then {:?}", top(&start), top(&moved));
+    }
+
+    #[test]
+    #[ignore = "draws on the GPU"]
+    fn anisotropy_stretches_highlights_and_iridescence_colors_them_on_the_gpu() {
+        let Some(gpu) = gpu() else { return };
+        // The highlight's bounds: the pixels within a little of the
+        // brightest, as (width, height).
+        let highlight = |p: &[u8]| {
+            let bright = |c: &[u8]| u32::from(c[0]) + u32::from(c[1]) + u32::from(c[2]);
+            let top = p.chunks(4).map(bright).max().unwrap_or(0);
+            let lit: Vec<(usize, usize)> = (0..64 * 64).filter(|&i| bright(&p[i * 4..i * 4 + 4]) + 40 >= top).map(|i| (i % 64, i / 64)).collect();
+            let span = |k: fn(&(usize, usize)) -> usize| lit.iter().map(k).max().unwrap_or(0) - lit.iter().map(k).min().unwrap_or(0) + 1;
+            (span(|p| p.0), span(|p| p.1))
+        };
+        // A glossy ball, its tangents round its middle, as a lathe turns it.
+        let glossy = |m: &mut model::Material| (m.color, m.gloss) = ([0.25, 0.25, 0.3, 1.0], 0.9);
+        let turned = |mut mesh: model::Mesh| {
+            for v in &mut mesh.parts[0].vertices {
+                let len = v.pos[0].hypot(v.pos[2]).max(1e-6);
+                v.tangent = [-v.pos[2] / len, 0.0, v.pos[0] / len, 1.0];
+            }
+            mesh
+        };
+        let plain = picture(&gpu, "anisotropy-none", turned(ball(glossy)), Style::default());
+        let brushed = |rotation: f32| model::Anisotropy { strength: 1.0, rotation, map: None };
+        let across = picture(&gpu, "anisotropy", turned(ball(|m| (glossy(m), m.anisotropy = Some(brushed(0.0))).1)), Style::default());
+        let up = picture(&gpu, "anisotropy-turned", turned(ball(|m| (glossy(m), m.anisotropy = Some(brushed(std::f32::consts::FRAC_PI_2))).1)), Style::default());
+        let (plain, across, up) = (highlight(&plain), highlight(&across), highlight(&up));
+        // Its way round the ball, the highlight stretches across; turned a
+        // quarter, from pole to pole.
+        assert!(across.0 > plain.0 + 3 && across.0 > across.1, "{plain:?} then {across:?}");
+        assert!(up.1 > plain.1 + 3 && up.1 > up.0, "{plain:?} then {up:?}");
+
+        // A white glaze reflects white; under a film 400 nm thick its
+        // highlight takes a color, and another toward the edges, where it's
+        // seen aslant.
+        let white = |m: &mut model::Material| (m.color, m.gloss) = ([0.9, 0.9, 0.9, 1.0], 0.9);
+        let spread = |c: [u8; 4]| c[..3].iter().max().unwrap() - c[..3].iter().min().unwrap();
+        // How far from grey the ball is on the whole: its pixels' spread
+        // between their strongest and weakest channel, on average.
+        let tinted = |p: &[u8]| {
+            let ball: Vec<u32> = (0..64 * 64).map(|i| at(p, (i % 64, i / 64))).filter(|c| c[3] > 200).map(|c| u32::from(spread(c))).collect();
+            ball.iter().sum::<u32>() / ball.len().max(1) as u32
+        };
+        let bare = picture(&gpu, "iridescence-none", ball(white), Style::default());
+        let film = model::Iridescence { strength: 1.0, ior: 1.3, thinnest: 400.0, thickest: 400.0, map: None };
+        let soap = picture(&gpu, "iridescence", ball(|m| (white(m), m.iridescence = Some(film.clone())).1), Style::default());
+        assert!(tinted(&bare) < 10 && tinted(&soap) > 25, "{} then {}", tinted(&bare), tinted(&soap));
+        let (middle, rim) = (at(&soap, (32, 32)), at(&soap, (32, 56)));
+        let hue = |c: [u8; 4]| (0..3).max_by_key(|&k| c[k]).unwrap();
+        assert!(middle != rim && (hue(middle) != hue(rim) || spread(middle).abs_diff(spread(rim)) > 20), "{middle:?} and {rim:?}");
     }
 
     /// A ball of `material`, smooth-shaded.

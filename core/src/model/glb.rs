@@ -23,11 +23,11 @@
 //!
 //! A file may require the extensions it uses (`extensionsRequired`), and
 //! the gltf crate refuses any it doesn't read itself, which leaves out some
-//! Flow reads on its own (clearcoat, sheen, specular, volume, instancing,
-//! and the packing above). So Flow checks that list itself
-//! ([`REQUIRABLE`]) and lets the crate check the rest of the file: one
-//! requiring what Flow doesn't do, such as anisotropy, is refused by its
-//! name.
+//! Flow reads on its own (clearcoat, sheen, specular, volume, anisotropy,
+//! iridescence, dispersion, instancing, and the packing above). So Flow
+//! checks that list itself ([`REQUIRABLE`]) and lets the crate check the
+//! rest of the file: one requiring what Flow doesn't do, such as
+//! KHR_materials_diffuse_transmission, is refused by its name.
 
 use std::sync::Arc;
 
@@ -38,14 +38,15 @@ use super::anim::{compose, facing, Channel, Clip, Interp, Mat4, Morph, Node, Pat
 use super::buffers::{self, floats, Images};
 use super::draco;
 use super::{
-    cross, det, dot, normalize, smooth_normals, sub, transform, Alpha, Clearcoat, Format, Lens, Light, Material, Mesh, Part, Sheen, Specular, Tex, Texture, Transmission, UvMap,
+    cross, det, dot, normalize, smooth_normals, sub, transform, Alpha, Anisotropy, Clearcoat, Format, Iridescence, Lens, Light, Material, Mesh, Part, Sheen, Specular, Tex, Texture,
+    Transmission, UvMap,
     Vertex, IDENTITY, TEXTURES,
 };
 
 /// The extensions Flow reads, which a file may require. Meshopt's goes by
 /// Khronos's name too, which adds the vertex codec's version 1 and the
 /// color filter.
-pub const REQUIRABLE: [&str; 18] = [
+pub const REQUIRABLE: [&str; 21] = [
     "KHR_texture_transform",
     "KHR_draco_mesh_compression",
     "KHR_materials_pbrSpecularGlossiness",
@@ -57,6 +58,9 @@ pub const REQUIRABLE: [&str; 18] = [
     "KHR_materials_sheen",
     "KHR_materials_transmission",
     "KHR_materials_volume",
+    "KHR_materials_anisotropy",
+    "KHR_materials_iridescence",
+    "KHR_materials_dispersion",
     "KHR_lights_punctual",
     "KHR_mesh_quantization",
     "EXT_meshopt_compression",
@@ -254,11 +258,16 @@ pub(super) fn load(bytes: &[u8]) -> Result<Mesh, String> {
             // none from the uvs it reads, as its transform moves them;
             // without uvs there's nothing to map. The clearcoat's normal map
             // shares them, worked out from its own uvs where the base has
-            // no normal map.
+            // no normal map, and so does anisotropy's way, from the first
+            // set of uvs where neither has one.
             let coat_bumps = material.clearcoat.as_ref().is_some_and(|c| c.bumps.is_some());
-            let bump_map = material.maps[if material.bumps.is_some() { Tex::Normal } else { Tex::CoatNormal } as usize];
+            let bump_map = match (material.bumps.is_some(), coat_bumps) {
+                (true, _) => material.maps[Tex::Normal as usize],
+                (false, true) => material.maps[Tex::CoatNormal as usize],
+                (false, false) => UvMap::PLAIN,
+            };
             let has_uvs = if bump_map.set == 1 { uvs1.is_some() || uvs.is_some() } else { uvs.is_some() };
-            let tangents = match material.bumps.is_some() || coat_bumps {
+            let tangents = match material.bumps.is_some() || coat_bumps || material.anisotropy.is_some() {
                 true if has_uvs => match attribute(gltf::Semantic::Tangents).and_then(|a| floats::<4>(&a, &buffers)).filter(|t| fits(t.len())) {
                     Some(t) => t,
                     None => {
@@ -271,6 +280,8 @@ pub(super) fn load(bytes: &[u8]) -> Result<Mesh, String> {
                     if let Some(c) = material.clearcoat.as_mut() {
                         c.bumps = None;
                     }
+                    // A way along the surface needs uvs to have one.
+                    material.anisotropy = None;
                     Vec::new()
                 }
             };
@@ -472,6 +483,24 @@ fn read_clip<'a, 's>(anim: &gltf::Animation<'a>, data: impl Clone + Fn(gltf::Buf
 /// are (their product stays right, the encoding being a power).
 fn read_material(doc: &gltf::Document, m: &gltf::Material, images: &mut Images) -> Material {
     let display = |c: f32| c.max(0.0).powf(1.0 / 2.2);
+    // Clearcoat, sheen, anisotropy and iridescence are JSON to the gltf
+    // crate, their textures named by index as a texture's info is.
+    let named = |v: Option<&gltf::json::Value>| {
+        let v = v?;
+        let tex = doc.textures().nth(usize::try_from(v.get("index")?.as_u64()?).ok()?)?;
+        let set = v.get("texCoord").and_then(|s| s.as_u64()).map_or(0, |s| s as u32);
+        let scale = v.get("scale").and_then(|s| s.as_f64()).unwrap_or(1.0) as f32;
+        Some((tex, moved(set, v.get("extensions").and_then(|e| e.get("KHR_texture_transform"))), scale))
+    };
+    let number = |v: &gltf::json::Value, key: &str, default: f32| v.get(key).and_then(|n| n.as_f64()).map_or(default, |n| n as f32);
+    // KHR_materials_iridescence's two maps, made one texture first
+    // (`Images::film`), read through the strength map's uvs where it has
+    // one.
+    let film = m.extension_value("KHR_materials_iridescence").map(|f| {
+        let (strength, thickness) = (named(f.get("iridescenceTexture")), named(f.get("iridescenceThicknessTexture")));
+        let made = images.film(strength.as_ref().map(|t| &t.0), thickness.as_ref().map(|t| &t.0));
+        (f, made, strength.or(thickness).map(|t| t.1))
+    });
     let pbr = m.pbr_metallic_roughness();
     // KHR_materials_pbrSpecularGlossiness, the older way of saying how a
     // surface reflects, in place of metal and roughness: read as
@@ -537,16 +566,6 @@ fn read_material(doc: &gltf::Document, m: &gltf::Material, images: &mut Images) 
         (Some(o), None) => (o.glossiness_factor().clamp(0.0, 1.0), None),
         _ => ((1.0 - pbr.roughness_factor()).clamp(0.0, 1.0), texture(metal_rough.as_ref().map(|t| t.texture()))),
     };
-    // Clearcoat and sheen are JSON to the gltf crate, their textures named
-    // by index as a texture's info is.
-    let named = |v: Option<&gltf::json::Value>| {
-        let v = v?;
-        let tex = doc.textures().nth(usize::try_from(v.get("index")?.as_u64()?).ok()?)?;
-        let set = v.get("texCoord").and_then(|s| s.as_u64()).map_or(0, |s| s as u32);
-        let scale = v.get("scale").and_then(|s| s.as_f64()).unwrap_or(1.0) as f32;
-        Some((tex, moved(set, v.get("extensions").and_then(|e| e.get("KHR_texture_transform"))), scale))
-    };
-    let number = |v: &gltf::json::Value, key: &str, default: f32| v.get(key).and_then(|n| n.as_f64()).map_or(default, |n| n as f32);
     let clearcoat = m.extension_value("KHR_materials_clearcoat").and_then(|c| {
         let strength = number(c, "clearcoatFactor", 0.0).clamp(0.0, 1.0);
         let (strength_map, roughness_map, bumps) = (named(c.get("clearcoatTexture")), named(c.get("clearcoatRoughnessTexture")), named(c.get("clearcoatNormalTexture")));
@@ -574,6 +593,30 @@ fn read_material(doc: &gltf::Document, m: &gltf::Material, images: &mut Images) 
             roughness_map: texture(roughness_map.map(|t| t.0)),
         })
     });
+    // KHR_materials_anisotropy: its way and strength, a texture's red,
+    // green and blue on top.
+    let anisotropy = m.extension_value("KHR_materials_anisotropy").and_then(|a| {
+        let strength = number(a, "anisotropyStrength", 0.0).clamp(0.0, 1.0);
+        let way = named(a.get("anisotropyTexture"));
+        map(Tex::Anisotropy, way.as_ref().map(|t| t.1));
+        (strength > 0.0).then(|| Anisotropy { strength, rotation: number(a, "anisotropyRotation", 0.0), map: texture(way.map(|t| t.0)) })
+    });
+    // KHR_materials_iridescence: glTF's film is 100 to 400 nm thick, of an
+    // ior of 1.3, unless it says.
+    let iridescence = film.and_then(|(f, made, uv)| {
+        map(Tex::Iridescence, uv);
+        let strength = number(f, "iridescenceFactor", 0.0).clamp(0.0, 1.0);
+        (strength > 0.0).then(|| Iridescence {
+            strength,
+            ior: number(f, "iridescenceIor", 1.3).max(1.0),
+            thinnest: number(f, "iridescenceThicknessMinimum", 100.0).max(0.0),
+            thickest: number(f, "iridescenceThicknessMaximum", 400.0).max(0.0),
+            map: made,
+        })
+    });
+    // KHR_materials_dispersion needs nothing read: it parts light through
+    // glass by its color, and Flow doesn't bend light through glass at all
+    // (see Transmission).
     // A volume means something only to light passing through.
     let transmission = m.transmission().filter(|t| t.transmission_factor() > 0.0).map(|t| {
         let (amount_map, volume) = (t.transmission_texture(), m.volume());
@@ -615,6 +658,8 @@ fn read_material(doc: &gltf::Document, m: &gltf::Material, images: &mut Images) 
         clearcoat,
         sheen,
         transmission,
+        anisotropy,
+        iridescence,
         maps,
     }
 }
@@ -976,6 +1021,71 @@ pub mod tests {
         ))
     }
 
+    /// Three squares facing the viewer. The first's material is
+    /// anisotropic, its way from a texture read through the second set of
+    /// uvs, and iridescent, its strength and its film's thickness from two
+    /// textures, and disperses light; the second's is iridescent, both its
+    /// maps its base color's texture; the third's, whose square has no
+    /// uvs, is anisotropic, which needs them. The file requires all three.
+    pub fn newer_glb() -> Vec<u8> {
+        let mut g = Glb::default();
+        let pos = g.floats(&[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0], 3);
+        let uv = g.floats(&[0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0], 2);
+        let idx = g.shorts(&[0, 1, 2, 0, 2, 3], 1);
+        let way = g.png(1, 1, &[255, 128, 200, 255]);
+        let strength = g.png(2, 1, &[128, 0, 0, 255, 255, 0, 0, 255]);
+        let thickness = g.png(1, 1, &[0, 64, 0, 255]);
+        let both = g.png(1, 1, &[100, 150, 0, 255]);
+        let used = r#""KHR_materials_anisotropy","KHR_materials_iridescence","KHR_materials_dispersion","KHR_materials_transmission","KHR_materials_volume""#;
+        g.finish(&format!(
+            r#""extensionsUsed":[{used}],"extensionsRequired":[{used}],
+            "scene":0,"scenes":[{{"nodes":[0]}}],"nodes":[{{"mesh":0}}],
+            "meshes":[{{"primitives":[{{"attributes":{{"POSITION":{pos},"TEXCOORD_0":{uv},"TEXCOORD_1":{uv}}},"indices":{idx},"material":0}},
+                {{"attributes":{{"POSITION":{pos},"TEXCOORD_0":{uv}}},"indices":{idx},"material":1}},
+                {{"attributes":{{"POSITION":{pos}}},"indices":{idx},"material":2}}]}}],
+            "materials":[{{"pbrMetallicRoughness":{{"roughnessFactor":0.2,"metallicFactor":0}},"extensions":{{
+                    "KHR_materials_anisotropy":{{"anisotropyStrength":0.6,"anisotropyRotation":0.5,"anisotropyTexture":{{"index":0,"texCoord":1}}}},
+                    "KHR_materials_iridescence":{{"iridescenceFactor":0.8,"iridescenceIor":1.5,"iridescenceThicknessMinimum":200,"iridescenceThicknessMaximum":600,
+                        "iridescenceTexture":{{"index":1}},"iridescenceThicknessTexture":{{"index":2}}}},
+                    "KHR_materials_transmission":{{"transmissionFactor":0.5}},"KHR_materials_volume":{{"thicknessFactor":0.1}},
+                    "KHR_materials_dispersion":{{"dispersion":0.3}}}}}},
+                {{"pbrMetallicRoughness":{{"baseColorTexture":{{"index":3}}}},"extensions":{{
+                    "KHR_materials_iridescence":{{"iridescenceFactor":1,"iridescenceTexture":{{"index":3}},"iridescenceThicknessTexture":{{"index":3}}}}}}}},
+                {{"extensions":{{"KHR_materials_anisotropy":{{"anisotropyStrength":0.5}}}}}}],
+            "textures":[{{"source":0}},{{"source":1}},{{"source":2}},{{"source":3}}],
+            "images":[{{"bufferView":{way},"mimeType":"image/png"}},{{"bufferView":{strength},"mimeType":"image/png"}},{{"bufferView":{thickness},"mimeType":"image/png"}},
+                {{"bufferView":{both},"mimeType":"image/png"}}]"#
+        ))
+    }
+
+    #[test]
+    fn anisotropy_and_iridescence_are_read_and_dispersion_taken_as_drawn() {
+        let mesh = load(Format::Glb, &newer_glb()).expect("Flow reads all three, required");
+        let (first, second, third) = (&mesh.parts[0].material, &mesh.parts[1].material, &mesh.parts[2].material);
+        let a = first.anisotropy.as_ref().expect("anisotropy");
+        assert_eq!((a.strength, a.rotation, a.map.as_ref().map(|t| t.rgba.clone())), (0.6, 0.5, Some(vec![255, 128, 200, 255])));
+        assert_eq!(first.maps[Tex::Anisotropy as usize].set, 1, "its way read through the second set of uvs");
+        // Its way is along the tangents, worked out with no normal map.
+        assert!(mesh.parts[0].vertices.iter().all(|v| v.tangent[3] != 0.0), "{:?}", mesh.parts[0].vertices[0].tangent);
+        // Iridescence's two maps made one: the strength's red, at its size,
+        // and the thickness's green.
+        let i = first.iridescence.as_ref().expect("iridescence");
+        assert_eq!((i.strength, i.ior, i.thinnest, i.thickest), (0.8, 1.5, 200.0, 600.0));
+        let film = i.map.as_ref().expect("its maps made one");
+        assert_eq!((film.width, film.height, film.rgba.clone()), (2, 1, vec![128, 64, 255, 255, 255, 64, 255, 255]));
+        // One texture for both is that texture itself, glTF's film by
+        // default.
+        let i = second.iridescence.as_ref().expect("iridescence");
+        assert_eq!((i.strength, i.ior, i.thinnest, i.thickest), (1.0, 1.3, 100.0, 400.0));
+        assert!(Arc::ptr_eq(i.map.as_ref().unwrap(), second.texture.as_ref().unwrap()));
+        assert!(second.anisotropy.is_none());
+        // Anisotropy with no uvs has no way to go.
+        assert!(third.anisotropy.is_none() && third.iridescence.is_none());
+        // Dispersion changes nothing Flow draws: the first is see-through
+        // glass as it would be without it.
+        assert!(first.see_through());
+    }
+
     #[test]
     fn a_glbs_material_extensions_are_read_with_their_textures() {
         let mesh = load(Format::Glb, &extensions_glb()).unwrap();
@@ -1229,9 +1339,9 @@ pub mod tests {
             assert!(load(Format::Glb, &requiring(&format!("\"{name}\""))).is_ok(), "{name}");
         }
         // What Flow doesn't do, by name.
-        assert_eq!(load(Format::Glb, &requiring(r#""KHR_materials_anisotropy""#)).unwrap_err(), "it requires KHR_materials_anisotropy, which Flow doesn't read");
-        let several = requiring(r#""KHR_draco_mesh_compression","KHR_materials_anisotropy","EXT_meshopt_compression","EXT_mesh_gpu_instancing","KHR_materials_iridescence","KHR_mesh_quantization","EXT_texture_webp""#);
-        assert_eq!(load(Format::Glb, &several).unwrap_err(), "it requires KHR_materials_anisotropy and KHR_materials_iridescence, which Flow doesn't read");
+        assert_eq!(load(Format::Glb, &requiring(r#""KHR_materials_diffuse_transmission""#)).unwrap_err(), "it requires KHR_materials_diffuse_transmission, which Flow doesn't read");
+        let several = requiring(r#""KHR_draco_mesh_compression","KHR_materials_diffuse_transmission","EXT_meshopt_compression","KHR_materials_anisotropy","EXT_mesh_gpu_instancing","KHR_materials_volume_scatter","KHR_mesh_quantization","EXT_texture_webp""#);
+        assert_eq!(load(Format::Glb, &several).unwrap_err(), "it requires KHR_materials_diffuse_transmission and KHR_materials_volume_scatter, which Flow doesn't read");
         // The crate still checks the rest of the file.
         let mut broken = Glb::default();
         let pos = broken.floats(&[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0], 3);

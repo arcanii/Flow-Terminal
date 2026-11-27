@@ -370,6 +370,8 @@ pub struct Material {
     pub clearcoat: Option<Clearcoat>,
     pub sheen: Option<Sheen>,
     pub transmission: Option<Transmission>,
+    pub anisotropy: Option<Anisotropy>,
+    pub iridescence: Option<Iridescence>,
     /// The texture coordinates each texture reads, in [`Tex`]'s order (the
     /// shader's).
     pub maps: [UvMap; TEXTURES],
@@ -393,10 +395,13 @@ pub enum Tex {
     SheenRoughness,
     Transmission,
     Thickness,
+    Anisotropy,
+    Iridescence,
 }
 
-/// How many textures a material can have.
-pub const TEXTURES: usize = 14;
+/// How many textures a material can have: all sixteen a shader stage may
+/// sample on the GPUs Flow asks least of (OpenGL ES 3.0's).
+pub const TEXTURES: usize = 16;
 
 /// KHR_materials_specular: how strongly a non-metal reflects, and in what
 /// color. A metal reflects in its own color, which this leaves alone.
@@ -461,6 +466,43 @@ pub struct Transmission {
     pub distance: f32,
 }
 
+/// KHR_materials_anisotropy: a surface brushed or spun one way, whose
+/// highlights stretch along it. Flow's highlights aren't GGX's, so it
+/// stretches them as such a surface's look: the half vector's part along
+/// the way is taken down by its strength before the highlight is worked
+/// out, so it lasts that much further along.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Anisotropy {
+    /// 0 to 1 (`anisotropyStrength`), times its texture's blue.
+    pub strength: f32,
+    /// Its way in the surface, turned from the tangent toward the
+    /// bitangent (`anisotropyRotation`, radians).
+    pub rotation: f32,
+    /// Its way in the texture's red and green (from -1 to 1, the tangent's
+    /// and the bitangent's shares), and its strength in blue.
+    pub map: Option<Arc<Texture>>,
+}
+
+/// KHR_materials_iridescence: a thin film over the surface, as on a soap
+/// bubble or an oil slick, its reflections colored by the film's
+/// interference, which shifts as it's seen more aslant or the film is
+/// thicker.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Iridescence {
+    /// 0 to 1 (`iridescenceFactor`), times its map's red.
+    pub strength: f32,
+    /// The film's index of refraction (`iridescenceIor`).
+    pub ior: f32,
+    /// How thick the film is, in nanometres: from `thinnest` to `thickest`
+    /// by its map's green, `thickest` where it has none, as glTF has it.
+    pub thinnest: f32,
+    pub thickest: f32,
+    /// Its strength (red) and thickness (green) in one texture, as the
+    /// shader reads them: glTF's two maps, made one where they're two
+    /// (`buffers::Images::film`).
+    pub map: Option<Arc<Texture>>,
+}
+
 impl Material {
     /// Each of its textures, in [`Tex`]'s order.
     pub fn textures(&self) -> [Option<&Arc<Texture>>; TEXTURES] {
@@ -480,6 +522,8 @@ impl Material {
             sh.and_then(|s| s.roughness_map.as_ref()),
             t.and_then(|t| t.map.as_ref()),
             t.and_then(|t| t.thickness_map.as_ref()),
+            self.anisotropy.as_ref().and_then(|a| a.map.as_ref()),
+            self.iridescence.as_ref().and_then(|i| i.map.as_ref()),
         ]
     }
 
@@ -509,6 +553,8 @@ impl Default for Material {
             clearcoat: None,
             sheen: None,
             transmission: None,
+            anisotropy: None,
+            iridescence: None,
             maps: [UvMap::PLAIN; TEXTURES],
         }
     }

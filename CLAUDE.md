@@ -2053,9 +2053,9 @@ reflections), so a part without it is lit as before. Each texture reads
 `Vertex::uv` or `uv1` (`TEXCOORD_1`) through a `UvMap`
 (`KHR_texture_transform`, typed by the gltf crate on a plain texture's info
 and read as JSON on normal and occlusion maps, hence its `extensions`
-feature), fourteen of them (`model::Tex`, `TEXTURES`) in `Draw::uv`, bound
-at 1 and 3 to 15 (`texture_binding`), within the sixteen a stage may
-sample on downlevel GPUs. The material extensions are layers the shader
+feature), sixteen of them (`model::Tex`, `TEXTURES`) in `Draw::uv`, bound
+at 1 and 3 to 17 (`texture_binding`), every one a stage may sample on
+downlevel GPUs. The material extensions are layers the shader
 adds only where `Draw::layers` (or `alpha.w`, unlit) says the part has
 them, sampling their textures with `textureSampleLevel` (one mip level) so
 they can sit in branches, and a part without them is drawn as before:
@@ -2063,12 +2063,21 @@ unlit (the color alone), specular and ior (`Draw::specular`, scaling the
 non-metal glaze's reflections head on and at the edges), sheen (a rim in
 its color, wider when rough), clearcoat (Flow's glaze again over the rest,
 on the surface's own normal or its own normal map, which shares the
-tangents), and transmission with volume (see-through, as `Material::see_through`
+tangents), transmission with volume (see-through, as `Material::see_through`
 says: the picture can't tint or bend what's behind it, so the light that
 passes is clear under a film as deep as the color it takes absorbs, frosted
 when rough, the reflections kept, and the film left off a volume's far
-side). Clearcoat and sheen are JSON to the gltf crate (`named` in
-`read_material` finds their textures); the rest are its typed features.
+side), and from 0.1.48 (`docs/design/gltf-materials.md`; `Draw::more`)
+anisotropy (`model::Anisotropy`: Flow's highlights stretched along its way,
+the tangent turned by its rotation and its texture, `stretched`'s half
+vector with its part along the way taken down, the tangents worked out
+from the first uvs where nothing else needed them, none without uvs) and
+iridescence (`model::Iridescence`: the glaze's reflections and a metal
+times a thin film's color, `thin_film`, its two maps one texture,
+`buffers::Images::film`, `film_of`); dispersion is read and draws nothing,
+and `COLOR_1` and on are passed over. Clearcoat, sheen, anisotropy and
+iridescence are JSON to the gltf crate (`named` in `read_material` finds
+their textures); the rest are its typed features.
 KHR_materials_pbrSpecularGlossiness (the crate's feature) is read as
 glTF-Transform's `metalRough()` turns it into metal and roughness: the
 diffuse the base color, no metal, the glossiness the gloss, the specular
@@ -2080,10 +2089,11 @@ colors are display values), the spec-gloss texture's color the specular
 color's map and its alpha baked into a roughness map
 (`Images::roughness_from_gloss`, made once per texture and factor).
 The crate takes as required (`extensionsRequired`) only those it reads
-itself, which leaves out clearcoat, sheen, specular, volume and
-instancing, so `glb::import` checks that list against what Flow reads
-(`REQUIRABLE`), refusing a file by the names of those it doesn't
-(anisotropy, iridescence), and lets the crate check the rest of the file.
+itself, which leaves out clearcoat, sheen, specular, volume, anisotropy,
+iridescence, dispersion and instancing, so `glb::import` checks that list
+against what Flow reads (`REQUIRABLE`), refusing a file by the names of
+those it doesn't (diffuse transmission, say), and lets the crate check the
+rest of the file.
 EXT_mesh_gpu_instancing is JSON on the node to the crate:
 `glb::instances` reads each instance's TRANSLATION, ROTATION and SCALE
 (through `buffers::floats`, so quantized too) as a matrix, and `glb::load`
