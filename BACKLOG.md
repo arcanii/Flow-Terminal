@@ -679,8 +679,10 @@ written. What's left:
 - **`flow-core-themes` is published:** 0.1.0 went out on 2026-11-08
   (`flow-core-themes-v0.1.0` in Flow-releases, in the catalog's
   `themes`), written and packed by `examples/theme_package.rs`, signed on
-  the Mac and entered with `app_catalog --themes --platform any`. A new
-  version goes out the same way when Flow's machines change.
+  the Mac and entered with `app_catalog --themes --platform any`, and
+  0.1.1, the notanAmiga writing its `frame`, the same way on 2026-11-27
+  (`flow-core-themes-v0.1.1`). A new version goes out the same way when
+  Flow's machines change.
 - **Tried in a live window:** a package installed while Flow runs showing
   in Settings and the picker at the next focus, its font and its logo,
   and Export…'s save panel; snapshots wear no packages and open no
@@ -700,12 +702,10 @@ built-in's. Tried in a live window on Windows and Linux for 0.1.36, a
 split tab of two framed panes too. Your own and saved themes keep a frame
 for 0.1.48 (`[theme] frame`, a Window frame row under Theme, kept by
 Export…), and `flow-core-themes` 0.1.1, which writes the notanAmiga's
-`frame`, is packed on the Mac. What's left: the Mac's live window (only
-snapshots there, `theme-amiga.png`), publishing `flow-core-themes` 0.1.1
-(signed on the Mac and entered with `app_catalog --themes --platform
-any`), and Flow-SDK's theme entry writing `frame` in its next version
-(until then `packaged.rs`' test of the SDK's package compares without
-it).
+`frame`, is published (2026-11-27). What's left: the Mac's live window
+(only snapshots there, `theme-amiga.png`), and Flow-SDK's theme entry
+writing `frame` in its next version (until then `packaged.rs`' test of
+the SDK's package compares without it).
 
 - **As the machine drew it** (2026-11-17, from a picture of the real
   AmigaShell's window in WinUAE under Kickstart 1.3;
@@ -1061,7 +1061,8 @@ AUR helper.
     by a last pass of the phosphor's own (`docs/design/phosphor-glow.md`);
   - your own and saved themes keeping a window frame: built
     (`[theme] frame`, `docs/design/window-frame.md`), and
-    `flow-core-themes` 0.1.1 packed, to publish on the user's word;
+    `flow-core-themes` 0.1.1 published (2026-11-27,
+    `flow-core-themes-v0.1.1`);
   - a package of themes installed while Flow runs, and Export…, tried in
     a live window;
   - the notanAmiga's frame in the Mac's and Linux's live windows.
