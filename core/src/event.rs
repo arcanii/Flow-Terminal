@@ -32,6 +32,9 @@ pub enum UserEvent {
     /// Each tab's programs and Flow's own process, read on a thread of its
     /// own for what each tab uses (`Platform::processes`).
     Usage(Vec<(SessionId, crate::resources::Reading)>, crate::resources::Reading),
+    /// A folder's git branch, read on a `flow-git` thread for the tab
+    /// sidebar's line (`App::ask_branches`): none outside a checkout.
+    GitHead(std::path::PathBuf, Option<crate::git_branch::Head>),
     /// The games an older Flow carried, installed by `flowapp`'s code on
     /// the first start after an update (`App::keep_carried_apps`), and
     /// those something installed was in the way of.

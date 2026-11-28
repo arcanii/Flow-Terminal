@@ -316,7 +316,7 @@ As built in step 3 (2026-11-28, `core/src/tab_sidebar.rs`,
 - **Snapshots** have a stage of their own after the scrolled pane
   (`SIDEBAR_STAGE`): four tabs opened in the snapshot's shell, given two
   and a half seconds to settle, then made up (`App::show_sidebar`) as Web
-  (`server` running `npm run dev`, `tests` with `cargo test` passed) and
+  (`server` running `npm run dev`, `tests` on the branch `main`) and
   Docs, folded, beside the split tab folded open to its panes, the count's
   `false` its ✗; captured as `tab-sidebar.png`, then closed again.
 
@@ -642,6 +642,32 @@ It reads only when the folder changes or a command ends, keeping each
 folder's answer until then, and never on the event loop. It runs no
 `git`.
 
+As built in step 7 (2026-11-28):
+
+- **Reading** is `core/src/git_branch.rs`: `head_of` looks up from the
+  folder for `.git` (a folder, or a file whose `gitdir:` names one, from
+  where it is where it's relative, as a submodule's is) and reads its
+  `HEAD` (`parse_head`): `ref: refs/heads/<branch>` is a branch, a 40 or
+  64 letter id a detached commit (`Head::Detached`, its first seven). A
+  name's control characters go and it's cut at 200 letters. Only regular
+  files are read, their first 4 KiB, and the folder and a `gitdir:` only
+  where `link::on_this_computer` says, as every folder a shell says is
+  (`untrusted-output.md`).
+- **When:** `git_branch::Branches` keeps each folder's answer and those
+  being read. While the sidebar is out, `App::ask_branches` reads the
+  folders of every pane not yet read on a `flow-git` thread, each coming
+  back as `UserEvent::GitHead`; a command ending in a pane forgets its
+  folder (`watch_commands`), so the next look reads it again. Snapshots
+  read none: their branch is made up.
+- **The line:** `Doing::branch`, `Line::Branch` in the folder's place
+  (after progress, the command running and the last end), drawn after a
+  branch's mark (a commit's where it's detached) from round-ended
+  segments, as the pin is (`ui::draw_branch_mark`), so it's the same in
+  every font. Readers hear "On main" (`sidebar.on_branch`,
+  `sidebar.detached`).
+- **The pictures:** `tests` is on `main` now, in place of its passed
+  `cargo test`, whose ✓ the split tab's first pane still shows.
+
 ## Everything else a new screen takes
 
 - **Screen readers** (`access.rs`): the sidebar is a `Tree` whose items
@@ -666,7 +692,7 @@ folder's answer until then, and never on the event loop. It runs no
 - **Snapshots:**
   - `tab-sidebar.png`: the sidebar popped out over the demo tabs, with
     made-up groups (a folded one among them), a tab running a command, a
-    ✓ and a ✗, and folders in the snapshot's home.
+    ✓ and a ✗, and a tab's made-up branch.
   - `tab-sidebar-pinned.png`: pinned beside a split tab.
   - Both are made on made-up inputs alone, as every snapshot is.
 
@@ -689,7 +715,8 @@ Each step is a commit of its own, tested before the next:
 5. **Dragging,** in the sidebar and the title bar. Built on 2026-11-28
    (see Dragging).
 6. **A group's theme.** Built on 2026-11-28 (see A group's theme).
-7. **The git branch on the line.**
+7. **The git branch on the line.** Built on 2026-11-28 (see The line
+   under each tab).
 
 ## Tests
 

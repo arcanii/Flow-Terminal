@@ -2349,7 +2349,12 @@ of its own wears (`App::worn_look`, `look_with_group`, in `tab_config`,
 `pane_config` and `fit_look`) and starts its shell in (`open_tab_in`,
 `open_pane`, `reopen`, the flow command's tab); `regroup` keeps what's
 worn first and `follow_group_themes` wears afresh where a move changed
-what a tab follows.
+what a tab follows. In a git checkout a tab's line shows its branch in
+its folder's place (`Line::Branch`, `ui::draw_branch_mark`), read by
+`git_branch::head_of` from `.git` (a worktree's or a submodule's
+`gitdir:` too) and `HEAD`, never running `git`, on this computer only, on
+a `flow-git` thread (`App::ask_branches`, `UserEvent::GitHead`), kept per
+folder (`git_branch::Branches`) until a command ends there.
 
 **Recording the terminal.** `Command::Record` (⇧⌘R, and `keys.rs`'s
 `RECORD_ELSEWHERE`: Ctrl+Alt+Shift+R on Windows, Ctrl+Alt+Shift+V on

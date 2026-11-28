@@ -1684,8 +1684,9 @@ can be put into groups, the groups kept between launches. Designed on
 palette, and the sidebar pops out over the terminal or is pinned beside
 it. Step 5 is built too (2026-11-28): a tab's row or its pill in the
 title bar dragged into a group or out of one, and a group's header
-dragged whole; and step 6: a group's theme, which its tabs wear unless
-they have their own.
+dragged whole; step 6: a group's theme, which its tabs wear unless they
+have their own; and step 7: the git branch on each tab's line. Every step
+is built.
 
 - **Decided:**
   - It pops out over the terminal, and a pin keeps it out, beside a
@@ -1702,7 +1703,7 @@ they have their own.
   4. pinned (built);
   5. dragging, in the sidebar and the title bar (built);
   6. a group's theme (built);
-  7. the git branch on each tab's line.
+  7. the git branch on each tab's line (built).
 - **Left for a design of its own:** a server's address on the line,
   which needs each OS to read the ports a tab's programs listen on.
 

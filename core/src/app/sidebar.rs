@@ -78,7 +78,34 @@ impl App {
         // Snapshots' shells call their own folder home.
         let home = crate::shell::plain_home().map(std::path::Path::to_path_buf).or_else(dirs::home_dir).map(|h| h.to_string_lossy().into_owned());
         let folder = st.cwd.as_deref().map(|f| tab_sidebar::folder_shown(f, home.as_deref()));
-        Doing { progress, running, ended: st.ended.clone(), folder }
+        // Its checkout's branch, where it's been read (`ask_branches`).
+        let branch = st.cwd.as_deref().and_then(|f| self.branches.of(std::path::Path::new(f))).flatten().cloned();
+        Doing { progress, running, ended: st.ended.clone(), folder, branch }
+    }
+
+    /// Reads the git branch of each pane's folder not read since it last
+    /// changed (`git_branch::Branches`), on a `flow-git` thread, which
+    /// answers each as `UserEvent::GitHead`; nothing for a snapshot, whose
+    /// branches are made up. While the sidebar is out, which shows them.
+    fn ask_branches(&mut self) {
+        if self.snapshot.is_some() {
+            return;
+        }
+        let folders: Vec<std::path::PathBuf> = self.tabs.iter().flat_map(|t| &t.panes).filter_map(|p| p.session.state.lock().cwd.clone()).map(std::path::PathBuf::from).collect();
+        let wanted: Vec<std::path::PathBuf> = folders.into_iter().filter(|f| self.branches.to_read(f)).collect();
+        if wanted.is_empty() {
+            return;
+        }
+        let waker = self.waker.clone();
+        let read = move || {
+            for folder in wanted {
+                let head = crate::git_branch::head_of(&folder);
+                waker.send(UserEvent::GitHead(folder, head));
+            }
+        };
+        if std::thread::Builder::new().name("flow-git".into()).spawn(read).is_err() {
+            self.branches.give_up_reading();
+        }
     }
 
     /// A pane's name in its row: who opened it (the assistant, an outside
@@ -93,6 +120,7 @@ impl App {
         if !self.sidebar.is_open() {
             return None;
         }
+        self.ask_branches();
         let rows = self.sidebar_rows();
         let labels = self.tab_labels();
         let index = |id: u64| self.tabs.iter().position(|t| t.id == id);
@@ -1045,6 +1073,8 @@ impl App {
             Line::Running(command) => tf("sidebar.running", &[("command", command)]),
             Line::Ended { command, ok: true } => tf("sidebar.ended_ok", &[("command", command)]),
             Line::Ended { command, ok: false } => tf("sidebar.ended_failed", &[("command", command)]),
+            Line::Branch { name, detached: false } => tf("sidebar.on_branch", &[("branch", name)]),
+            Line::Branch { name, detached: true } => tf("sidebar.detached", &[("commit", name)]),
             Line::Folder(folder) => folder.clone(),
             Line::Nothing => String::new(),
         }
@@ -1171,7 +1201,8 @@ impl App {
 
     /// For snapshots: the sidebar out over the split tab, folded open to its
     /// panes, and the tabs `show_sidebar_open` opened, made up as a group
-    /// of a server running and its tests passed, and a folded group of two;
+    /// of a server running and its tests' checkout on a branch (made up
+    /// too: a snapshot reads no folder's), and a folded group of two;
     /// written as `tab-sidebar.png`, then pinned beside the split tab as
     /// `tab-sidebar-pinned.png`, then everything as it was.
     pub(super) fn show_sidebar(&mut self, (path, pinned): (&std::path::Path, &std::path::Path), first: usize, el: &ActiveEventLoop) {
@@ -1185,8 +1216,9 @@ impl App {
         let web = self.groups.add("Web".into(), crate::tab_groups::color_named("teal"));
         let docs = self.groups.add("Docs".into(), crate::tab_groups::color_named("pink"));
         self.groups.fold(docs, true);
-        let made = [("server", web, Some("npm run dev"), None), ("tests", web, None, Some(("cargo test", 0))), ("notes", docs, None, None), ("drafts", docs, None, None)];
-        for (k, (name, group, running, ended)) in made.into_iter().enumerate() {
+        let made = [("server", web, Some("npm run dev")), ("tests", web, None), ("notes", docs, None), ("drafts", docs, None)];
+        self.branches.read(format!("{home}{sep}src{sep}tests").into(), Some(crate::git_branch::Head::Branch("main".into())));
+        for (k, (name, group, running)) in made.into_iter().enumerate() {
             let tab = &mut self.tabs[first + k];
             tab.name = Some(name.to_string());
             tab.group = Some(group);
@@ -1195,7 +1227,7 @@ impl App {
             st.command = running.map(str::to_string);
             st.running_since = running.map(|_| Instant::now());
             st.at_prompt = running.is_none();
-            st.ended = ended.map(|(command, code)| (command.to_string(), code));
+            st.ended = None;
         }
         self.groups.settle(&mut self.tabs);
         // The split tab's first pane in front, in Flow's own look.

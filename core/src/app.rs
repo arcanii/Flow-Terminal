@@ -676,6 +676,9 @@ pub struct App {
     /// what each draws with (`App::see_pane_looks`).
     pane_looks: HashMap<u64, PaneLook>,
     resources: Resources,
+    /// Each pane's folder's git branch as last read, for the tab
+    /// sidebar's line (`App::ask_branches`).
+    branches: crate::git_branch::Branches,
     /// The seed of the workstations' numbers, the same on this computer
     /// (`identity::seed`), worked out once a run.
     machine_seed: std::cell::OnceCell<u64>,
@@ -1104,6 +1107,7 @@ impl App {
             worn_for: None,
             pane_looks: HashMap::new(),
             resources: Resources::default(),
+            branches: crate::git_branch::Branches::default(),
             machine_seed: std::cell::OnceCell::new(),
             ai: AiPanel { history: crate::panel_input::Recall::from_past(sent_before), ..AiPanel::new(config.ai.auto_mode) },
             // No key yet is fine: the panel says where to add one, and the
@@ -10857,6 +10861,11 @@ impl App {
             let focus = t.focus;
             for (p, pane) in t.panes.iter().enumerate() {
                 let Some(finished) = pane.session.state.lock().finished.take() else { continue };
+                // A command may have checked out another branch: its folder's
+                // is read again as the sidebar next shows it.
+                if let Some(cwd) = pane.session.state.lock().cwd.clone() {
+                    self.branches.forget(std::path::Path::new(&cwd));
+                }
                 // `flow --close`'s command done: its pane closes if it went well.
                 self.flow_tabs.ended(pane.session.id, &finished);
                 // The pane in front of the tab in front is where you are.
@@ -14753,6 +14762,12 @@ impl ApplicationHandler<UserEvent> for App {
             UserEvent::ModelFailed(error) => self.show_toast(tf("toast.model_failed", &[("error", &error)])),
             UserEvent::Power(power) => self.power_read(power),
             UserEvent::Usage(tabs, flow) => self.usage_read(tabs, flow),
+            UserEvent::GitHead(folder, head) => {
+                self.branches.read(folder, head);
+                if self.sidebar.is_open() {
+                    self.request_redraw();
+                }
+            }
             UserEvent::AppsKept(done) => {
                 if let Some(words) = done.words() {
                     self.show_toast(words);

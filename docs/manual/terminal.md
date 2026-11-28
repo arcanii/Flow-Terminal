@@ -122,8 +122,15 @@ and under each tab's name a line saying what it's doing, the first of:
 2. the command running, after a dot;
 3. how the last command ended, ✓ or ✗ with the command, until the next
    one starts;
-4. its folder, `~` for your home folder, cut from its start where it's
-   long.
+4. in a git checkout, the branch it's on (a commit's short id where it's
+   on none), after a branch's mark; else its folder, `~` for your home
+   folder, cut from its start where it's long.
+
+The branch is read from the checkout's own files (its `.git`, a
+worktree's or a submodule's `gitdir:`, and `HEAD`), never by running
+`git`, off the window's thread, once for each folder, and again after a
+command ends there, so a `git switch` shows at once. A folder on another
+computer (a Windows share) isn't read.
 
 The tab in front is lit, a tab whose long command ended while it was
 behind glows as its pill does, and a split tab folds open (its ▸) to show

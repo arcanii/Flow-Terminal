@@ -141,7 +141,10 @@ printed becomes one Flow touches:
 - `file:` links (`link::target`, `file_path`): one to another computer is
   no link at all, no underline and no click;
 - the shell's folder (OSC 7, 633;P, 9;9) for new tabs, splits, Restart
-  Tab, `tabs.json`, Attach and the flow command;
+  Tab, `tabs.json`, Attach and the flow command, and for the git branch on
+  the tab sidebar's line (`git_branch::head_of`), along with the folder a
+  `.git` file's `gitdir:` names, whose `HEAD` is read only where it's a
+  regular file, and only its first few kilobytes;
 - a 3D model's path, read only after the user's yes and only from a
   regular file (`model::Ask::load`);
 - the assistant's file tools (`tools::file_elsewhere`), refused without

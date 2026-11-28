@@ -210,13 +210,15 @@ pub fn landing(rows: &[Row], tabs: &[Listed], at: usize) -> Option<usize> {
 
 /// What a pane is doing, as its shell said it: a program's progress (its
 /// share done, none where it says only that it's busy, and whether it
-/// failed), the command running, how the last one ended, and its folder.
+/// failed), the command running, how the last one ended, its folder, and
+/// the git branch that folder's checkout is on (`git_branch`).
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Doing {
     pub progress: Option<(Option<u8>, bool)>,
     pub running: Option<String>,
     pub ended: Option<(String, i32)>,
     pub folder: Option<String>,
+    pub branch: Option<crate::git_branch::Head>,
 }
 
 /// The line under a tab's (or a pane's) name.
@@ -228,13 +230,16 @@ pub enum Line {
     Running(String),
     /// How the last command ended, until the next starts.
     Ended { command: String, ok: bool },
+    /// The git branch its folder's checkout is on, in the folder's place:
+    /// a branch's name, or a detached commit's short id.
+    Branch { name: String, detached: bool },
     /// Its folder, as [`folder_shown`] writes it.
     Folder(String),
     Nothing,
 }
 
 /// The first of what `doing` has: progress, the command running, how the
-/// last ended, the folder.
+/// last ended, the branch, the folder.
 pub fn line(doing: &Doing) -> Line {
     if let Some((percent, failed)) = doing.progress {
         return Line::Progress { percent, failed };
@@ -245,9 +250,12 @@ pub fn line(doing: &Doing) -> Line {
     if let Some((command, code)) = doing.ended.as_ref().filter(|(c, _)| !c.is_empty()) {
         return Line::Ended { command: command.clone(), ok: *code == 0 };
     }
-    match &doing.folder {
-        Some(folder) => Line::Folder(folder.clone()),
-        None => Line::Nothing,
+    use crate::git_branch::Head;
+    match (&doing.branch, &doing.folder) {
+        (Some(Head::Branch(name)), _) => Line::Branch { name: name.clone(), detached: false },
+        (Some(Head::Detached(id)), _) => Line::Branch { name: id.clone(), detached: true },
+        (None, Some(folder)) => Line::Folder(folder.clone()),
+        (None, None) => Line::Nothing,
     }
 }
 
@@ -682,8 +690,8 @@ mod tests {
     }
 
     #[test]
-    fn the_line_says_progress_then_the_command_running_then_the_last_end_then_the_folder() {
-        let all = Doing { progress: Some((Some(40), false)), running: Some("cargo build".into()), ended: Some(("make".into(), 2)), folder: Some("~/src".into()) };
+    fn the_line_says_progress_then_the_command_running_then_the_last_end_then_the_branch_or_the_folder() {
+        let all = Doing { progress: Some((Some(40), false)), running: Some("cargo build".into()), ended: Some(("make".into(), 2)), folder: Some("~/src".into()), branch: None };
         assert_eq!(line(&all), Line::Progress { percent: Some(40), failed: false });
         let running = Doing { progress: None, ..all.clone() };
         assert_eq!(line(&running), Line::Running("cargo build".into()));
@@ -692,6 +700,11 @@ mod tests {
         assert_eq!(line(&Doing { ended: Some(("ls".into(), 0)), ..ended.clone() }), Line::Ended { command: "ls".into(), ok: true });
         let idle = Doing { ended: None, ..ended };
         assert_eq!(line(&idle), Line::Folder("~/src".into()));
+        // In a checkout, its branch in the folder's place; after the rest.
+        use crate::git_branch::Head;
+        assert_eq!(line(&Doing { branch: Some(Head::Branch("main".into())), ..idle.clone() }), Line::Branch { name: "main".into(), detached: false });
+        assert_eq!(line(&Doing { branch: Some(Head::Detached("3c128fd".into())), ..idle.clone() }), Line::Branch { name: "3c128fd".into(), detached: true });
+        assert_eq!(line(&Doing { branch: Some(Head::Branch("main".into())), ..running.clone() }), Line::Running("cargo build".into()));
         assert_eq!(line(&Doing::default()), Line::Nothing);
     }
 

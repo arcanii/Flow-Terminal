@@ -4642,9 +4642,10 @@ fn draw_row_menu(c: &mut Canvas<'_>, v: &View<'_>, menu: &SidebarMenu, at: Rect,
 
 /// What a tab or a pane is doing, on the line under its name in the
 /// sidebar: a program's progress as a thin bar and its share, the command
-/// running after a steady dot, how the last ended after a ✓ or ✗, or the
-/// folder, cut from its start. None of it moves, so none keeps frames
-/// coming.
+/// running after a steady dot, how the last ended after a ✓ or ✗, the git
+/// branch its folder's checkout is on after a branch's picture (a commit's
+/// where it's detached), or the folder, cut from its start. None of it
+/// moves, so none keeps frames coming.
 fn draw_sidebar_line(c: &mut Canvas<'_>, (x, y): (f32, f32), room: f32, line: &crate::tab_sidebar::Line, s: f32) {
     use crate::tab_sidebar::Line;
     let ch = c.cell.height;
@@ -4672,10 +4673,34 @@ fn draw_sidebar_line(c: &mut Canvas<'_>, (x, y): (f32, f32), room: f32, line: &c
             c.text(x, y, mark, rgba(color, 1.0), false);
             c.text(x + mw, y, &fit(c, command, (room - mw).max(0.0)), rgba(DIM, 1.0), false);
         }
+        Line::Branch { name, detached } => {
+            draw_branch_mark(c, (x, y + ch * 0.5), *detached, rgba(ACCENT2, 0.85), s);
+            let tx = x + 14.0 * s;
+            c.text(tx, y, &fit(c, name, (room - (tx - x)).max(0.0)), rgba(DIM, 1.0), false);
+        }
         Line::Folder(folder) => {
             c.text(x, y, &fit_left(c, folder, room), rgba(DIM, 0.9), false);
         }
         Line::Nothing => {}
+    }
+}
+
+/// A branch's picture before its name on a tab's line, about 10 points wide
+/// from `x` and centered on `cy`, drawn from round-ended segments as the
+/// sidebar's pin is, so it's the same in every font: a line of commits with
+/// a branch leaving it; or, `detached`, a single commit on its line.
+fn draw_branch_mark(c: &mut Canvas<'_>, (x, cy): (f32, f32), detached: bool, ink: Rgba, s: f32) {
+    let at = |px: f32, py: f32| [x + px * s, cy + py * s];
+    let (line, dot) = ((0.75 * s).max(0.6), (1.7 * s).max(1.2));
+    if detached {
+        c.capsule(at(0.0, 0.0), at(10.0, 0.0), line, ink);
+        c.capsule(at(5.0, 0.0), at(5.0, 0.0), dot + 0.6 * s, ink);
+        return;
+    }
+    c.capsule(at(2.0, -4.5), at(2.0, 4.5), line, ink);
+    c.capsule(at(8.0, -2.5), at(2.5, 2.0), line, ink);
+    for (px, py) in [(2.0, -4.5), (2.0, 4.5), (8.0, -2.5)] {
+        c.capsule(at(px, py), at(px, py), dot, ink);
     }
 }
 

@@ -19,6 +19,7 @@ pub mod flow_command;
 mod frames;
 mod fx;
 mod gallery;
+pub mod git_branch;
 mod graphics;
 pub mod hardware;
 pub mod help;
