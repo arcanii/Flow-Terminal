@@ -140,6 +140,13 @@ much the same on Windows, macOS and Linux?**
   - on the Mac and Linux, zsh and bash.
 
   Any tab splits into [panes](docs/manual/terminal.md#split-panes).
+- **[Tabs in groups](docs/manual/terminal.md#groups-of-tabs),** named,
+  colored, and wearing a theme of their own if you like, in a
+  [sidebar](docs/manual/terminal.md#the-tab-sidebar) that pops out or
+  stays pinned beside the terminal. It says what each tab is doing at a
+  glance (a build's progress, the command running, how the last one
+  ended, the git branch), and tabs drag into groups and out, there or in
+  the title bar.
 - **One Flow on all three systems,** as far as each one allows: the same
   features, settings and config file, with `Ctrl+Shift` where the Mac
   has `⌘`.
@@ -183,6 +190,8 @@ much the same on Windows, macOS and Linux?**
 | A tab [split in two](docs/manual/terminal.md#split-panes), each pane in a theme of its own | [Rain on the window](docs/manual/liquid-styles.md), one of the liquid styles |
 | ![The Flow notanAmiga CLI theme](docs/screenshots/theme-amiga.png) | ![A 3D model in the terminal](docs/screenshots/model.png) |
 | One of the old machines' [themes](docs/manual/themes.md) | A [3D model](docs/manual/images.md#3d-models) in the terminal |
+| ![The tab sidebar pinned beside a split tab, two groups in it](docs/screenshots/tab-sidebar-pinned.png) | ![The command palette](docs/screenshots/palette.png) |
+| Tabs in [groups](docs/manual/terminal.md#groups-of-tabs), in the [sidebar](docs/manual/terminal.md#the-tab-sidebar) pinned beside the terminal | The [command palette](docs/manual/terminal.md#the-command-palette), which reaches everything |
 
 ## Install
 
