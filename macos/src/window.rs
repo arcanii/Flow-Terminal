@@ -1,10 +1,13 @@
 //! Window dressing on macOS: the traffic lights in Flow's title bar, the
-//! title bar double-click, the Dock icon of unbundled builds, sending the
-//! window behind the others and error alerts.
+//! title bar double-click, the window moved only from the title bar's empty
+//! space, the Dock icon of unbundled builds, sending the window behind the
+//! others and error alerts.
+
+use std::sync::Once;
 
 use objc2::rc::Retained;
-use objc2::runtime::AnyObject;
-use objc2::{AnyThread, MainThreadMarker, Message};
+use objc2::runtime::{AnyClass, AnyObject, Bool, Imp, Sel};
+use objc2::{sel, AnyThread, MainThreadMarker, Message};
 use objc2_app_kit::{
     NSAlert, NSApplication, NSApplicationActivationOptions, NSApplicationActivationPolicy, NSImage, NSRunningApplication, NSView, NSWindow, NSWindowButton, NSWindowStyleMask,
 };
@@ -107,6 +110,7 @@ pub fn keep_key_repeat() {
 /// One-time setup: no automatic tabs (Flow has one window), and Flow's icon
 /// in the Dock when it runs as a bare binary.
 pub fn setup(_window: &Window) {
+    keep_still_under_presses();
     let Some(mtm) = MainThreadMarker::new() else { return };
     NSWindow::setAllowsAutomaticWindowTabbing(false, mtm);
     // `cargo run` starts a bare binary, which the Dock shows with a generic
@@ -118,6 +122,46 @@ pub fn setup(_window: &Window) {
             unsafe { NSApplication::sharedApplication(mtm).setApplicationIconImage(Some(&image)) };
         }
     }
+}
+
+type CanMoveWindow = unsafe extern "C-unwind" fn(&AnyObject, Sel) -> Bool;
+
+/// AppKit moves a window whose title bar lies over its content (a
+/// transparent title bar on a full-size content view, as tall as Flow's
+/// own, `place_traffic_lights`) when a drag starts anywhere in that strip,
+/// unless the view under the pointer says it can't
+/// (`mouseDownCanMoveWindow`, which an NSView that isn't opaque answers
+/// yes): so a tab's pill dragged along the title bar moved the whole window
+/// (the user, 2026-11-28). winit's view class gets that method of its own,
+/// answering no, and Flow moves the window itself from the title bar's
+/// empty space (`App`'s `drag_window`, on a press there that hits nothing,
+/// while AppKit's mouse-down is still the current event). Leaves winit
+/// alone where its view class already answers it, or isn't there.
+fn keep_still_under_presses() {
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        let can_move = sel!(mouseDownCanMoveWindow);
+        let (Some(class), Some(view)) = (AnyClass::get(c"WinitView"), AnyClass::get(c"NSView")) else { return };
+        if class.instance_methods().iter().any(|m| m.name() == can_move) {
+            return;
+        }
+        let Some(own) = view.instance_method(can_move) else { return };
+        // SAFETY: the function has the signature of the method it
+        // overrides, whose type encoding it's added with, on a subclass of
+        // NSView's that doesn't define it, so no other view changes.
+        unsafe {
+            let types = objc2::ffi::method_getTypeEncoding(own);
+            let imp = std::mem::transmute::<CanMoveWindow, Imp>(cannot_move_window);
+            if !objc2::ffi::class_addMethod(class as *const AnyClass as *mut AnyClass, can_move, imp, types).as_bool() {
+                log::warn!("couldn't keep the window still under presses; dragging a tab may move it");
+            }
+        }
+    });
+}
+
+/// winit's view's `mouseDownCanMoveWindow`: never.
+unsafe extern "C-unwind" fn cannot_move_window(_this: &AnyObject, _cmd: Sel) -> Bool {
+    Bool::NO
 }
 
 /// Centers the close, minimize and zoom buttons in a title bar

@@ -1171,15 +1171,29 @@ pub struct SidebarView {
 /// A row dragged in the sidebar (`tab_sidebar::drop_at`).
 #[derive(Debug, Clone, PartialEq)]
 pub struct SidebarDrag {
-    /// Its place among the rows, and its name, which follows the pointer.
+    /// Its place among the rows.
     pub row: Option<usize>,
-    pub name: String,
     /// The group's header it would go into, by its place.
     pub onto: Option<usize>,
     /// The gap it would go into: above the row at this place (the rows'
     /// count, after the last), set in and in its color where it would join
     /// a group there.
     pub gap: Option<(usize, Option<[u8; 3]>)>,
+}
+
+/// A tab or a group being dragged, as the title bar and the pointer show
+/// it (`tab_sidebar::Drop`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct TabDrag {
+    /// The tab dragged, by its place in the bar, whose pill is dimmed;
+    /// none for a group.
+    pub tab: Option<usize>,
+    /// The title bar's gap it would land in: before the tab at this place
+    /// (the tabs' count, after the last), and the color of the group it
+    /// would join there.
+    pub bar: Option<(usize, Option<[u8; 3]>)>,
+    /// Its name, beside the pointer.
+    pub name: String,
 }
 
 #[derive(Debug, Clone)]
@@ -1223,6 +1237,8 @@ pub struct View<'a> {
     /// A tab's menu opened from its pill (a right click), while the
     /// sidebar is in: the tab's place, and the menu.
     pub pill_menu: Option<(usize, SidebarMenu)>,
+    /// A tab or a group being dragged, by its pill, its row or its header.
+    pub tab_drag: Option<TabDrag>,
     /// Efficient mode is on, which its pill in the title bar shows.
     pub efficient: bool,
     /// It's on only because the computer runs on battery or saves power
@@ -1360,6 +1376,10 @@ pub struct Drawn {
     /// The tab sidebar's first row shown, as the drawing kept the chosen
     /// one in view.
     pub sidebar_top: usize,
+    /// Each tab's pill in the title bar, in their order, kept apart from
+    /// the hits, which a popped-out sidebar clears, for where a tab dragged
+    /// would land.
+    pub pills: Vec<Rect>,
 }
 
 pub fn draw(c: &mut Canvas<'_>, v: &View<'_>) -> Drawn {
@@ -1370,6 +1390,7 @@ pub fn draw(c: &mut Canvas<'_>, v: &View<'_>) -> Drawn {
     let mut cursor = None;
     let mut naming = None;
     let plus = draw_title(c, v, &mut hits, &mut naming);
+    let pills: Vec<Rect> = (0..v.tabs.len()).map_while(|i| hits.iter().find(|(_, h)| *h == Hit::Tab(i)).map(|&(r, _)| r)).collect();
     if let Some(color) = palette::ink().border {
         draw_border(c, v, color);
     }
@@ -1473,6 +1494,10 @@ pub fn draw(c: &mut Canvas<'_>, v: &View<'_>) -> Drawn {
             draw_row_menu(c, v, menu, pill, true, &mut hits);
         }
     }
+    // The name of a tab or a group being dragged, beside the pointer.
+    if let Some(d) = &v.tab_drag {
+        draw_drag_name(c, v, &d.name);
+    }
     if let Some(panel) = v.history {
         hits.clear();
         caret = Some(draw_history(c, v, panel, &mut hits));
@@ -1534,7 +1559,7 @@ pub fn draw(c: &mut Canvas<'_>, v: &View<'_>) -> Drawn {
         draw_help(c, v, help, &mut hits);
         caret = None;
     }
-    Drawn { hits, caret, sidebar_top }
+    Drawn { hits, caret, sidebar_top, pills }
 }
 
 /// A page of help over the screen it's about, as wide as the command
@@ -1943,6 +1968,8 @@ fn draw_tabs(c: &mut Canvas<'_>, v: &View<'_>, x: f32, limit: f32, hits: &mut Ve
     // A name being typed: its field's width, with room for a few letters more.
     let typing = |i: usize| v.renaming.filter(|(at, _)| *at == i).map(|(_, f)| f);
     let field_w = |f: &crate::settings::TextField| (c.text_width(&f.text()) + 4.0 * c.cell.width).max(TAB_FIELD_LEAST * s) + 20.0 * s;
+    // Each pill drawn, for where a tab dragged would land.
+    let mut pills: Vec<Rect> = Vec::new();
     let natural: Vec<f32> = v
         .tabs
         .iter()
@@ -1973,6 +2000,7 @@ fn draw_tabs(c: &mut Canvas<'_>, v: &View<'_>, x: f32, limit: f32, hits: &mut Ve
         if let Some(f) = typing(i) {
             *naming = Some(draw_tab_field(c, v, r, f));
             hits.push((r, Hit::Tab(i)));
+            pills.push(r);
             x += w + gap;
             continue;
         }
@@ -2002,7 +2030,12 @@ fn draw_tabs(c: &mut Canvas<'_>, v: &View<'_>, x: f32, limit: f32, hits: &mut Ve
         let fg = if active { rgba(k.accent, 1.0) } else { rgba(k.fg, if hovered { 0.95 } else { 0.7 }) };
         c.text(tx, ty, &label, fg, active);
         hits.push((r, Hit::Tab(i)));
-        if closable && (hovered || active) {
+        // The pill dragged, dimmed where it was.
+        if v.tab_drag.as_ref().is_some_and(|d| d.tab == Some(i)) {
+            c.rect(r.x, r.y, r.w, r.h, rgba(PANEL_TINT, 0.6), h * 0.5);
+        }
+        pills.push(r);
+        if closable && (hovered || active) && v.tab_drag.is_none() {
             let cr = Rect::new(r.x + r.w - close_w - 4.0 * s, y + 3.0 * s, close_w, h - 6.0 * s);
             let on = cr.contains(v.hover);
             if on {
@@ -2013,6 +2046,18 @@ fn draw_tabs(c: &mut Canvas<'_>, v: &View<'_>, x: f32, limit: f32, hits: &mut Ve
             hits.push((cr, Hit::CloseTab(i)));
         }
         x += w + gap;
+    }
+    // Where a tab dragged would land: a line in the gap, in the color of
+    // the group it would join there, else the accent.
+    if let Some((at, color)) = v.tab_drag.as_ref().and_then(|d| d.bar) {
+        let gx = match pills.get(at) {
+            Some(r) => Some(r.x - gap * 0.5),
+            None => pills.last().map(|r| r.x + r.w + gap * 0.5),
+        };
+        if let Some(gx) = gx {
+            let t = (3.0 * s).round().max(2.0);
+            c.rect((gx - t * 0.5).round(), y - 3.0 * s, t, h + 6.0 * s, rgba(color.unwrap_or(ACCENT), 1.0), t * 0.5);
+        }
     }
     let plus = pill(c, v, x, "+", false, ACCENT);
     hits.push((plus, Hit::NewTab));
@@ -4510,17 +4555,22 @@ fn draw_sidebar(c: &mut Canvas<'_>, v: &View<'_>, sb: &SidebarView, hits: &mut V
     if let (Some(menu), Some(at)) = (&sb.menu, menu_at) {
         draw_row_menu(c, v, menu, at, false, hits);
     }
-    // The name of the row dragged, beside the pointer.
-    if let Some(d) = &sb.drag {
-        let name = fit(c, &d.name, w - 40.0 * s);
-        let (cw, chh) = (c.text_width(&name) + 20.0 * s, ch + 10.0 * s);
-        let cx = (v.hover.0 + 14.0 * s).min(l.width - cw - 4.0 * s);
-        let cy = (v.hover.1 - chh * 0.5).clamp(l.title.h, (l.height - chh - 4.0 * s).max(l.title.h));
-        c.glow(cx, cy, cw, chh, rgba(ACCENT, 0.22), 8.0 * s, 16.0 * s);
-        c.glass(cx, cy, cw, chh, rgba(PANEL_TINT, 1.0), 8.0 * s);
-        c.text(cx + 10.0 * s, cy + 5.0 * s, &name, rgba(FOREGROUND, 1.0), true);
-    }
     (caret, top, Some(x + w))
+}
+
+/// The name of a tab or a group being dragged, in a chip of glass below
+/// and right of the pointer, so the line where it would land stays in
+/// view, kept in the window.
+fn draw_drag_name(c: &mut Canvas<'_>, v: &View<'_>, name: &str) {
+    let l = v.layout;
+    let s = l.scale;
+    let name = fit(c, name, 240.0 * s);
+    let (w, h) = (c.text_width(&name) + 20.0 * s, c.cell.height + 10.0 * s);
+    let x = (v.hover.0 + 12.0 * s).min(l.width - w - 4.0 * s).max(4.0 * s);
+    let y = (v.hover.1 + 14.0 * s).clamp(4.0 * s, (l.height - h - 4.0 * s).max(4.0 * s));
+    c.glow(x, y, w, h, rgba(ACCENT, 0.22), 8.0 * s, 16.0 * s);
+    c.glass(x, y, w, h, rgba(PANEL_TINT, 1.0), 8.0 * s);
+    c.text(x + 10.0 * s, y + 5.0 * s, &name, rgba(FOREGROUND, 1.0), true);
 }
 
 /// The sidebar's pin, a pushpin around `(cx, cy)`, in points of `s`

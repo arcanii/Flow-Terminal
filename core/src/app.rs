@@ -751,6 +751,8 @@ pub struct App {
     pending_key: Option<String>,
     clipboard: Option<arboard::Clipboard>,
     hits: Vec<(Rect, Hit)>,
+    /// Each tab's pill as the title bar last drew it (`ui::Drawn::pills`).
+    pills: Vec<Rect>,
     toast: Option<(String, Instant)>,
     /// Caps Lock's notice at the terminal's foot, while keys typed into a
     /// pane go with it on.
@@ -1146,6 +1148,7 @@ impl App {
             pending_key: None,
             clipboard: None,
             hits: Vec::new(),
+            pills: Vec::new(),
             toast: None,
             caps: Default::default(),
             cursor_pos: (0.0, 0.0),
@@ -5853,7 +5856,7 @@ impl App {
         }
         self.mouse_prev = Some((p, now));
         let tab = self.hits.iter().rev().find(|(r, _)| r.contains(p)).and_then(|(_, h)| match h {
-            Hit::Tab(i) => Some(*i),
+            Hit::Tab(i) if self.sidebar.drag.is_none() => Some(*i),
             // A tab's row in the sidebar shows its card beside it, but while
             // a row is dragged.
             Hit::SidebarRow(r) if self.sidebar.drag.is_none() => self.sidebar.rows.get(*r).and_then(|row| match row.id {
@@ -6849,7 +6852,13 @@ impl App {
             // A double click on a tab names it, the first having brought it
             // forward.
             Hit::Tab(i) if self.clicks.1 == 2 && i == self.active => self.rename_tab(i),
-            Hit::Tab(i) => self.select_tab(i),
+            // It comes forward at once, and may be dragged along the bar.
+            Hit::Tab(i) => {
+                self.select_tab(i);
+                if let Some(t) = self.tabs.get(i) {
+                    self.sidebar.pressed = Some((crate::tab_sidebar::RowId::Tab(t.id), self.mouse));
+                }
+            }
             Hit::CloseTab(i) => self.close_tab_asking(i, el),
             Hit::NewTab => self.new_tab(),
             Hit::TabSidebar => self.toggle_sidebar(),
@@ -12307,6 +12316,7 @@ impl App {
         let renaming_at = self.renaming_at().filter(|_| !self.sidebar.is_open());
         let sidebar = self.sidebar_view();
         let pill_menu = self.pill_menu_view();
+        let tab_drag = self.tab_drag_view();
         let renderer = self.renderer.as_mut()?;
         renderer.fluid.set_material(fx_style.material());
         renderer.fluid.splats.extend(stirred.splats);
@@ -12388,6 +12398,7 @@ impl App {
             renaming: renaming_at.zip(self.renaming.as_ref()).map(|(i, r)| (i, &r.field)),
             sidebar,
             pill_menu,
+            tab_drag,
             session,
             ai: &self.ai,
             key_dialog: self.key_dialog.as_ref(),
@@ -12471,6 +12482,7 @@ impl App {
         self.models_moving = images.iter().any(|b| b.image.model.as_ref().is_some_and(|m| m.animating_at(now)));
         self.models_rest = images.iter().filter_map(|b| b.image.model.as_ref()?.rests_until(now)).min();
         self.hits = drawn.hits;
+        self.pills = drawn.pills;
         self.sidebar.top.set(drawn.sidebar_top);
         self.place_ime(drawn.caret);
         Some((quads, images, style))

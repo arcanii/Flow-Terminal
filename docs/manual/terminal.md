@@ -170,9 +170,15 @@ on a group's header, it goes into that group, after its tabs; between
 rows, it goes there, into the group where the line is set in and in the
 group's color, loose where it isn't (so the gap after a group's last tab
 takes it out of the group). Drag a group's header to move the group with
-all its tabs, between other groups and loose tabs. Esc while dragging, or
-letting go outside the sidebar, leaves it where it was; `⌥↑` and `⌥↓` move
-the row with the keys.
+all its tabs, between other groups and loose tabs. A tab's pill in the
+title bar drags too, the sidebar out or not: dropped among a group's
+pills it joins that group, and over a loose pill, past the last, or in
+the outer quarter of a group's first or last pill it lands loose, a line
+between the pills (in the group's color where it would join one)
+showing where. A pill can be dropped in a pinned sidebar, and a row from
+the sidebar in the title bar. Esc while dragging, or letting go away
+from both, leaves it where it was; `⌥↑` and `⌥↓` move the row with the
+keys.
 
 A tab's **×**, here or in the title bar, `⌘W` (`Ctrl+Shift+W`) and a
 pane's **✕** close it at once while it waits at its prompt. Where something

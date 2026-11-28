@@ -1682,8 +1682,9 @@ can be put into groups, the groups kept between launches. Designed on
 2026-11-28 (`docs/design/tab-groups.md`). Steps 1 to 4 are built
 (2026-11-28): tabs have names, groups are made and used from the command
 palette, and the sidebar pops out over the terminal or is pinned beside
-it. Step 5's sidebar half is built too (2026-11-28): a tab's row dragged
-into a group or out of one, and a group's header dragged whole.
+it. Step 5 is built too (2026-11-28): a tab's row or its pill in the
+title bar dragged into a group or out of one, and a group's header
+dragged whole.
 
 - **Decided:**
   - It pops out over the terminal, and a pin keeps it out, beside a
@@ -1698,7 +1699,7 @@ into a group or out of one, and a group's header dragged whole.
   3. the sidebar over the terminal, with a group's name typed in place
      (built);
   4. pinned (built);
-  5. dragging, in the sidebar (built) and the title bar;
+  5. dragging, in the sidebar and the title bar (built);
   6. a group's theme;
   7. the git branch on each tab's line.
 - **Left for a design of its own:** a server's address on the line,

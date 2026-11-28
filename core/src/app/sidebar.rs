@@ -142,19 +142,16 @@ impl App {
         });
         let naming = self.renaming.as_ref().and_then(|r| rows.iter().position(|row| row.id == r.what.row()).map(|at| (at, r.field.clone())));
         let closing = self.sidebar.closing.filter(|(_, at)| at.elapsed() < CONFIRM_WINDOW).and_then(|(g, _)| rows.iter().position(|r| r.id == RowId::Group(g)));
-        // A row dragged: its name, which follows the pointer, and where it
-        // would land, in the color of a group it would join.
+        // A row or a pill dragged: where it would land in the sidebar, in
+        // the color of a group it would join (its name beside the pointer,
+        // and where it would land in the title bar, are `tab_drag_view`'s).
         let drag = self.sidebar.drag.map(|(dragged, to)| {
-            let name = match dragged {
-                RowId::Group(g) => self.groups.get(g).map(|g| g.name.clone()).unwrap_or_default(),
-                _ => self.tab_of(dragged).and_then(|i| labels.get(i)).map(|l| l.label.clone()).unwrap_or_default(),
-            };
             let (onto, gap) = match to {
                 Some(tab_sidebar::Drop::Into(g)) => (rows.iter().position(|r| r.id == RowId::Group(g)), None),
                 Some(tab_sidebar::Drop::Gap { at, group }) => (None, Some((at, group.and_then(|g| self.groups.get(g)).map(|g| g.rgb())))),
-                None => (None, None),
+                _ => (None, None),
             };
-            ui::SidebarDrag { row: rows.iter().position(|r| r.id == dragged), name, onto, gap }
+            ui::SidebarDrag { row: rows.iter().position(|r| r.id == dragged), onto, gap }
         });
         let out = self.sidebar.out(Instant::now(), self.efficient());
         self.sidebar.rows = rows;
@@ -832,9 +829,10 @@ impl App {
         self.request_redraw();
     }
 
-    /// The pointer moved to `p` with a tab's row or a group's header
-    /// pressed: once it's gone `DRAG_AFTER` from the press, the row is
-    /// dragged, and where it would land follows the pointer.
+    /// The pointer moved to `p` with a tab's pill, a tab's row or a group's
+    /// header pressed: once it's gone `DRAG_AFTER` from the press, it's
+    /// dragged, and where it would land follows the pointer, in the title
+    /// bar or the sidebar, whichever it's over.
     pub(super) fn drag_sidebar_row(&mut self, p: (f32, f32)) {
         if self.sidebar.drag.is_none() {
             let Some((row, from)) = self.sidebar.pressed else { return };
@@ -852,13 +850,21 @@ impl App {
         self.request_redraw();
     }
 
-    /// Where the row dragged would land with the pointer at `p`, by the
-    /// rows as the frame last drew them: over a row, or above the first
-    /// shown, or below the last (past every row where that's the last);
-    /// nowhere outside the card.
+    /// Where the tab or group dragged would land with the pointer at `p`:
+    /// a tab along the title bar while the pointer's in it (or a little
+    /// under it), by its pills as the frame drew them; else in the sidebar
+    /// while it's out and the pointer's over its card, by its rows as the
+    /// frame drew them, over a row, above the first shown or below the
+    /// last (past every row where that's the last); nowhere otherwise.
     fn drop_under(&self, p: (f32, f32)) -> Option<tab_sidebar::Drop> {
         let (dragged, _) = self.sidebar.drag?;
-        let card = self.rect_of(Hit::SidebarCard)?;
+        if let RowId::Tab(id) = dragged {
+            if p.1 <= self.layout.title.h + 10.0 * self.scale {
+                let (over, part) = self.pill_under(p.0)?;
+                return tab_sidebar::bar_drop(&self.listed(), id, over, part);
+            }
+        }
+        let card = self.rect_of(Hit::SidebarCard).filter(|_| self.sidebar.is_open())?;
         if p.0 < card.x || p.0 > card.x + card.w {
             return None;
         }
@@ -881,9 +887,51 @@ impl App {
         tab_sidebar::drop_at(rows, group_of, dragged, over, part)
     }
 
-    /// The pointer let go with a row pressed: a row dragged lands where the
-    /// sidebar showed it would (nowhere shown, it stays); a group's header
-    /// pressed and let go without a drag folds, as its click does.
+    /// The title bar's pill under window x `x` (pixels), and how far across
+    /// it, as the frame last drew them: the gap halfway to the next counts
+    /// as the pill's edge, left of the first is its start, and right of the
+    /// last past every pill.
+    fn pill_under(&self, x: f32) -> Option<(usize, f32)> {
+        let pills = self.pills.as_slice();
+        if pills.len() != self.tabs.len() {
+            return None;
+        }
+        let first = pills.first()?;
+        if x < first.x {
+            return Some((0, 0.0));
+        }
+        let half_gap = 3.0 * self.scale;
+        let i = pills.iter().rposition(|r| r.x - half_gap <= x)?;
+        let r = pills[i];
+        if x > r.x + r.w + half_gap && i + 1 == pills.len() {
+            return Some((pills.len(), 0.0));
+        }
+        Some((i, ((x - r.x) / r.w.max(1.0)).clamp(0.0, 1.0)))
+    }
+
+    /// A tab or a group being dragged, as the title bar and the pointer
+    /// show it: the tab's pill dimmed, where in the bar it would land, and
+    /// its name, or the group's, beside the pointer.
+    pub(super) fn tab_drag_view(&self) -> Option<ui::TabDrag> {
+        let (dragged, to) = self.sidebar.drag?;
+        let tab = match dragged {
+            RowId::Tab(_) => self.tab_of(dragged),
+            _ => None,
+        };
+        let name = match dragged {
+            RowId::Group(g) => self.groups.get(g).map(|g| g.name.clone()).unwrap_or_default(),
+            _ => tab.and_then(|i| self.tab_labels().get(i).map(|l| l.label.clone())).unwrap_or_default(),
+        };
+        let bar = match to {
+            Some(tab_sidebar::Drop::Bar { at, group }) => Some((at, group.and_then(|g| self.groups.get(g)).map(|g| g.rgb()))),
+            _ => None,
+        };
+        Some(ui::TabDrag { tab, bar, name })
+    }
+
+    /// The pointer let go with a pill or a row pressed: what's dragged
+    /// lands where it showed it would (nowhere shown, it stays); a group's
+    /// header pressed and let go without a drag folds, as its click does.
     pub(super) fn sidebar_row_let_go(&mut self) {
         let pressed = self.sidebar.pressed.take();
         match self.sidebar.drag.take() {
@@ -899,8 +947,9 @@ impl App {
     }
 
     /// Row `row` dropped at `to`: a tab into a group, or among the tabs
-    /// into a group or loose; a group with all its tabs between the
-    /// others. A group a tab goes into opens, so it's seen there.
+    /// (by the sidebar's rows or along the title bar) into a group or
+    /// loose; a group with all its tabs between the others. A group a tab
+    /// goes into opens, so it's seen there.
     fn drop_sidebar_row(&mut self, row: RowId, to: tab_sidebar::Drop) {
         use tab_sidebar::Drop;
         let rows = self.sidebar.rows.clone();
@@ -917,6 +966,15 @@ impl App {
                 if let Some(i) = self.tab_of(row) {
                     let b = before(self, at);
                     self.regroup(|groups, tabs| groups.place(tabs, i, b, group));
+                }
+            }
+            (RowId::Tab(_), Drop::Bar { at, group }) => {
+                if let Some(i) = self.tab_of(row) {
+                    let b = (at < self.tabs.len()).then_some(at);
+                    self.regroup(|groups, tabs| groups.place(tabs, i, b, group));
+                    if let Some(g) = group {
+                        self.groups.fold(g, false);
+                    }
                 }
             }
             (RowId::Group(id), Drop::Gap { at, .. }) => {

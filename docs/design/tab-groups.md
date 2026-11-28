@@ -507,7 +507,7 @@ Each drag goes through `TabGroups`' moves, so the rules for the order
 are the same however a tab moves.
 
 As built for the sidebar (2026-11-28, the user asking for a tab dragged
-into a group; the title bar's comes later in this step):
+into a group), then the title bar (the same day):
 
 - **Where it lands** is `tab_sidebar::drop_at`, from the row under the
   pointer and how far down it is:
@@ -542,6 +542,36 @@ into a group; the title bar's comes later in this step):
 - **Letting go** drops it (`App::drop_sidebar_row`), the keys on the row
   moved; outside the card, after Esc, or once Flow's window loses the
   keys, it stays where it was.
+- **In the title bar** (`tab_sidebar::bar_drop`, `Drop::Bar`): a press
+  on a pill, which brings it forward as before, drags it past
+  `DRAG_AFTER`. It lands before or after the pill under the pointer by
+  the half it's in, joining that pill's group; over a loose pill, past
+  the last, or in the outer quarter of a group's first or last pill, it
+  lands loose. So a tab can join a group at either end, or land between
+  two groups that touch, and no group is parted. `TabGroups::place`
+  makes the move, as from the sidebar. A line in the gap (the group's
+  color where it would join one) shows where, the pill dragged is
+  dimmed, and no × shows meanwhile.
+- **On the Mac,** AppKit moved the whole window as a pill was dragged
+  (the user, trying it): its title strip is Flow's whole title bar
+  (`place_traffic_lights`), and winit's view let a drag starting there
+  move the window. winit's view class now answers
+  `mouseDownCanMoveWindow` no (`macos/src/window.rs`,
+  `keep_still_under_presses`), and the window moves only from the title
+  bar's empty space, where Flow asks AppKit to move it itself
+  (`drag_window`, as it already did). Windows and Linux draw their own
+  title bars, whose pills never moved the window.
+- **Between the two:** one drag state serves both (`Sidebar::pressed`,
+  `drag`): `App::drop_under` takes the title bar while the pointer's in
+  it, or just under it, for a tab, else the sidebar's card where it's out.
+  So a pill can be dropped in a pinned sidebar (a popped-out one goes as
+  a pill is pressed, as before), and a tab's row in the title bar. The
+  pills' places come from `ui::Drawn::pills`, kept apart from the hits,
+  which a popped-out sidebar clears (`App::pills`, `pill_under`). A group
+  dragged has no place in the title bar.
+- **The name beside the pointer** is drawn over everything
+  (`ui::draw_drag_name`, `View::tab_drag`, `App::tab_drag_view`), below
+  and right of the pointer, so the line stays in view.
 - **Left out:** scrolling the list as the pointer nears its ends (the
   wheel scrolls it during a drag), and dragging several picked tabs at
   once (a plain press lets them go, as a click does).
@@ -623,8 +653,8 @@ Each step is a commit of its own, tested before the next:
 4. **Pinned:** `Layout::compute`'s `left`, the Settings row, the width's
    drag, and `tab-sidebar-pinned.png`. Built on 2026-11-28 (see Over the
    terminal, or pinned).
-5. **Dragging,** in the sidebar and the title bar. The sidebar's built on
-   2026-11-28 (see Dragging); the title bar's is still to come.
+5. **Dragging,** in the sidebar and the title bar. Built on 2026-11-28
+   (see Dragging).
 6. **A group's theme.**
 7. **The git branch on the line.**
 

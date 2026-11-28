@@ -113,6 +113,9 @@ pub enum Drop {
     /// last): into group `group` there, where the rows either side are its,
     /// else loose.
     Gap { at: usize, group: Option<u64> },
+    /// Into the title bar's gap before the tab at `at` (the tabs' count:
+    /// after the last): into group `group` there, else loose ([`bar_drop`]).
+    Bar { at: usize, group: Option<u64> },
 }
 
 /// Where row `dragged` (a tab's or a group's header) would land with the
@@ -166,6 +169,33 @@ pub fn drop_at(rows: &[Row], group_of: impl Fn(u64) -> Option<u64>, dragged: Row
         RowId::Pane(..) => return None,
     }
     Some(Drop::Gap { at, group })
+}
+
+/// Where tab `dragged` (by its id) would land along the title bar, `tabs`
+/// being its pills in order, with the pointer over the pill at `over` (the
+/// tabs' count: past the last), `part` of the way across it. It goes before
+/// or after that pill by the half the pointer's in, into the pill's group;
+/// but over a loose pill, past the last, or in the outer quarter of a
+/// group's first or last pill, loose, so a tab can land between two groups
+/// and a group's tabs are never parted. None where it would go nowhere new.
+pub fn bar_drop(tabs: &[Listed], dragged: u64, over: usize, part: f32) -> Option<Drop> {
+    let i = tabs.iter().position(|t| t.id == dragged)?;
+    let (at, group) = match tabs.get(over) {
+        None => (tabs.len(), None),
+        Some(t) => {
+            let at = if part < 0.5 { over } else { over + 1 };
+            let group = t.group.filter(|&g| {
+                let first = over == 0 || tabs[over - 1].group != Some(g);
+                let last = tabs.get(over + 1).is_none_or(|n| n.group != Some(g));
+                !(first && part < 0.25 || last && part > 0.75)
+            });
+            (at, group)
+        }
+    };
+    if (at == i || at == i + 1) && group == tabs[i].group {
+        return None;
+    }
+    Some(Drop::Bar { at, group })
 }
 
 /// The tab, by its place in `tabs`, that a row dropped in the gap above
@@ -593,6 +623,26 @@ mod tests {
         // Where each gap lands among the tabs.
         let tabs_listed = listed(&tabs, &[1; 5]);
         assert_eq!([1, 2, 4, 5, all.len()].map(|at| landing(&all, &tabs_listed, at)), [Some(1), Some(1), Some(3), Some(3), None]);
+    }
+
+    #[test]
+    fn a_tab_dragged_along_the_title_bar_joins_the_group_it_lands_in_or_none() {
+        let (_, tabs, one, two) = grouped();
+        let bar = listed(&tabs, &[1; 5]);
+        let drop = |tab: u64, over: usize, part: f32| bar_drop(&bar, tab, over, part);
+        let gap = |at: usize, group: Option<u64>| Some(Drop::Bar { at, group });
+        // Pills: 1, [2 3] in one, [4] in two, 5.
+        assert_eq!(drop(5, 1, 0.4), gap(1, Some(one)), "a group's first pill, inside its outer quarter: first in it");
+        assert_eq!(drop(5, 1, 0.1), gap(1, None), "its outer quarter: before the group");
+        assert_eq!(drop(5, 2, 0.4), gap(2, Some(one)), "between two of its tabs");
+        assert_eq!(drop(5, 2, 0.9), gap(3, None), "a group's last pill's outer quarter: after the group");
+        assert_eq!(drop(5, 3, 0.5), gap(4, Some(two)), "a group of one tab, its middle");
+        assert_eq!(drop(2, 4, 0.2), gap(4, None), "a loose pill: loose beside it");
+        assert_eq!(drop(2, bar.len(), 0.0), gap(5, None), "past the last");
+        assert_eq!(drop(1, 0, 0.8), None, "beside itself, loose as it is");
+        assert_eq!(drop(3, 2, 0.4), None, "where it is in its group");
+        assert_eq!(drop(3, 2, 0.9), gap(3, None), "its own pill's outer quarter: out of its group, where it is");
+        assert_eq!(drop(9, 0, 0.5), None, "a tab that isn't there");
     }
 
     #[test]

@@ -2335,7 +2335,14 @@ row or a group's header dragged in the sidebar (`Sidebar::pressed`,
 `drag`, past `DRAG_AFTER`) lands where `tab_sidebar::drop_at` says, a
 header's middle (`Drop::Into`) or the gap nearer the pointer
 (`Drop::Gap`, a group's where the row below is its), moved by
-`TabGroups::place` and `place_group`, which refuse to part a group.
+`TabGroups::place` and `place_group`, which refuse to part a group; a
+tab's pill dragged along the title bar lands where `tab_sidebar::bar_drop`
+says (`Drop::Bar`, by `ui::Drawn::pills`), and either drag lands in the
+other place too (`App::drop_under`). On the Mac winit's view answers
+`mouseDownCanMoveWindow` no (`macos/src/window.rs`,
+`keep_still_under_presses`), since AppKit's title strip is Flow's whole
+title bar and moved the window under a pill's drag; the window moves
+only from the title bar's empty space, by Flow's `drag_window`.
 
 **Recording the terminal.** `Command::Record` (⇧⌘R, and `keys.rs`'s
 `RECORD_ELSEWHERE`: Ctrl+Alt+Shift+R on Windows, Ctrl+Alt+Shift+V on
