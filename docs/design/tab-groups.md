@@ -378,6 +378,49 @@ these, built as it opens, so all of it can be done without a pointer:
 - New Group;
 - Tab Sidebar.
 
+### Several tabs at once, and a tab's menu in the title bar
+
+Asked for on 2026-11-28, trying step 3: tabs picked together in the
+sidebar to make a group of, and a right click on a tab in the title bar
+that can make one.
+
+- **Picking:** in the sidebar, ⌘-click (Ctrl+click elsewhere) adds a
+  tab's row to what's picked or takes it out, and Shift-click picks every
+  tab from the row the keys are on to the one clicked; Shift+↑ and ⇧↓ do
+  the same from the keyboard, from where the pick began. A plain click or
+  arrow starts over, picking nothing. Only tabs are picked: group headers
+  and panes are passed over, and a folded group's tabs aren't rows. Esc
+  lets go of what's picked first, then puts the sidebar away. Picked rows
+  are lit with a bar at their left.
+- **With tabs picked:** New Group (the foot, the palette, its key) puts
+  them all into one new group, in their order, gathered at the first
+  one's place, its name ready to be typed. A picked row's … menu acts on
+  all of them, saying how many: New Group, Move to each group, Remove
+  from Group, and Close (asking once where any is busy, as a tab does);
+  Rename and Restart Tab are for one tab and leave the menu then.
+- **A tab's menu in the title bar:** a right click on a tab's pill (a
+  Control-click on the Mac) opens the same menu as its row's … in the
+  sidebar, drawn by Flow under the pill: Rename, Move to New Group and to
+  each other group, Remove from Group, Restart Tab and Close. It takes
+  the keys while it's open (↑ ↓, Enter, Esc) and a click outside closes
+  it. A right click elsewhere on the title bar opens the window manager's
+  menu, as before.
+- **The moves** are `TabGroups`' own, on whatever tabs a test picks
+  (`group_picked`, `join_picked`, `leave_picked`), so the order rules hold
+  for several tabs as for one.
+
+As built (2026-11-28): `Sidebar::picked` and `anchor` (`pick`, `pick_to`,
+`unpick`, `several`: more than one, since a pick of one is the row's
+own), `tab_sidebar::between` for a run, `picked_menu` and `Menu::many`
+(words with counts), `Menu::pill` for the title bar's (`App::pill_menu`,
+`pill_menu_open`, `pill_menu_click`, `menu_key`, drawn by
+`ui::draw_row_menu` under the pill, `View::pill_menu`). Closing several
+asks once for them all (`App::close_tabs_asking`, `CloseOf::Tabs`), and
+always where they're every tab. Move to New Group from a pill, where no
+header shows to type a name in, says where the tab went instead. Readers
+get the tree as multiselectable, each picked tab selected, and a pill's
+menu as a menu of its own with the keys.
+
 ### Closing a group whole
 
 Close Group closes every tab in it at once where each waits at its
@@ -395,6 +438,10 @@ drawing the next), else the first says what runs (`toast.close_running`)
 and the same close again within `CONFIRM_WINDOW` closes it
 (`App::close_now`, `close_tab_asking`, `close_pane_asking`, `CloseOf`).
 A shell that never said anything counts as waiting, so it never asks.
+The last tab closed from its row in the sidebar (its ×, its menu's
+Close, ⌘⌫) quits Flow, so it asks first (`sidebar.last_tab`), as Close
+Group does for every tab; before, the row's × was hidden and Close and
+⌘⌫ did nothing there, with no word why (the user, 2026-11-28).
 
 ### Dragging
 

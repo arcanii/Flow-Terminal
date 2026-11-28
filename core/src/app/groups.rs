@@ -34,6 +34,10 @@ impl App {
     /// is (or, in a group already, just after the rest of it). Named in its
     /// header while the sidebar is out.
     pub(super) fn new_group(&mut self) {
+        // Tabs picked together in the sidebar make the group together.
+        if self.sidebar.is_open() && self.sidebar.several().is_some() {
+            return self.group_picked();
+        }
         let Some(group) = self.new_group_of(self.active) else { return };
         if self.sidebar.is_open() {
             self.rename_group(group);
@@ -84,6 +88,14 @@ impl App {
             }
             None => self.show_toast(tf("toast.ungrouped", &[("tab", &tab)])),
         }
+    }
+
+    /// A toast saying tab `tab` (by its id) is in group `group` now.
+    pub(super) fn say_tab_grouped(&mut self, tab: u64, group: u64) {
+        let Some(i) = self.tabs.iter().position(|t| t.id == tab) else { return };
+        let (Some(name), Some(g)) = (self.tab_labels().get(i).map(|l| l.label.clone()), self.groups.get(group)) else { return };
+        let words = tf("toast.grouped", &[("tab", &name), ("group", &g.name)]);
+        self.show_toast(words);
     }
 
     /// Go to Tab: the tab `id` comes to the front, wherever it is now.

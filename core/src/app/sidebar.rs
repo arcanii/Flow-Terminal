@@ -111,7 +111,8 @@ impl App {
                         ui::SidebarKind::Pane { name: self.pane_name(pane), line: tab_sidebar::line(&self.doing(pane)), front: i == self.active && p == tab.focus }
                     }
                 };
-                ui::SidebarRow { level: row.level, kind }
+                let picked = matches!(row.id, RowId::Tab(id) if self.sidebar.picked.contains(&id)) && self.sidebar.picked.len() > 1;
+                ui::SidebarRow { level: row.level, kind, picked }
             })
             .collect();
         let chosen = self.sidebar.chosen_in(&rows);
@@ -125,7 +126,7 @@ impl App {
                         MenuItem::Color(c) => crate::tab_groups::COLORS.get(c).map(|(_, rgb)| *rgb),
                         _ => None,
                     };
-                    (tab_sidebar::words(item, &self.groups), swatch)
+                    (tab_sidebar::words(item, &self.groups, m.many), swatch)
                 })
                 .collect();
             Some(ui::SidebarMenu { row, items, chosen: m.chosen })
@@ -134,7 +135,7 @@ impl App {
         let closing = self.sidebar.closing.filter(|(_, at)| at.elapsed() < CONFIRM_WINDOW).and_then(|(g, _)| rows.iter().position(|r| r.id == RowId::Group(g)));
         let out = self.sidebar.out(Instant::now(), self.efficient());
         self.sidebar.rows = rows;
-        Some(ui::SidebarView { rows: shown, chosen, top: self.sidebar.top.get(), out, menu, naming, closing, closable: self.tabs.len() > 1 })
+        Some(ui::SidebarView { rows: shown, chosen, top: self.sidebar.top.get(), out, menu, naming, closing, picked: self.sidebar.picked.len() })
     }
 
     /// Whether it's still sliding out, which keeps frames coming.
@@ -221,11 +222,22 @@ impl App {
         let was = self.sidebar.chosen_in(&self.sidebar_rows());
         match row {
             RowId::Group(id) => self.close_group(id, el),
-            _ => {
-                if let Some(i) = self.tab_of(row).filter(|_| self.tabs.len() > 1) {
-                    self.close_tab_asking(i, el);
+            // Picked with others: they all close.
+            RowId::Tab(id) if self.sidebar.several().is_some_and(|p| p.contains(&id)) => {
+                let places = self.picked_places();
+                if self.close_tabs_asking(&places, el) {
+                    self.sidebar.unpick();
                 }
             }
+            // The last tab closes Flow, so it asks first, as Close Group
+            // does for every tab; the others as any tab does.
+            _ => match self.tab_of(row) {
+                Some(i) if self.tabs.len() == 1 => {
+                    self.close_tabs_asking(&[i], el);
+                }
+                Some(i) => self.close_tab_asking(i, el),
+                None => {}
+            },
         }
         self.sidebar_changed(was);
     }
@@ -263,6 +275,12 @@ impl App {
             self.sidebar.chosen = Some(row);
             self.sidebar.menu = match row {
                 RowId::Group(id) => Some(tab_sidebar::group_menu(id)),
+                // Picked with others, the menu acts on them all.
+                RowId::Tab(id) if self.sidebar.several().is_some_and(|p| p.contains(&id)) => {
+                    let picked = self.sidebar.picked.clone();
+                    let grouped = self.tabs.iter().any(|t| picked.contains(&t.id) && t.group.is_some());
+                    Some(tab_sidebar::picked_menu(id, picked.len(), grouped, &self.groups))
+                }
                 RowId::Tab(id) => {
                     let group = self.tabs.iter().find(|t| t.id == id).and_then(|t| t.group);
                     Some(tab_sidebar::tab_menu(id, group, &self.groups))
@@ -273,18 +291,107 @@ impl App {
         self.request_redraw();
     }
 
-    /// What a menu's item does, on its row.
-    fn sidebar_menu_do(&mut self, row: RowId, item: MenuItem, el: &ActiveEventLoop) {
+    /// A right click on tab `i`'s pill in the title bar: its menu, as its
+    /// row's in the sidebar, under the pill.
+    pub(super) fn pill_menu(&mut self, i: usize) {
+        let Some(tab) = self.tabs.get(i) else { return };
+        self.tab_picker = None;
+        self.sidebar.menu = Some(tab_sidebar::Menu { pill: true, ..tab_sidebar::tab_menu(tab.id, tab.group, &self.groups) });
+        self.request_redraw();
+    }
+
+    /// A pill's menu as it's drawn: its tab's place and its items.
+    pub(super) fn pill_menu_view(&self) -> Option<(usize, ui::SidebarMenu)> {
+        let m = self.sidebar.menu.as_ref().filter(|_| self.pill_menu_open())?;
+        let i = self.tab_of(m.row)?;
+        let items = m.items.iter().map(|&item| (tab_sidebar::words(item, &self.groups, m.many), None)).collect();
+        Some((i, ui::SidebarMenu { row: 0, items, chosen: m.chosen }))
+    }
+
+    /// A tab's menu opened from its pill, while the sidebar is in and its
+    /// tab is still open.
+    pub(super) fn pill_menu_open(&self) -> bool {
+        !self.sidebar.is_open() && self.sidebar.menu.as_ref().is_some_and(|m| m.pill && self.tab_of(m.row).is_some())
+    }
+
+    /// A press while a pill's menu is open: an item does what it says, and
+    /// anywhere else shuts the menu.
+    pub(super) fn pill_menu_click(&mut self, hit: Option<Hit>, el: &ActiveEventLoop) {
+        match hit {
+            Some(Hit::SidebarMenuItem(k)) => {
+                if let Some(m) = self.sidebar.menu.as_ref() {
+                    if let Some(item) = m.items.get(k).copied() {
+                        let (row, many) = (m.row, m.many);
+                        self.sidebar_menu_do(row, item, many, el);
+                    }
+                }
+            }
+            Some(Hit::SidebarCard) => {}
+            _ => self.sidebar.menu = None,
+        }
+        self.request_redraw();
+    }
+
+    /// The tabs picked together, as their places now, in order.
+    fn picked_places(&self) -> Vec<usize> {
+        (0..self.tabs.len()).filter(|&i| self.sidebar.picked.contains(&self.tabs[i].id)).collect()
+    }
+
+    /// New Group of the tabs picked together, gathered at the first's
+    /// place, its name ready to be typed; nothing picked any longer.
+    pub(super) fn group_picked(&mut self) {
+        let picked = std::mem::take(&mut self.sidebar.picked);
+        self.sidebar.anchor = None;
+        let made = self.regroup(|groups, tabs| groups.group_picked(tabs, |t| picked.contains(&t.id), Self::group_numbered));
+        if let Some((group, _)) = made {
+            self.rename_group(group);
+        }
+    }
+
+    /// What a menu's item does, on its row, or on the `many` tabs picked
+    /// with it.
+    fn sidebar_menu_do(&mut self, row: RowId, item: MenuItem, many: usize, el: &ActiveEventLoop) {
         self.sidebar.menu = None;
         let was = self.sidebar.chosen_in(&self.sidebar_rows());
+        if many > 1 {
+            let picked = std::mem::take(&mut self.sidebar.picked);
+            self.sidebar.anchor = None;
+            let is_picked = |t: &Tab| picked.contains(&t.id);
+            match item {
+                MenuItem::MoveToNew => {
+                    self.sidebar.picked = picked;
+                    self.group_picked();
+                }
+                MenuItem::MoveTo(group) => self.regroup(|groups, tabs| groups.join_picked(tabs, is_picked, group)),
+                MenuItem::Ungroup => self.regroup(|groups, tabs| groups.leave_picked(tabs, is_picked)),
+                MenuItem::CloseTab => {
+                    self.sidebar.picked = picked;
+                    let places = self.picked_places();
+                    // Asked first, they stay picked for the same again.
+                    if self.close_tabs_asking(&places, el) {
+                        self.sidebar.unpick();
+                    }
+                }
+                _ => {}
+            }
+            self.sidebar_changed(was);
+            return;
+        }
         let tab = self.tab_of(row);
         match (item, row, tab) {
             (MenuItem::Rename, RowId::Group(id), _) => self.rename_group(id),
             (MenuItem::Rename, _, Some(i)) => self.rename_tab(i),
             (MenuItem::MoveTo(group), _, Some(i)) => self.move_tab_to(i, group),
+            // Named in its header in the sidebar; from a pill, where no
+            // header shows, a toast says where the tab went.
             (MenuItem::MoveToNew, _, Some(i)) => {
+                let tab = self.tabs[i].id;
                 if let Some(group) = self.new_group_of(i) {
-                    self.rename_group(group);
+                    if self.sidebar.is_open() {
+                        self.rename_group(group);
+                    } else {
+                        self.say_tab_grouped(tab, group);
+                    }
                 }
             }
             (MenuItem::Ungroup, _, Some(i)) => self.ungroup_tab_at(i),
@@ -332,23 +439,8 @@ impl App {
         self.sidebar.rows = rows.clone();
         let chosen = self.sidebar.chosen_in(&rows);
         let row = chosen.map(|at| rows[at]);
-        // A menu takes ↑ ↓, Enter and Esc.
-        if let Some(menu) = self.sidebar.menu.as_mut() {
-            let n = menu.items.len().max(1);
-            match &event.logical_key {
-                Key::Named(NamedKey::ArrowDown) => menu.chosen = (menu.chosen + 1) % n,
-                Key::Named(NamedKey::ArrowUp) => menu.chosen = (menu.chosen + n - 1) % n,
-                Key::Named(NamedKey::Enter | NamedKey::Space) => {
-                    let (row, item) = (menu.row, menu.items.get(menu.chosen).copied());
-                    if let Some(item) = item {
-                        self.sidebar_menu_do(row, item, el);
-                    }
-                }
-                Key::Named(NamedKey::Escape) => self.sidebar.menu = None,
-                _ => {}
-            }
-            self.request_redraw();
-            return;
+        if self.sidebar.menu.is_some() {
+            return self.menu_key(event, el);
         }
         let close = if mac { mods.super_key() && matches!(event.logical_key, Key::Named(NamedKey::Backspace)) } else { mods.control_key() && matches!(event.logical_key, Key::Named(NamedKey::Delete)) };
         let alt = mods.alt_key();
@@ -360,8 +452,24 @@ impl App {
             }
             Key::Named(NamedKey::ArrowUp) if alt => self.sidebar_move(true),
             Key::Named(NamedKey::ArrowDown) if alt => self.sidebar_move(false),
-            Key::Named(NamedKey::ArrowUp) => self.sidebar.step(&rows, -1),
-            Key::Named(NamedKey::ArrowDown) => self.sidebar.step(&rows, 1),
+            // Shift with them picks every tab from where the pick began.
+            Key::Named(arrow @ (NamedKey::ArrowUp | NamedKey::ArrowDown)) if mods.shift_key() => {
+                if self.sidebar.anchor.is_none() {
+                    self.sidebar.anchor = self.sidebar.chosen;
+                }
+                self.sidebar.step(&rows, if *arrow == NamedKey::ArrowUp { -1 } else { 1 });
+                if let Some(to) = self.sidebar.chosen {
+                    self.sidebar.pick_to(&rows, to);
+                }
+            }
+            Key::Named(NamedKey::ArrowUp) => {
+                self.sidebar.unpick();
+                self.sidebar.step(&rows, -1);
+            }
+            Key::Named(NamedKey::ArrowDown) => {
+                self.sidebar.unpick();
+                self.sidebar.step(&rows, 1);
+            }
             Key::Named(NamedKey::PageUp) => self.sidebar.step(&rows, -8),
             Key::Named(NamedKey::PageDown) => self.sidebar.step(&rows, 8),
             Key::Named(NamedKey::Home) => self.sidebar.step(&rows, -(rows.len() as isize)),
@@ -396,6 +504,8 @@ impl App {
                     self.sidebar_menu(row.id);
                 }
             }
+            // Esc lets go of what's picked first.
+            Key::Named(NamedKey::Escape) if !self.sidebar.picked.is_empty() => self.sidebar.unpick(),
             Key::Named(NamedKey::Escape) => self.close_sidebar(),
             // Another of Flow's keys, as it's bound.
             _ if action.is_some() => {
@@ -412,6 +522,26 @@ impl App {
                     }
                 }
             }
+            _ => {}
+        }
+        self.request_redraw();
+    }
+
+    /// A key while a row's or a pill's menu is open: ↑ and ↓ choose, Enter
+    /// or Space does what's chosen, Esc shuts it; nothing else.
+    pub(super) fn menu_key(&mut self, event: &KeyEvent, el: &ActiveEventLoop) {
+        let Some(menu) = self.sidebar.menu.as_mut() else { return };
+        let n = menu.items.len().max(1);
+        match &event.logical_key {
+            Key::Named(NamedKey::ArrowDown) => menu.chosen = (menu.chosen + 1) % n,
+            Key::Named(NamedKey::ArrowUp) => menu.chosen = (menu.chosen + n - 1) % n,
+            Key::Named(NamedKey::Enter | NamedKey::Space) => {
+                let (row, item, many) = (menu.row, menu.items.get(menu.chosen).copied(), menu.many);
+                if let Some(item) = item {
+                    self.sidebar_menu_do(row, item, many, el);
+                }
+            }
+            Key::Named(NamedKey::Escape) => self.sidebar.menu = None,
             _ => {}
         }
         self.request_redraw();
@@ -438,6 +568,23 @@ impl App {
                 let Some(id) = row(i, self) else { return };
                 let double = self.clicks.1 == 2 && self.sidebar.chosen == Some(id);
                 self.sidebar.menu = None;
+                // ⌘-click (Ctrl+click elsewhere) picks a tab or lets it go,
+                // Shift-click picks a run; a plain click lets them all go.
+                let toggle = if cfg!(target_os = "macos") { self.modifiers.super_key() } else { self.modifiers.control_key() };
+                match id {
+                    RowId::Tab(tab) if toggle => {
+                        self.sidebar.pick(tab);
+                        self.request_redraw();
+                        return;
+                    }
+                    RowId::Tab(_) if self.modifiers.shift_key() => {
+                        let rows = self.sidebar.rows.clone();
+                        self.sidebar.pick_to(&rows, id);
+                        self.request_redraw();
+                        return;
+                    }
+                    _ => self.sidebar.unpick(),
+                }
                 match (id, double) {
                     // A double click names it: a tab's row, or a group's
                     // header, its fold put back as it was.
@@ -471,8 +618,8 @@ impl App {
                 }
             }
             Some(Hit::SidebarMenuItem(k)) => {
-                if let Some((r, item)) = self.sidebar.menu.as_ref().and_then(|m| Some((m.row, *m.items.get(k)?))) {
-                    self.sidebar_menu_do(r, item, el);
+                if let Some((r, item, many)) = self.sidebar.menu.as_ref().and_then(|m| Some((m.row, *m.items.get(k)?, m.many))) {
+                    self.sidebar_menu_do(r, item, many, el);
                 }
             }
             Some(Hit::SidebarNewTab) => {
@@ -532,6 +679,12 @@ impl App {
     /// buttons.
     pub(super) fn sidebar_dialog(&self) -> Option<access::Dialog> {
         use access::{Button, Chooser, Dialog, DialogKind, Item, List};
+        // A tab's menu from its pill: a menu alone, the keys in it.
+        if let Some(m) = self.sidebar.menu.as_ref().filter(|_| self.pill_menu_open()) {
+            let items = m.items.iter().enumerate().map(|(k, &item)| Item { label: tab_sidebar::words(item, &self.groups, m.many), rect: self.rect_of(Hit::SidebarMenuItem(k)), ..Item::default() }).collect();
+            let title = self.tab_of(m.row).and_then(|i| self.tab_labels().get(i).map(|l| l.label.clone())).unwrap_or_default();
+            return Some(Dialog { kind: DialogKind::TabSidebar, title, lists: vec![List { label: t("sidebar.tab_menu").to_string(), chooser: Chooser::SidebarMenu, items, chosen: Some(m.chosen) }], ..Dialog::default() });
+        }
         if !self.sidebar.is_open() {
             return None;
         }
@@ -549,18 +702,19 @@ impl App {
                         let count = self.tabs.iter().filter(|t| t.group == Some(id)).count();
                         let label = if count == 1 { tf("sidebar.group_one", &[("group", &name)]) } else { tf("sidebar.group", &[("group", &name), ("n", &count)]) };
                         let open = self.groups.get(id).is_some_and(|g| !g.folded);
-                        Item { label, detail: String::new(), rect, tree: Some((row.level, Some(open))) }
+                        Item { label, detail: String::new(), rect, tree: Some((row.level, Some(open), false)) }
                     }
                     RowId::Tab(id) => {
                         let i = self.tab_of(row.id).unwrap_or(0);
                         let tab = &self.tabs[i];
                         let label = labels.get(i).map(|l| l.label.clone()).unwrap_or(name);
                         let open = (tab.panes.len() > 1).then(|| self.sidebar.splits_open.contains(&id));
-                        Item { label, detail: Self::line_words(&tab_sidebar::line(&self.doing(tab.pane()))), rect, tree: Some((row.level, open)) }
+                        let picked = self.sidebar.several().is_some_and(|p| p.contains(&id));
+                        Item { label, detail: Self::line_words(&tab_sidebar::line(&self.doing(tab.pane()))), rect, tree: Some((row.level, open, picked)) }
                     }
                     RowId::Pane(_, p) => {
                         let detail = self.tab_of(row.id).and_then(|i| self.tabs[i].panes.get(p)).map(|pane| Self::line_words(&tab_sidebar::line(&self.doing(pane)))).unwrap_or_default();
-                        Item { label: name, detail, rect, tree: Some((row.level, None)) }
+                        Item { label: name, detail, rect, tree: Some((row.level, None, false)) }
                     }
                 }
             })
@@ -569,7 +723,7 @@ impl App {
         let chosen = self.sidebar.chosen_in(rows);
         let mut lists = vec![List { label: t("sidebar.title").to_string(), chooser: Chooser::Sidebar, items, chosen }];
         if let Some(m) = &self.sidebar.menu {
-            let items = m.items.iter().enumerate().map(|(k, &item)| Item { label: tab_sidebar::words(item, &self.groups), rect: self.rect_of(Hit::SidebarMenuItem(k)), ..Item::default() }).collect();
+            let items = m.items.iter().enumerate().map(|(k, &item)| Item { label: tab_sidebar::words(item, &self.groups, m.many), rect: self.rect_of(Hit::SidebarMenuItem(k)), ..Item::default() }).collect();
             lists.push(List { label: t("sidebar.more").to_string(), chooser: Chooser::SidebarMenu, items, chosen: Some(m.chosen) });
         }
         let buttons = vec![Button::new(t("menu.new_tab"), self.rect_of(Hit::SidebarNewTab)), Button::new(t("menu.new_group"), self.rect_of(Hit::SidebarNewGroup))];
@@ -581,6 +735,7 @@ impl App {
     pub(super) fn sidebar_focus(&self) -> access::Focus {
         use access::{DialogKind, Focus};
         match (&self.sidebar.menu, self.sidebar.chosen_in(&self.sidebar.rows)) {
+            (Some(m), _) if m.pill => Focus::Item(DialogKind::TabSidebar, 0, m.chosen),
             (Some(m), _) => Focus::Item(DialogKind::TabSidebar, 1, m.chosen),
             (None, Some(at)) => Focus::Item(DialogKind::TabSidebar, 0, at),
             (None, None) => Focus::Dialog(DialogKind::TabSidebar),

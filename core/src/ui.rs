@@ -1129,14 +1129,17 @@ pub struct SidebarView {
     /// The row of a group whose Close Group was pressed once, which a
     /// second press closes.
     pub closing: Option<usize>,
-    /// More than one tab, so a tab's × can close it.
-    pub closable: bool,
+    /// How many tabs are picked together, where more than one is: New
+    /// Group at the foot says so.
+    pub picked: usize,
 }
 
 #[derive(Debug, Clone)]
 pub struct SidebarRow {
     pub level: usize,
     pub kind: SidebarKind,
+    /// A tab picked with others (⌘-click, Shift-click).
+    pub picked: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -1169,6 +1172,9 @@ pub struct View<'a> {
     pub renaming: Option<(usize, &'a crate::settings::TextField)>,
     /// The tab sidebar, while it's out.
     pub sidebar: Option<SidebarView>,
+    /// A tab's menu opened from its pill (a right click), while the
+    /// sidebar is in: the tab's place, and the menu.
+    pub pill_menu: Option<(usize, SidebarMenu)>,
     /// Efficient mode is on, which its pill in the title bar shows.
     pub efficient: bool,
     /// It's on only because the computer runs on battery or saves power
@@ -1406,6 +1412,12 @@ pub fn draw(c: &mut Canvas<'_>, v: &View<'_>) -> Drawn {
     if let Some(picker) = v.tab_picker {
         draw_tab_picker(c, v, plus, picker, &mut hits);
         caret = None;
+    }
+    // A tab's menu, under its pill.
+    if let Some((i, menu)) = &v.pill_menu {
+        if let Some(&(pill, _)) = hits.iter().find(|(_, h)| *h == Hit::Tab(*i)) {
+            draw_row_menu(c, v, menu, pill, true, &mut hits);
+        }
     }
     if let Some(panel) = v.history {
         hits.clear();
@@ -4198,7 +4210,11 @@ fn draw_sidebar(c: &mut Canvas<'_>, v: &View<'_>, sb: &SidebarView, hits: &mut V
         let r = Rect::new(x + pad + k as f32 * (each + 6.0 * s), foot_y, each, foot_h);
         let over = r.contains(v.hover);
         c.rect(r.x, r.y, r.w, r.h, rgba([255, 255, 255], if over { 0.12 } else { 0.06 }), 8.0 * s);
-        let label = fit(c, &format!("+ {}", t(key)), r.w - 16.0 * s);
+        let label = match hit {
+            Hit::SidebarNewGroup if sb.picked > 1 => format!("+ {} · {}", t(key), sb.picked),
+            _ => format!("+ {}", t(key)),
+        };
+        let label = fit(c, &label, r.w - 16.0 * s);
         c.text(r.x + (r.w - c.text_width(&label)) * 0.5, r.y + (foot_h - ch) * 0.5, &label, rgba(FOREGROUND, if over { 1.0 } else { 0.8 }), false);
         hits.push((r, hit));
     }
@@ -4254,6 +4270,11 @@ fn draw_sidebar(c: &mut Canvas<'_>, v: &View<'_>, sb: &SidebarView, hits: &mut V
         if chosen {
             c.outline(r.x, r.y, r.w, r.h, rgba(ACCENT, 0.6), 8.0 * s, 1.0);
         }
+        // Picked with others: lit, with a bar at its left.
+        if row.picked {
+            c.rect(r.x, r.y, r.w, r.h, rgba(ACCENT2, 0.14), 8.0 * s);
+            c.rect(r.x + 1.0 * s, r.y + 6.0 * s, (3.0 * s).round(), r.h - 12.0 * s, rgba(ACCENT2, 0.95), 1.5 * s);
+        }
         hits.push((r, Hit::SidebarRow(i)));
         let left = r.x + 8.0 * s + row.level as f32 * indent;
         // A group's tab: a line in its color down the indent.
@@ -4265,16 +4286,13 @@ fn draw_sidebar(c: &mut Canvas<'_>, v: &View<'_>, sb: &SidebarView, hits: &mut V
         let mut right = r.x + r.w - 4.0 * s;
         let b = (ch * 1.25).round();
         let buttons = (over || chosen) && !matches!(row.kind, SidebarKind::Pane { .. });
-        let closable = matches!(row.kind, SidebarKind::Group { .. }) || sb.closable;
         let name_y = match row.kind {
             SidebarKind::Group { .. } => r.y + (r.h - ch) * 0.5,
             _ => r.y + 5.0 * s,
         };
         if buttons || sb.menu.as_ref().is_some_and(|m| m.row == i) {
+            // Every row has its ×: the last tab's asks before it quits Flow.
             for (label, hit) in [("×", Hit::SidebarClose(i)), ("…", Hit::SidebarMore(i))] {
-                if matches!(hit, Hit::SidebarClose(_)) && !closable {
-                    continue;
-                }
                 right -= b;
                 let br = Rect::new(right, name_y + (ch - b) * 0.5, b, b);
                 if br.contains(v.hover) {
@@ -4305,12 +4323,18 @@ fn draw_sidebar(c: &mut Canvas<'_>, v: &View<'_>, sb: &SidebarView, hits: &mut V
             hits.push((fr, Hit::SidebarFold(i)));
             tx += c.text_width(mark) + 6.0 * s;
         }
-        // A name being typed in its row: a field where its name goes.
+        // A name being typed in its row: a field where its name goes, after
+        // a group's color and a tab's alert, which stay in view.
         if let Some((_, field)) = sb.naming.as_ref().filter(|(at, _)| *at == i) {
-            let fr = Rect::new(tx - 4.0 * s, name_y - 3.0 * s, (right - 4.0 * s - tx + 4.0 * s).max(40.0 * s), ch + 6.0 * s);
+            let fx = match row.kind {
+                SidebarKind::Group { .. } => tx + 18.0 * s,
+                SidebarKind::Tab { alert: Some(_), .. } => tx + 12.0 * s,
+                _ => tx,
+            };
+            let fr = Rect::new(fx - 4.0 * s, name_y - 3.0 * s, (right - fx).max(40.0 * s), ch + 6.0 * s);
             c.rect(fr.x, fr.y, fr.w, fr.h, rgba([255, 255, 255], 0.08), 6.0 * s);
             c.outline(fr.x, fr.y, fr.w, fr.h, rgba(ACCENT, 0.9), 6.0 * s, 1.5 * s);
-            let (cx, _) = input_line_in(c, (tx, name_y), fr.w - 8.0 * s, (&field.text(), field.caret().1), v.preedit, s, FOREGROUND);
+            let (cx, _) = input_line_in(c, (fx, name_y), fr.w - 8.0 * s, (&field.text(), field.caret().1), v.preedit, s, FOREGROUND);
             if v.preedit.is_none_or(|p| p.caret().is_some()) {
                 c.rect(cx - 0.5 * s, name_y, 2.0 * s, ch, rgba(ACCENT, 1.0), 0.0);
             }
@@ -4364,33 +4388,44 @@ fn draw_sidebar(c: &mut Canvas<'_>, v: &View<'_>, sb: &SidebarView, hits: &mut V
     }
     // A row's menu, under its … (over it where there's no room below).
     if let (Some(menu), Some(at)) = (&sb.menu, menu_at) {
-        let item_h = (ch * 1.6).round();
-        let mw = menu.items.iter().map(|(words, swatch)| c.text_width(words) + if swatch.is_some() { 18.0 * s } else { 0.0 }).fold(0.0, f32::max) + 28.0 * s;
-        let mh = item_h * menu.items.len() as f32 + 8.0 * s;
-        let mx = (at.x + at.w - mw).max(4.0 * s).min(l.width - mw - 4.0 * s);
-        let below = at.y + at.h + 4.0 * s;
-        let my = if below + mh <= l.height - 4.0 * s { below } else { (at.y - mh - 4.0 * s).max(l.title.h) };
-        c.glow(mx, my, mw, mh, rgba(ACCENT, 0.18), 10.0 * s, 18.0 * s);
-        c.glass(mx, my, mw, mh, rgba(PANEL_TINT, 1.0), 10.0 * s);
-        hits.push((Rect::new(mx, my, mw, mh), Hit::SidebarCard));
-        for (k, (words, swatch)) in menu.items.iter().enumerate() {
-            let r = Rect::new(mx + 4.0 * s, my + 4.0 * s + k as f32 * item_h, mw - 8.0 * s, item_h);
-            let lit = k == menu.chosen || r.contains(v.hover);
-            if lit {
-                c.rect(r.x, r.y, r.w, r.h, rgba(ACCENT, if k == menu.chosen { 0.18 } else { 0.08 }), 6.0 * s);
-            }
-            let mut tx = r.x + 10.0 * s;
-            let ty = r.y + (item_h - ch) * 0.5;
-            if let Some(col) = swatch {
-                let d = 10.0 * s;
-                c.rect(tx, ty + (ch - d) * 0.5, d, d, rgba(*col, 0.95), 3.0 * s);
-                tx += d + 8.0 * s;
-            }
-            c.text(tx, ty, words, rgba(FOREGROUND, if lit { 1.0 } else { 0.85 }), k == menu.chosen);
-            hits.push((r, Hit::SidebarMenuItem(k)));
-        }
+        draw_row_menu(c, v, menu, at, false, hits);
     }
     (caret, top, Some(x + w))
+}
+
+/// A tab's or a group's menu (`tab_sidebar::Menu`), drawn by Flow: under
+/// `at` (a row's …, or with `left` a tab's pill, its left edges lined up),
+/// over it where there's no room below. A color item shows its swatch, and
+/// the item the keys are on is lit.
+fn draw_row_menu(c: &mut Canvas<'_>, v: &View<'_>, menu: &SidebarMenu, at: Rect, left: bool, hits: &mut Vec<(Rect, Hit)>) {
+    let l = v.layout;
+    let s = l.scale;
+    let ch = c.cell.height;
+    let item_h = (ch * 1.6).round();
+    let mw = menu.items.iter().map(|(words, swatch)| c.text_width(words) + if swatch.is_some() { 18.0 * s } else { 0.0 }).fold(0.0, f32::max) + 28.0 * s;
+    let mh = item_h * menu.items.len() as f32 + 8.0 * s;
+    let mx = if left { at.x } else { at.x + at.w - mw }.max(4.0 * s).min(l.width - mw - 4.0 * s);
+    let below = at.y + at.h + 4.0 * s;
+    let my = if below + mh <= l.height - 4.0 * s { below } else { (at.y - mh - 4.0 * s).max(l.title.h) };
+    c.glow(mx, my, mw, mh, rgba(ACCENT, 0.18), 10.0 * s, 18.0 * s);
+    c.glass(mx, my, mw, mh, rgba(PANEL_TINT, 1.0), 10.0 * s);
+    hits.push((Rect::new(mx, my, mw, mh), Hit::SidebarCard));
+    for (k, (words, swatch)) in menu.items.iter().enumerate() {
+        let r = Rect::new(mx + 4.0 * s, my + 4.0 * s + k as f32 * item_h, mw - 8.0 * s, item_h);
+        let lit = k == menu.chosen || r.contains(v.hover);
+        if lit {
+            c.rect(r.x, r.y, r.w, r.h, rgba(ACCENT, if k == menu.chosen { 0.18 } else { 0.08 }), 6.0 * s);
+        }
+        let mut tx = r.x + 10.0 * s;
+        let ty = r.y + (item_h - ch) * 0.5;
+        if let Some(col) = swatch {
+            let d = 10.0 * s;
+            c.rect(tx, ty + (ch - d) * 0.5, d, d, rgba(*col, 0.95), 3.0 * s);
+            tx += d + 8.0 * s;
+        }
+        c.text(tx, ty, words, rgba(FOREGROUND, if lit { 1.0 } else { 0.85 }), k == menu.chosen);
+        hits.push((r, Hit::SidebarMenuItem(k)));
+    }
 }
 
 /// What a tab or a pane is doing, on the line under its name in the

@@ -232,6 +232,42 @@ impl TabGroups {
         at
     }
 
+    /// Puts the tabs `picked` says into a new group, in their order,
+    /// gathered after the first of them, which goes where [`new_group`]
+    /// puts one: the group and its first tab's place.
+    ///
+    /// [`new_group`]: TabGroups::new_group
+    pub fn group_picked<T: Grouped>(&mut self, tabs: &mut Vec<T>, picked: impl Fn(&T) -> bool, numbered: impl Fn(usize) -> String) -> Option<(u64, usize)> {
+        let first = tabs.iter().position(&picked)?;
+        let (id, _) = self.new_group(tabs, first, numbered)?;
+        self.join_picked(tabs, picked, id);
+        let at = tabs.iter().position(|t| t.group() == Some(id))?;
+        Some((id, at))
+    }
+
+    /// Moves the tabs `picked` says into group `group`, each after its
+    /// tabs, in their order. A group that isn't there takes none.
+    pub fn join_picked<T: Grouped>(&mut self, tabs: &mut Vec<T>, picked: impl Fn(&T) -> bool, group: u64) {
+        let outside = |tabs: &[T]| tabs.iter().filter(|t| picked(t) && t.group() != Some(group)).count();
+        // From the front each time: a tab joining moves itself alone, after
+        // the group, so the next one out of it is the next in order.
+        while let Some(i) = tabs.iter().position(|t| picked(t) && t.group() != Some(group)) {
+            let before = outside(tabs);
+            self.join(tabs, i, group);
+            if outside(tabs) >= before {
+                break;
+            }
+        }
+    }
+
+    /// Takes the tabs `picked` says out of their groups, each just after
+    /// the rest of its group.
+    pub fn leave_picked<T: Grouped>(&mut self, tabs: &mut Vec<T>, picked: impl Fn(&T) -> bool) {
+        while let Some(i) = tabs.iter().position(|t| picked(t) && t.group().is_some()) {
+            self.leave(tabs, i);
+        }
+    }
+
     /// After tabs closed, opened or moved: a group no tab is in goes, a tab
     /// naming a group that isn't there is loose, and the groups go in the
     /// order their tabs come.
@@ -560,6 +596,32 @@ mod tests {
         g.step_group(&mut t, one, false);
         assert_eq!(shown(&g, &t), "D1E1afB2C2", "at the end it stays");
         holds(&g, &t);
+    }
+
+    #[test]
+    fn tabs_picked_together_gather_into_a_group_in_their_order() {
+        let mut g = TabGroups::default();
+        let mut t = tabs("abcdef");
+        // b and c in a group already; a, c and e picked.
+        let (old, _) = g.new_group(&mut t, 1, numbered).unwrap();
+        g.join(&mut t, 2, old);
+        let picked = |t: &T| matches!(t.0, 'a' | 'c' | 'e');
+        let (id, at) = g.group_picked(&mut t, picked, numbered).unwrap();
+        assert_eq!((at, shown(&g, &t)), (0, "A1C1E1B2df".into()));
+        assert_eq!(t.iter().filter(|t| t.1 == Some(id)).map(|t| t.0).collect::<String>(), "ace");
+        assert_eq!(t[3].1, Some(old), "b stays in its own");
+        holds(&g, &t);
+        // Moved, and out again.
+        let (two, _) = g.new_group(&mut t, 5, numbered).unwrap();
+        g.join_picked(&mut t, |t| matches!(t.0, 'a' | 'b'), two);
+        assert_eq!(shown(&g, &t), "C1E1dF2A2B2", "a and b after f, in their order, b's own group gone");
+        g.leave_picked(&mut t, |t| matches!(t.0, 'f' | 'b'));
+        assert_eq!(shown(&g, &t), "C1E1dA2bf");
+        holds(&g, &t);
+        // Nothing picked, or a group that isn't there: nothing moves.
+        assert_eq!(g.group_picked(&mut t, |_| false, numbered), None);
+        g.join_picked(&mut t, |t| t.0 == 'f', 99);
+        assert_eq!(shown(&g, &t), "C1E1dA2bf");
     }
 
     #[test]

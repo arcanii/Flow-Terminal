@@ -2318,7 +2318,12 @@ Its line reads `ShellState::ended`, kept for it. Snapshots show it as
 with (`Tab::number`, `free_number`), so none is renamed as another
 closes, and closing a tab or a pane with something running in it
 (`Session::busy_with`) asks first, a toast and the same close again
-within `CONFIRM_WINDOW` (`App::close_now`), as Close Group does.
+within `CONFIRM_WINDOW` (`App::close_now`), as Close Group does. Tabs
+are picked several at once in the sidebar (`Sidebar::picked`, ⌘-click,
+Shift-click, Shift and the arrows) for New Group and a picked row's menu
+(`picked_menu`, `TabGroups::group_picked`, `join_picked`, `leave_picked`),
+and a right click on a tab's pill opens its menu there (`Menu::pill`,
+`ui::draw_row_menu`).
 
 **Recording the terminal.** `Command::Record` (⇧⌘R, and `keys.rs`'s
 `RECORD_ELSEWHERE`: Ctrl+Alt+Shift+R on Windows, Ctrl+Alt+Shift+V on

@@ -313,6 +313,8 @@ impl Tab {
 enum CloseOf {
     Tab(u64),
     Pane(SessionId),
+    /// Several tabs picked in the sidebar, by a key made of their ids.
+    Tabs(u64),
 }
 
 /// The tab ids handed out so far.
@@ -2279,6 +2281,33 @@ impl App {
         }
     }
 
+    /// Closes the tabs at `places` (picked together in the sidebar, in
+    /// order, or the last tab from its row), asking first, once for them
+    /// all, while something runs in any, and always where they're every
+    /// tab, so Flow would quit. True where they closed.
+    fn close_tabs_asking(&mut self, places: &[usize], el: &ActiveEventLoop) -> bool {
+        let labels = self.tab_labels();
+        let busy_in = |i: usize| self.tabs[i].panes.iter().filter_map(|p| p.session.busy_with()).collect::<Vec<_>>();
+        let running: Vec<String> = places.iter().flat_map(|&i| busy_in(i)).collect();
+        let names: Vec<String> = places.iter().filter(|&&i| !busy_in(i).is_empty()).map(|&i| labels[i].label.clone()).collect();
+        let key = places.iter().fold(0u64, |k, &i| k.wrapping_mul(1_000_003).wrapping_add(self.tabs[i].id));
+        let what = CloseOf::Tabs(key);
+        if places.len() == self.tabs.len() && running.is_empty() {
+            let asked = self.close_asked.take().is_some_and(|(was, at)| was == what && at.elapsed() < CONFIRM_WINDOW);
+            if !asked {
+                self.close_asked = Some((what, Instant::now()));
+                self.show_toast(t(if places.len() == 1 { "sidebar.last_tab" } else { "sidebar.every_tab_picked" }));
+                return false;
+            }
+        } else if !self.close_now(what, &names.join(", "), &running) {
+            return false;
+        }
+        for &i in places.iter().rev() {
+            self.close_tab(i, el);
+        }
+        true
+    }
+
     /// Closes pane `id` of tab `i` (⌘W, its ✕, its frame's close box),
     /// asking first while something runs in it.
     fn close_pane_asking(&mut self, i: usize, id: SessionId) {
@@ -3152,9 +3181,13 @@ impl App {
         }
 
         // The tab sidebar, while it's out, takes the keys: its own, and
-        // Flow's shortcuts as they're bound.
+        // Flow's shortcuts as they're bound; a tab's menu from its pill,
+        // ↑ ↓, Enter and Esc.
         if self.sidebar.is_open() {
             return self.sidebar_key(&event, action, el);
+        }
+        if self.pill_menu_open() {
+            return self.menu_key(&event, el);
         }
 
         // The find bar, while it has the keys: all but the shortcuts it
@@ -6079,6 +6112,7 @@ impl App {
             || self.update_ask
             || self.restart_ask.is_some()
             || self.sidebar.is_open()
+            || self.pill_menu_open()
     }
 
     /// Whether an MCP server's question is the card in front, taking the
@@ -6408,9 +6442,14 @@ impl App {
                 return;
             }
             // In the tab sidebar, a row's menu.
+            let hit = self.hits.iter().rev().find(|(r, _)| r.contains(p)).map(|(_, h)| *h);
             if self.sidebar.is_open() {
-                let hit = self.hits.iter().rev().find(|(r, _)| r.contains(p)).map(|(_, h)| *h);
                 self.sidebar_context(hit);
+                return;
+            }
+            // On a tab's pill, its menu.
+            if let Some(Hit::Tab(i)) = hit.filter(|_| self.key_dialog.is_none() && self.about.is_none()) {
+                self.pill_menu(i);
                 return;
             }
             // Flow's title bar stands in for the window manager's, so a right
@@ -6606,9 +6645,14 @@ impl App {
         self.clicks = (now, count);
 
         let hit = self.hits.iter().rev().find(|(r, _)| r.contains(p)).map(|(_, h)| *h);
-        // The tab sidebar takes the pointer while it's out.
+        // The tab sidebar takes the pointer while it's out, and a tab's menu
+        // from its pill while that's open.
         if self.sidebar.is_open() {
             self.sidebar_click(hit, el);
+            return;
+        }
+        if self.pill_menu_open() {
+            self.pill_menu_click(hit, el);
             return;
         }
         // A click away from the open new-tab picker just closes it.
@@ -6958,7 +7002,7 @@ impl App {
             find: self.find.as_ref().is_some_and(|f| f.focus) && !self.ai.focus,
             palette: self.palette.is_some(),
             assistant: self.ai.focus && self.layout.panel.is_some(),
-            sidebar: self.sidebar.is_open(),
+            sidebar: self.sidebar.is_open() || self.pill_menu_open(),
             renaming: self.naming(),
         }
     }
@@ -12214,6 +12258,7 @@ impl App {
         // its row while it's out.
         let renaming_at = self.renaming_at().filter(|_| !self.sidebar.is_open());
         let sidebar = self.sidebar_view();
+        let pill_menu = self.pill_menu_view();
         let renderer = self.renderer.as_mut()?;
         renderer.fluid.set_material(fx_style.material());
         renderer.fluid.splats.extend(stirred.splats);
@@ -12294,6 +12339,7 @@ impl App {
             tab_picker: self.tab_picker.as_ref(),
             renaming: renaming_at.zip(self.renaming.as_ref()).map(|(i, r)| (i, &r.field)),
             sidebar,
+            pill_menu,
             session,
             ai: &self.ai,
             key_dialog: self.key_dialog.as_ref(),

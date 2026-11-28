@@ -165,6 +165,24 @@ pub fn arrow(row: Row, rows: &[Row], groups: &TabGroups, splits_open: &[u64], pa
     }
 }
 
+/// The tabs whose rows are from `from` to `to`, either way round, in the
+/// rows' order; group headers and panes passed over.
+pub fn between(rows: &[Row], from: RowId, to: RowId) -> Vec<u64> {
+    let (Some(a), Some(b)) = (rows.iter().position(|r| r.id == from), rows.iter().position(|r| r.id == to)) else {
+        return match to {
+            RowId::Tab(id) => vec![id],
+            _ => Vec::new(),
+        };
+    };
+    rows[a.min(b)..=a.max(b)]
+        .iter()
+        .filter_map(|r| match r.id {
+            RowId::Tab(id) => Some(id),
+            _ => None,
+        })
+        .collect()
+}
+
 /// The first row after `from` (from the top where none), going round,
 /// whose name starts with what `letter` typed, in any case: typing a
 /// letter goes to it, as in a list.
@@ -206,12 +224,16 @@ pub enum MenuItem {
     CloseGroup,
 }
 
-/// A row's menu while it's open, and the item the keys are on.
+/// A row's menu while it's open, and the item the keys are on: for its
+/// row alone, or for the `many` tabs picked with it, and opened from the
+/// row's … in the sidebar or from the tab's pill in the title bar (`pill`).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Menu {
     pub row: RowId,
     pub items: Vec<MenuItem>,
     pub chosen: usize,
+    pub many: usize,
+    pub pill: bool,
 }
 
 /// A tab's menu: Rename, Move to each other group and to a new one,
@@ -224,7 +246,21 @@ pub fn tab_menu(tab: u64, group: Option<u64>, groups: &TabGroups) -> Menu {
         items.push(MenuItem::Ungroup);
     }
     items.extend([MenuItem::RestartTab, MenuItem::CloseTab]);
-    Menu { row: RowId::Tab(tab), items, chosen: 0 }
+    Menu { row: RowId::Tab(tab), items, chosen: 0, many: 1, pill: false }
+}
+
+/// The menu of `many` tabs picked together, opened from tab `tab`'s row:
+/// a new group of them, each group to move them to, Remove from Group
+/// where one is in a group (`grouped`), and Close; Rename and Restart Tab
+/// are for one tab.
+pub fn picked_menu(tab: u64, many: usize, grouped: bool, groups: &TabGroups) -> Menu {
+    let mut items = vec![MenuItem::MoveToNew];
+    items.extend(groups.all().iter().map(|g| MenuItem::MoveTo(g.id)));
+    if grouped {
+        items.push(MenuItem::Ungroup);
+    }
+    items.push(MenuItem::CloseTab);
+    Menu { row: RowId::Tab(tab), items, chosen: 0, many, pill: false }
 }
 
 /// A group's menu: Rename, each color, Ungroup and Close Group.
@@ -232,14 +268,20 @@ pub fn group_menu(group: u64) -> Menu {
     let mut items = vec![MenuItem::Rename];
     items.extend((0..COLORS.len()).map(MenuItem::Color));
     items.extend([MenuItem::UngroupAll, MenuItem::CloseGroup]);
-    Menu { row: RowId::Group(group), items, chosen: 0 }
+    Menu { row: RowId::Group(group), items, chosen: 0, many: 1, pill: false }
 }
 
-/// An item's words, in the language in use.
-pub fn words(item: MenuItem, groups: &TabGroups) -> String {
+/// An item's words, in the language in use, for `many` tabs where it acts
+/// on more than one.
+pub fn words(item: MenuItem, groups: &TabGroups, many: usize) -> String {
+    let group = |id: u64| groups.get(id).map(|g| g.name.clone()).unwrap_or_default();
     match item {
+        MenuItem::MoveTo(id) if many > 1 => tf("sidebar.move_many_to", &[("n", &many), ("group", &group(id))]),
+        MenuItem::MoveToNew if many > 1 => tf("sidebar.group_many", &[("n", &many)]),
+        MenuItem::Ungroup if many > 1 => tf("sidebar.ungroup_many", &[("n", &many)]),
+        MenuItem::CloseTab if many > 1 => tf("sidebar.close_many", &[("n", &many)]),
         MenuItem::Rename => t("sidebar.rename").to_string(),
-        MenuItem::MoveTo(id) => tf("sidebar.move_to", &[("group", &groups.get(id).map(|g| g.name.clone()).unwrap_or_default())]),
+        MenuItem::MoveTo(id) => tf("sidebar.move_to", &[("group", &group(id))]),
         MenuItem::MoveToNew => t("sidebar.move_to_new").to_string(),
         MenuItem::Ungroup => t("sidebar.ungroup_tab").to_string(),
         MenuItem::RestartTab => t("menu.restart_tab").to_string(),
@@ -268,6 +310,10 @@ pub struct Sidebar {
     pub closing: Option<(u64, Instant)>,
     /// The rows as they were last laid out, for what's under the pointer.
     pub rows: Vec<Row>,
+    /// The tabs picked together (⌘-click, Shift-click, Shift and the
+    /// arrows), by their ids, and the row the pick began at.
+    pub picked: Vec<u64>,
+    pub anchor: Option<RowId>,
 }
 
 impl Sidebar {
@@ -291,6 +337,45 @@ impl Sidebar {
     /// Whether it's still sliding out, which keeps frames coming.
     pub fn sliding(&self, now: Instant, at_once: bool) -> bool {
         self.open.is_some() && self.out(now, at_once) < 1.0
+    }
+
+    /// ⌘-click (Ctrl+click elsewhere) on tab `id`'s row: it's picked, or
+    /// not again, the pick beginning there. The row the keys were on comes
+    /// into the pick first, so two tabs are picked by a click on the other.
+    pub fn pick(&mut self, id: u64) {
+        if self.picked.is_empty() {
+            if let Some(RowId::Tab(was)) = self.chosen.filter(|c| *c != RowId::Tab(id)) {
+                self.picked.push(was);
+            }
+        }
+        match self.picked.iter().position(|t| *t == id) {
+            Some(at) => {
+                self.picked.remove(at);
+            }
+            None => self.picked.push(id),
+        }
+        self.anchor = Some(RowId::Tab(id));
+        self.chosen = Some(RowId::Tab(id));
+    }
+
+    /// Shift-click, or Shift and an arrow: every tab from where the pick
+    /// began (the chosen row, where none had) to `to`, which takes the keys.
+    pub fn pick_to(&mut self, rows: &[Row], to: RowId) {
+        let anchor = *self.anchor.get_or_insert(self.chosen.unwrap_or(to));
+        self.picked = between(rows, anchor, to);
+        self.chosen = Some(to);
+    }
+
+    /// A plain click or arrow: nothing picked.
+    pub fn unpick(&mut self) {
+        self.picked.clear();
+        self.anchor = None;
+    }
+
+    /// The tabs picked, where more than one is; none for one alone, which a
+    /// row's own menu and New Group act on as they always have.
+    pub fn several(&self) -> Option<&[u64]> {
+        (self.picked.len() > 1).then_some(&self.picked[..])
     }
 
     /// The chosen row's place in `rows`.
@@ -431,8 +516,39 @@ mod tests {
         assert_eq!(menu.items.len(), 3 + COLORS.len());
         assert_eq!((menu.items[1], *menu.items.last().unwrap()), (Color(0), CloseGroup));
         crate::i18n::set_language("en", &[]);
-        assert_eq!(words(MoveTo(two), &groups), "Move to Group 2");
-        assert_eq!(words(Color(4), &groups), "Teal");
+        assert_eq!(words(MoveTo(two), &groups, 1), "Move to Group 2");
+        assert_eq!(words(Color(4), &groups, 1), "Teal");
+        // Several picked: no Rename or Restart Tab, and their counts said.
+        let many = picked_menu(1, 3, true, &groups);
+        assert_eq!(many.items, [MoveToNew, MoveTo(one), MoveTo(two), Ungroup, CloseTab]);
+        assert_eq!(words(MoveTo(two), &groups, 3), "Move 3 Tabs to Group 2");
+        assert_eq!(words(MoveToNew, &groups, 3), "New Group of 3 Tabs");
+        assert_eq!(words(CloseTab, &groups, 3), "Close 3 Tabs");
+        assert!(!picked_menu(1, 2, false, &groups).items.contains(&Ungroup), "none in a group");
+    }
+
+    #[test]
+    fn tabs_are_picked_by_a_click_each_or_a_run_from_where_the_pick_began() {
+        let (groups, tabs, one, _) = grouped();
+        let all = rows(&listed(&tabs, &[1; 5]), &groups, &[]);
+        let mut s = Sidebar { chosen: Some(RowId::Tab(1)), ..Sidebar::default() };
+        // ⌘-click on tab 3 picks it with the row the keys were on.
+        s.pick(3);
+        assert_eq!((s.picked.clone(), s.chosen), (vec![1, 3], Some(RowId::Tab(3))));
+        s.pick(3);
+        assert_eq!(s.picked, [1], "again, not");
+        assert_eq!(s.several(), None, "one alone is the row's own");
+        // Shift-click from tab 2 to tab 5: the header between passed over.
+        s.unpick();
+        s.chosen = Some(RowId::Tab(2));
+        s.pick_to(&all, RowId::Tab(5));
+        assert_eq!(s.several(), Some(&[2, 3, 4, 5][..]));
+        // Back up, from the same place.
+        s.pick_to(&all, RowId::Tab(1));
+        assert_eq!(s.picked, [1, 2]);
+        assert_eq!(between(&all, RowId::Group(one), RowId::Tab(3)), [2, 3]);
+        s.unpick();
+        assert!(s.picked.is_empty() && s.anchor.is_none());
     }
 
     #[test]

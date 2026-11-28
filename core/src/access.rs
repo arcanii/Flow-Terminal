@@ -264,9 +264,10 @@ pub struct Item {
     pub label: String,
     pub detail: String,
     pub rect: Option<Rect>,
-    /// In a tree (the tab sidebar's), how far in it's set, from 0, and
-    /// whether it's folded open, where it folds.
-    pub tree: Option<(usize, Option<bool>)>,
+    /// In a tree (the tab sidebar's), how far in it's set, from 0, whether
+    /// it's folded open, where it folds, and whether it's picked with
+    /// others, which selects it beside the one the keys are on.
+    pub tree: Option<(usize, Option<bool>, bool)>,
 }
 
 /// The lists a reader can choose in, as the keys do.
@@ -1001,9 +1002,9 @@ fn dialog_node(b: &mut Build, d: &Dialog) -> NodeId {
                 node.set_description(item.detail.clone());
             }
             if !links && item_role != Role::MenuItem {
-                node.set_selected(Some(i) == list.chosen);
+                node.set_selected(Some(i) == list.chosen || item.tree.is_some_and(|(_, _, picked)| picked));
             }
-            if let Some((level, expanded)) = item.tree {
+            if let Some((level, expanded, _)) = item.tree {
                 node.set_level(level + 1);
                 if let Some(open) = expanded {
                     node.set_expanded(open);
@@ -1020,6 +1021,10 @@ fn dialog_node(b: &mut Build, d: &Dialog) -> NodeId {
         }
         let mut node = Node::new(role);
         node.set_label(list.label.clone());
+        // The tab sidebar's tabs are picked several at once.
+        if list.chooser == Chooser::Sidebar {
+            node.set_multiselectable();
+        }
         node.set_children(items);
         children.push(b.push(id(Part::List, k, l), node));
     }
@@ -1308,8 +1313,8 @@ mod tests {
     #[test]
     fn the_tab_sidebar_is_a_tree_whose_groups_fold_and_a_rows_menu_is_a_menu() {
         let ask = |targets: &Targets, node: NodeId, action: Action| what_to_do(targets, &ActionRequest { action, target_tree: TreeId::ROOT, target_node: node, data: None });
-        let item = |label: &str, detail: &str, tree: (usize, Option<bool>)| Item { label: label.into(), detail: detail.into(), rect: rect(0.0, 0.0, 200.0, 30.0), tree: Some(tree) };
-        let rows = vec![item("Web, 2 tabs", "", (0, Some(true))), item("zsh 1", "~/src", (1, None)), item("build", "running cargo build", (1, Some(false)))];
+        let item = |label: &str, detail: &str, tree: (usize, Option<bool>, bool)| Item { label: label.into(), detail: detail.into(), rect: rect(0.0, 0.0, 200.0, 30.0), tree: Some(tree) };
+        let rows = vec![item("Web, 2 tabs", "", (0, Some(true), false)), item("zsh 1", "~/src", (1, None, false)), item("build", "running cargo build", (1, Some(false), true))];
         let sidebar = Dialog {
             kind: DialogKind::TabSidebar,
             title: "Tabs".into(),
@@ -1324,6 +1329,9 @@ mod tests {
         let k = DialogKind::TabSidebar as usize;
         let row = |i: usize| id(Part::ListItem, k, i);
         assert_eq!(node(&got, id(Part::List, k, 0)).role(), Role::Tree);
+        assert!(node(&got, id(Part::List, k, 0)).is_multiselectable());
+        assert_eq!(node(&got, row(2)).is_selected(), Some(true), "picked with others");
+        assert_eq!(node(&got, row(0)).is_selected(), Some(false));
         let group = node(&got, row(0));
         assert_eq!((group.role(), group.level(), group.data().is_expanded()), (Role::TreeItem, Some(1), Some(true)));
         let tab = node(&got, row(1));

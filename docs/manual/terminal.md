@@ -83,6 +83,10 @@ group may stand before, between or after the groups.
 - **Remove Tab from Group** takes it out, just after the rest of its group.
 - **Go to Tab: *name***, one for each tab, brings any tab forward by its
   name, its group's name beside it.
+- A right click on a tab in the title bar (a Control-click on the Mac)
+  opens its menu, drawn under it: **Rename**, **Move to New Group** and to
+  each other group, **Remove from Group**, **Restart Tab** and **Close**.
+  ↑ and ↓ choose, Enter does it, and Esc or a click elsewhere shuts it.
 - A tab opened from a tab in a group (**New Tab**, the **+**, the new-tab
   picker, and `flow` in a tab) joins that group, after its tabs; one opened
   from a tab in no group goes at the end. Restart Tab keeps its tab's
@@ -133,8 +137,9 @@ puts it away. Every other key of Flow's still works.
 | `F2` | Name the row's tab or group, typed in its row |
 | `⌥↑` `⌥↓` (`Alt+↑`, `Alt+↓`) | Move the tab a step, into the next group or out of its own at a group's edge, or a whole group past what's beside it |
 | `⌘⌫` (`Ctrl+Delete`) | Close the row's tab, or its group |
+| `⇧↑` `⇧↓` | Pick every tab from where the pick began to the row the keys go to |
 | a letter | Go to the next row whose name starts with it |
-| `Esc` | Put the sidebar away (or close a row's menu) |
+| `Esc` | Close a row's menu, or let go of the tabs picked, or put the sidebar away |
 | `F1` | Its help page |
 
 A click on a group's header folds it shut or open. Under the pointer,
@@ -145,14 +150,26 @@ a new one, **Remove from Group**, **Restart Tab** and **Close**; a group's
 **Rename**, its eight colors, **Ungroup** (its tabs stay where they are)
 and **Close Group**. A double click on a tab's or a group's name names it
 too, and **New Tab** and **New Group** wait at the sidebar's foot, New
-Group's name ready to be typed. Where the rows don't all fit, the list
+Group's name ready to be typed.
+
+Several tabs can be picked at once: `⌘`-click (`Ctrl`+click elsewhere) a
+tab's row to pick it, with the row the keys were on, or let it go again,
+and Shift-click or `⇧↑` `⇧↓` to pick every tab from where the pick began;
+a plain click or arrow lets them go. Picked rows are lit with a bar at
+their left. With tabs picked, **New Group** (its count beside it) puts
+them all into one new group, gathered at the first one's place, and a
+picked row's **…** says how many it acts on: a new group of them, **Move
+*n* Tabs to** each group, **Remove *n* Tabs from Their Groups** and
+**Close *n* Tabs**, which asks once where any is busy, and where they're
+every tab. Where the rows don't all fit, the list
 scrolls, keeping the row the keys are on in view, and the wheel scrolls
 it.
 
 A tab's **×**, here or in the title bar, `⌘W` (`Ctrl+Shift+W`) and a
 pane's **✕** close it at once while it waits at its prompt. Where something
 runs in it, a toast says what, and the same again within a few seconds
-closes it.
+closes it. Closing the last tab from its row here quits Flow, so it says
+so first, and the same again quits.
 
 **Close Group** closes every tab in the group at once while each waits at
 its prompt. Where one is running something, it says which in a toast and
