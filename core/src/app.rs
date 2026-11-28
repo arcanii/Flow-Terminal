@@ -3186,6 +3186,14 @@ impl App {
             return;
         }
 
+        // Esc lets go of a row being dragged in the sidebar, which stays
+        // where it was.
+        if self.sidebar.drag.is_some() && matches!(event.logical_key, Key::Named(NamedKey::Escape)) {
+            self.sidebar.drag = None;
+            self.sidebar.pressed = None;
+            self.request_redraw();
+            return;
+        }
         // The tab sidebar, while it's out, takes the keys: its own, and
         // Flow's shortcuts as they're bound; a tab's menu from its pill,
         // ↑ ↓, Enter and Esc.
@@ -5846,8 +5854,9 @@ impl App {
         self.mouse_prev = Some((p, now));
         let tab = self.hits.iter().rev().find(|(r, _)| r.contains(p)).and_then(|(_, h)| match h {
             Hit::Tab(i) => Some(*i),
-            // A tab's row in the sidebar shows its card beside it.
-            Hit::SidebarRow(r) => self.sidebar.rows.get(*r).and_then(|row| match row.id {
+            // A tab's row in the sidebar shows its card beside it, but while
+            // a row is dragged.
+            Hit::SidebarRow(r) if self.sidebar.drag.is_none() => self.sidebar.rows.get(*r).and_then(|row| match row.id {
                 crate::tab_sidebar::RowId::Tab(id) => self.tabs.iter().position(|t| t.id == id),
                 _ => None,
             }),
@@ -5917,6 +5926,7 @@ impl App {
                 // Flow's own drag of the corner keeps its arrow wherever the
                 // pointer goes.
                 _ if self.sizing_window.is_some() => CursorIcon::NwseResize,
+                _ if self.sidebar.drag.is_some() => CursorIcon::Grabbing,
                 Some(ResizeDirection::East | ResizeDirection::West) => CursorIcon::EwResize,
                 Some(ResizeDirection::North | ResizeDirection::South) => CursorIcon::NsResize,
                 Some(ResizeDirection::NorthEast | ResizeDirection::SouthWest) => CursorIcon::NeswResize,
@@ -5983,6 +5993,9 @@ impl App {
         }
         if self.sidebar.dragging {
             self.drag_sidebar_edge(p.0);
+        }
+        if self.sidebar.pressed.is_some() {
+            self.drag_sidebar_row(p);
         }
         if self.selecting {
             let (point, side) = self.grid_point(p);
@@ -6533,6 +6546,9 @@ impl App {
             self.sizing_window = None;
             if std::mem::take(&mut self.sidebar.dragging) {
                 self.sidebar_edge_let_go();
+            }
+            if self.sidebar.pressed.is_some() {
+                self.sidebar_row_let_go();
             }
             if self.dragging_scrollbar.take().is_some() {
                 self.request_redraw();
@@ -14519,6 +14535,10 @@ impl ApplicationHandler<UserEvent> for App {
                 self.blink_from = Instant::now();
                 if !self.focused {
                     self.caps.left();
+                    // The button may come up in another window: a row
+                    // pressed or dragged in the sidebar stays where it was.
+                    self.sidebar.pressed = None;
+                    self.sidebar.drag = None;
                 }
                 if let Some(w) = &self.window {
                     self.platform.place_window_controls(w, ui::TITLE_HEIGHT as f64);

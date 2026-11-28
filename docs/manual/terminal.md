@@ -165,6 +165,15 @@ every tab. Where the rows don't all fit, the list
 scrolls, keeping the row the keys are on in view, and the wheel scrolls
 it.
 
+Drag a tab's row to move it, a line showing where it will land. Dropped
+on a group's header, it goes into that group, after its tabs; between
+rows, it goes there, into the group where the line is set in and in the
+group's color, loose where it isn't (so the gap after a group's last tab
+takes it out of the group). Drag a group's header to move the group with
+all its tabs, between other groups and loose tabs. Esc while dragging, or
+letting go outside the sidebar, leaves it where it was; `⌥↑` and `⌥↓` move
+the row with the keys.
+
 A tab's **×**, here or in the title bar, `⌘W` (`Ctrl+Shift+W`) and a
 pane's **✕** close it at once while it waits at its prompt. Where something
 runs in it, a toast says what, and the same again within a few seconds
@@ -178,10 +187,12 @@ still brings it out and in). The keys then stay with the pane in front,
 and the sidebar's key moves them into it and back out; choosing a tab
 brings it to the front and gives it the keys, and Esc or a click on the
 terminal gives them back. Drag its right edge to make it wider or
-narrower, up to a third of the window. The pin again unpins it, which
-puts it away. In a window too narrow to leave the terminal 20 columns
-beside it, it pops out over the terminal instead, until the window is
-wider again.
+narrower, up to a third of the window. The pin leans over while the
+sidebar isn't pinned, and stands pressed in while it is. The pin again
+unpins it, leaving it out over the terminal with the keys until Esc or a
+click outside it puts it away. In a window too narrow to leave the
+terminal 20 columns beside it, it pops out over the terminal instead,
+until the window is wider again.
 
 ![The tab sidebar pinned beside a split tab](../screenshots/tab-sidebar-pinned.png)
 

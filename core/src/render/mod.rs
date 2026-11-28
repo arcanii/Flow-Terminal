@@ -285,6 +285,16 @@ impl<'a> Canvas<'a> {
         self.quads.push(Quad { rect: [x, top, w, bottom - top], uv: seg, color, params: [KIND_STROKE, radius, half, ripple] });
     }
 
+    /// A segment from `a` to `b` (pixels) with round ends, `half` its
+    /// thickness either side, smoothed over a pixel: Flow's own small
+    /// drawings, such as the tab sidebar's pin, turned any way.
+    pub fn capsule(&mut self, a: [f32; 2], b: [f32; 2], half: f32, color: Rgba) {
+        let pad = half + 1.0;
+        let (x, y) = (a[0].min(b[0]) - pad, a[1].min(b[1]) - pad);
+        let (w, h) = ((a[0] - b[0]).abs() + pad * 2.0, (a[1] - b[1]).abs() + pad * 2.0);
+        self.quads.push(Quad { rect: [x, y, w, h], uv: [a[0] - x, a[1] - y, b[0] - x, b[1] - y], color, params: [KIND_STROKE, -2.0, half, 0.0] });
+    }
+
     /// Draws one character whose cell's top-left corner is (x, y).
     pub fn glyph(&mut self, x: f32, y: f32, ch: char, color: Rgba, bold: bool, italic: bool, ripple: f32) {
         self.letter(x, y, (ch, 0), color, (bold, italic), ripple);

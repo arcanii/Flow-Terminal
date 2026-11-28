@@ -311,7 +311,9 @@ As built in step 3 (2026-11-28, `core/src/tab_sidebar.rs`,
   - The keys go back to the pane in front, and its key moves them in and
     out of the sidebar.
   - Choosing a tab brings it forward and gives it the keys.
-  - The pin again unpins it, which closes it.
+  - The pin again unpins it, leaving it out over the terminal, popped,
+    with the keys, until Esc or a click outside it puts it away (the
+    user, 2026-11-28, trying step 4: it put it away at once).
 - **Its width** is `ui.tab_sidebar_width` points (260 at first), changed
   by dragging its right edge as a divider is dragged, and kept as
   Settings keeps a change.
@@ -331,7 +333,16 @@ As built in step 4 (2026-11-28):
   (`Hit::SidebarPin`, `App::toggle_sidebar_pin`, saved at once);
   `App::follow_sidebar_pin` brings it out pinned at the start, as Settings
   or a program changes it, and as the window grows back past room for it
-  (`tab_sidebar::pin_fits`, `PIN_LEAST_COLS`), and puts it away unpinned.
+  (`tab_sidebar::pin_fits`, `PIN_LEAST_COLS`), and puts it away where
+  Settings or a program unpins it (`Sidebar::pinned`); its own pin leaves
+  it out, popped (2026-11-28).
+- **The pin's look** (the user, 2026-11-28): a pushpin leaning over to
+  the right while it isn't pinned, and upright, pressed in to its collar
+  on a fainter line for the board, in the accent, while it is
+  (`ui::draw_pin`). Its head, body, collar and needle are segments with
+  round ends (`Canvas::capsule`, the stroke kind's `params.y` below -1.5,
+  whose distance in `ui.wgsl` is to the segment rather than its line), so
+  it turns any way.
 - **The keys:** `Sidebar::keys`, true while it's popped out; pinned, its
   key, a click on it (not a tab's or a pane's row) or a menu give it them,
   and choosing a tab or a pane, Esc, a click elsewhere and anything that
@@ -495,6 +506,46 @@ Group does for every tab; before, the row's × was hidden and Close and
 Each drag goes through `TabGroups`' moves, so the rules for the order
 are the same however a tab moves.
 
+As built for the sidebar (2026-11-28, the user asking for a tab dragged
+into a group; the title bar's comes later in this step):
+
+- **Where it lands** is `tab_sidebar::drop_at`, from the row under the
+  pointer and how far down it is:
+  - a tab on a header's middle half goes into that group, after its tabs
+    (`Drop::Into`), its group opened so it's seen there;
+  - anywhere else it lands in the gap nearer the pointer (`Drop::Gap`),
+    never among a split tab's panes (after them). A gap is a group's
+    where the row below it is one of its tabs, so between a header and
+    its first tab, or between two of its tabs, it joins that group there;
+    the gap after a group's last tab is loose, which takes a tab out of
+    its group;
+  - a group lands only in a loose gap: over another group's rows, the
+    nearer end of it;
+  - none where it would go nowhere new: beside itself, as it is.
+- **The moves:** `TabGroups::place` (a tab before a given tab, into a
+  group or loose, refused where it would part a group's tabs) and
+  `place_group` (a group's tabs together, refused inside another's),
+  with `tab_sidebar::landing` for the tab a gap goes before. The test of
+  any moves keeping every group's tabs together makes both among its
+  moves.
+- **The drag:** a press on a tab's row or a group's header
+  (`Sidebar::pressed`) becomes a drag (`Sidebar::drag`) once the pointer
+  has gone `DRAG_AFTER` (4 points). A tab's press brings it forward at
+  once as before; a header's fold waits for the press to be let go, so
+  a header can be dragged without folding it. `App::drop_under` reads the
+  rows as the frame drew them, none outside the card.
+- **What shows:** a line in the gap (set in and in the group's color
+  where it would join one, the accent at the left where loose), or the
+  header lit in its color; the row dragged dimmed where it was; its name
+  in a chip beside the pointer; the grabbing hand; and no row's × or …
+  or tab card meanwhile.
+- **Letting go** drops it (`App::drop_sidebar_row`), the keys on the row
+  moved; outside the card, after Esc, or once Flow's window loses the
+  keys, it stays where it was.
+- **Left out:** scrolling the list as the pointer nears its ends (the
+  wheel scrolls it during a drag), and dragging several picked tabs at
+  once (a plain press lets them go, as a click does).
+
 ### The title bar's marks
 
 A tab in a group has a short bar in the group's color along its pill's
@@ -572,7 +623,8 @@ Each step is a commit of its own, tested before the next:
 4. **Pinned:** `Layout::compute`'s `left`, the Settings row, the width's
    drag, and `tab-sidebar-pinned.png`. Built on 2026-11-28 (see Over the
    terminal, or pinned).
-5. **Dragging,** in the sidebar and the title bar.
+5. **Dragging,** in the sidebar and the title bar. The sidebar's built on
+   2026-11-28 (see Dragging); the title bar's is still to come.
 6. **A group's theme.**
 7. **The git branch on the line.**
 

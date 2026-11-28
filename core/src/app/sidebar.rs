@@ -142,10 +142,24 @@ impl App {
         });
         let naming = self.renaming.as_ref().and_then(|r| rows.iter().position(|row| row.id == r.what.row()).map(|at| (at, r.field.clone())));
         let closing = self.sidebar.closing.filter(|(_, at)| at.elapsed() < CONFIRM_WINDOW).and_then(|(g, _)| rows.iter().position(|r| r.id == RowId::Group(g)));
+        // A row dragged: its name, which follows the pointer, and where it
+        // would land, in the color of a group it would join.
+        let drag = self.sidebar.drag.map(|(dragged, to)| {
+            let name = match dragged {
+                RowId::Group(g) => self.groups.get(g).map(|g| g.name.clone()).unwrap_or_default(),
+                _ => self.tab_of(dragged).and_then(|i| labels.get(i)).map(|l| l.label.clone()).unwrap_or_default(),
+            };
+            let (onto, gap) = match to {
+                Some(tab_sidebar::Drop::Into(g)) => (rows.iter().position(|r| r.id == RowId::Group(g)), None),
+                Some(tab_sidebar::Drop::Gap { at, group }) => (None, Some((at, group.and_then(|g| self.groups.get(g)).map(|g| g.rgb())))),
+                None => (None, None),
+            };
+            ui::SidebarDrag { row: rows.iter().position(|r| r.id == dragged), name, onto, gap }
+        });
         let out = self.sidebar.out(Instant::now(), self.efficient());
         self.sidebar.rows = rows;
         let (pinned, keys) = (self.sidebar_pinned(), self.sidebar_has_keys());
-        Some(ui::SidebarView { rows: shown, chosen, top: self.sidebar.top.get(), out: if pinned { 1.0 } else { out }, menu, naming, closing, picked: self.sidebar.picked.len(), width: self.sidebar_width(), pinned, keys })
+        Some(ui::SidebarView { rows: shown, chosen, top: self.sidebar.top.get(), out: if pinned { 1.0 } else { out }, menu, naming, closing, picked: self.sidebar.picked.len(), width: self.sidebar_width(), pinned, keys, drag })
     }
 
     /// Whether Settings has it pinned (`window.tab_sidebar`).
@@ -201,17 +215,18 @@ impl App {
         self.sidebar.pinned = pin && self.sidebar.is_open();
     }
 
-    /// The sidebar's pin, at its foot: pinned, or popped out (and so put
-    /// away). Saved, as Settings saves a change.
+    /// The sidebar's pin, at its foot: pinned, or popped out over the
+    /// terminal, where it stays out with the keys until Esc or a click
+    /// outside it puts it away (the user's word, 2026-11-28: it went at
+    /// once). Saved, as Settings saves a change.
     pub(super) fn toggle_sidebar_pin(&mut self) {
         let pinned = self.sidebar_pin_set();
         self.config.window.tab_sidebar = (if pinned { tab_sidebar::POPS_OUT } else { tab_sidebar::PINNED }).to_string();
-        if pinned {
-            self.close_sidebar();
-        }
+        // Unpinned by its own pin, it isn't put away as Settings' change is.
+        self.sidebar.pinned = false;
         self.follow_sidebar_pin();
         // Out still, it has the keys, which a click on its pin gave it.
-        self.sidebar.keys = !pinned;
+        self.sidebar.keys = true;
         self.relayout();
         self.save_config();
         self.request_redraw();
@@ -711,6 +726,17 @@ impl App {
                         self.sidebar_fold(g);
                         self.rename_group(g);
                     }
+                    // A group's header folds as the press is let go, unless
+                    // it's dragged first.
+                    (RowId::Group(_), false) => {
+                        self.sidebar.chosen = Some(id);
+                        self.sidebar.pressed = Some((id, self.mouse));
+                    }
+                    // A tab comes forward at once, and may be dragged on.
+                    (RowId::Tab(_), false) => {
+                        self.sidebar_choose(id);
+                        self.sidebar.pressed = Some((id, self.mouse));
+                    }
                     _ => self.sidebar_choose(id),
                 }
             }
@@ -804,6 +830,103 @@ impl App {
         }
         self.save_config();
         self.request_redraw();
+    }
+
+    /// The pointer moved to `p` with a tab's row or a group's header
+    /// pressed: once it's gone `DRAG_AFTER` from the press, the row is
+    /// dragged, and where it would land follows the pointer.
+    pub(super) fn drag_sidebar_row(&mut self, p: (f32, f32)) {
+        if self.sidebar.drag.is_none() {
+            let Some((row, from)) = self.sidebar.pressed else { return };
+            if (p.0 - from.0).hypot(p.1 - from.1) < tab_sidebar::DRAG_AFTER * self.scale {
+                return;
+            }
+            self.sidebar.menu = None;
+            self.sidebar.drag = Some((row, None));
+        }
+        let to = self.drop_under(p);
+        if let Some(drag) = self.sidebar.drag.as_mut() {
+            drag.1 = to;
+        }
+        // Its name follows the pointer.
+        self.request_redraw();
+    }
+
+    /// Where the row dragged would land with the pointer at `p`, by the
+    /// rows as the frame last drew them: over a row, or above the first
+    /// shown, or below the last (past every row where that's the last);
+    /// nowhere outside the card.
+    fn drop_under(&self, p: (f32, f32)) -> Option<tab_sidebar::Drop> {
+        let (dragged, _) = self.sidebar.drag?;
+        let card = self.rect_of(Hit::SidebarCard)?;
+        if p.0 < card.x || p.0 > card.x + card.w {
+            return None;
+        }
+        let rows = &self.sidebar.rows;
+        let drawn: Vec<(usize, Rect)> = (0..rows.len()).filter_map(|i| Some((i, self.rect_of(Hit::SidebarRow(i))?))).collect();
+        let first = drawn.first()?.0;
+        let (over, part) = match drawn.iter().rev().find(|(_, r)| r.y <= p.1) {
+            None => (first, 0.0),
+            // Each row's slot runs to the next one's top.
+            Some(&(i, r)) => {
+                let slot = drawn.iter().find(|(k, _)| *k > i).map_or(r.h + 2.0 * self.scale, |(_, next)| next.y - r.y);
+                match (p.1 - r.y) / slot.max(1.0) {
+                    part if part <= 1.0 => (i, part),
+                    _ if i + 1 == rows.len() => (rows.len(), 0.0),
+                    _ => (i, 1.0),
+                }
+            }
+        };
+        let group_of = |id: u64| self.tabs.iter().find(|t| t.id == id).and_then(|t| t.group);
+        tab_sidebar::drop_at(rows, group_of, dragged, over, part)
+    }
+
+    /// The pointer let go with a row pressed: a row dragged lands where the
+    /// sidebar showed it would (nowhere shown, it stays); a group's header
+    /// pressed and let go without a drag folds, as its click does.
+    pub(super) fn sidebar_row_let_go(&mut self) {
+        let pressed = self.sidebar.pressed.take();
+        match self.sidebar.drag.take() {
+            Some((row, Some(to))) => self.drop_sidebar_row(row, to),
+            Some(_) => {}
+            None => {
+                if let Some((row @ RowId::Group(_), _)) = pressed {
+                    self.sidebar_choose(row);
+                }
+            }
+        }
+        self.request_redraw();
+    }
+
+    /// Row `row` dropped at `to`: a tab into a group, or among the tabs
+    /// into a group or loose; a group with all its tabs between the
+    /// others. A group a tab goes into opens, so it's seen there.
+    fn drop_sidebar_row(&mut self, row: RowId, to: tab_sidebar::Drop) {
+        use tab_sidebar::Drop;
+        let rows = self.sidebar.rows.clone();
+        let was = self.sidebar.chosen_in(&rows);
+        let before = |s: &Self, at: usize| tab_sidebar::landing(&rows, &s.listed(), at);
+        match (row, to) {
+            (RowId::Tab(_), Drop::Into(g)) => {
+                if let Some(i) = self.tab_of(row) {
+                    self.move_tab_to(i, g);
+                    self.groups.fold(g, false);
+                }
+            }
+            (RowId::Tab(_), Drop::Gap { at, group }) => {
+                if let Some(i) = self.tab_of(row) {
+                    let b = before(self, at);
+                    self.regroup(|groups, tabs| groups.place(tabs, i, b, group));
+                }
+            }
+            (RowId::Group(id), Drop::Gap { at, .. }) => {
+                let b = before(self, at);
+                self.regroup(|groups, tabs| groups.place_group(tabs, id, b));
+            }
+            _ => return,
+        }
+        self.sidebar.chosen = Some(row);
+        self.sidebar_changed(was);
     }
 
     /// A right click while the sidebar is out: on a row, its menu.

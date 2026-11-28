@@ -100,6 +100,84 @@ pub fn rows(tabs: &[Listed], groups: &TabGroups, splits_open: &[u64]) -> Vec<Row
     rows
 }
 
+/// How far a press on a row goes, in points, before it drags the row, so a
+/// click is still a click.
+pub const DRAG_AFTER: f32 = 4.0;
+
+/// Where a row dragged in the sidebar would land.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Drop {
+    /// Onto group `g`'s header: a tab goes into it, after its tabs.
+    Into(u64),
+    /// Into the gap above the row at `at` (the rows' count: after the
+    /// last): into group `group` there, where the rows either side are its,
+    /// else loose.
+    Gap { at: usize, group: Option<u64> },
+}
+
+/// Where row `dragged` (a tab's or a group's header) would land with the
+/// pointer over the row at `over` (the rows' count: past the last),
+/// `part` of the way down it (0 at its top, 1 at its foot); `group_of`
+/// says each tab's group, by its id. A tab lands on a header's middle
+/// (into that group) or in the gap nearer the pointer, never among a split
+/// tab's panes; a group only where it parts no other, the nearer end of
+/// one it's over. None where it would go nowhere new.
+pub fn drop_at(rows: &[Row], group_of: impl Fn(u64) -> Option<u64>, dragged: RowId, over: usize, part: f32) -> Option<Drop> {
+    let group_in = |row: Option<&Row>| match row.map(|r| r.id) {
+        Some(RowId::Tab(id) | RowId::Pane(id, _)) => group_of(id),
+        _ => None,
+    };
+    if let (RowId::Tab(tab), Some(&Row { id: RowId::Group(g), .. })) = (dragged, rows.get(over)) {
+        if (0.25..0.75).contains(&part) {
+            return (group_of(tab) != Some(g)).then_some(Drop::Into(g));
+        }
+    }
+    let mut at = (if part < 0.5 { over } else { over + 1 }).min(rows.len());
+    while rows.get(at).is_some_and(|r| matches!(r.id, RowId::Pane(..))) {
+        at += 1;
+    }
+    // A gap is a group's where the row below it is one of its tabs (the
+    // row above being its header or another of them).
+    let mut group = group_in(rows.get(at));
+    // A group's rows: its header to just past its last tab's.
+    let span = |id: u64| {
+        let head = rows.iter().position(|r| r.id == RowId::Group(id))?;
+        let last = rows.iter().rposition(|r| group_in(Some(r)) == Some(id)).unwrap_or(head);
+        Some((head, last + 1))
+    };
+    match dragged {
+        RowId::Tab(tab) => {
+            let mine = rows.iter().position(|r| r.id == RowId::Tab(tab));
+            let end = mine.map(|m| m + 1 + rows[m + 1..].iter().take_while(|r| matches!(r.id, RowId::Pane(t, _) if t == tab)).count());
+            if (Some(at) == mine || Some(at) == end) && group == group_of(tab) {
+                return None;
+            }
+        }
+        RowId::Group(id) => {
+            if let Some((head, end)) = group.filter(|&g| g != id).and_then(span) {
+                at = if at - head <= end - at { head } else { end };
+                group = None;
+            }
+            let (head, end) = span(id)?;
+            if (head..=end).contains(&at) {
+                return None;
+            }
+        }
+        RowId::Pane(..) => return None,
+    }
+    Some(Drop::Gap { at, group })
+}
+
+/// The tab, by its place in `tabs`, that a row dropped in the gap above
+/// row `at` goes before: that row's tab, or a group's first; none past
+/// the last row, so at the end.
+pub fn landing(rows: &[Row], tabs: &[Listed], at: usize) -> Option<usize> {
+    match rows.get(at)?.id {
+        RowId::Tab(id) | RowId::Pane(id, _) => tabs.iter().position(|t| t.id == id),
+        RowId::Group(g) => tabs.iter().position(|t| t.group == Some(g)),
+    }
+}
+
 /// What a pane is doing, as its shell said it: a program's progress (its
 /// share done, none where it says only that it's busy, and whether it
 /// failed), the command running, how the last one ended, and its folder.
@@ -339,10 +417,17 @@ pub struct Sidebar {
     /// Pinned, whether it has the keys (popped out, it always has); its
     /// key moves them in and out.
     pub keys: bool,
-    /// It was opened pinned, so taking the pin away puts it away.
+    /// It was opened pinned, so Settings or a program taking the pin away
+    /// puts it away (its own pin leaves it out, popped).
     pub pinned: bool,
     /// Its edge is being dragged.
     pub dragging: bool,
+    /// A press on a tab's row or a group's header, and where it was (in
+    /// pixels): moved [`DRAG_AFTER`] from there, it drags the row.
+    pub pressed: Option<(RowId, (f32, f32))>,
+    /// The row being dragged, and where it would land as the pointer
+    /// stands ([`drop_at`]).
+    pub drag: Option<(RowId, Option<Drop>)>,
 }
 
 impl Sidebar {
@@ -482,6 +567,50 @@ mod tests {
         let some = rows(&listed(&tabs, &panes), &groups, &[2, 5]);
         assert_eq!(ids(&some), [(Tab(1), 0), (Group(one), 0), (Group(two), 0), (Tab(4), 1), (Tab(5), 0), (Pane(5, 0), 1), (Pane(5, 1), 1), (Pane(5, 2), 1)]);
         assert!(rows(&[], &groups, &[]).is_empty());
+    }
+
+    #[test]
+    fn a_tab_dragged_lands_on_a_header_or_in_the_gap_nearer_the_pointer() {
+        let (groups, tabs, one, _) = grouped();
+        let all = rows(&listed(&tabs, &[1; 5]), &groups, &[]);
+        let group_of = |id: u64| tabs.iter().find(|t| t.0 == id).and_then(|t| t.1);
+        let drop = |rows: &[Row], tab: u64, over: usize, part: f32| drop_at(rows, group_of, RowId::Tab(tab), over, part);
+        // Rows: tab 1, group one, 2, 3, group two, 4, 5.
+        assert_eq!(drop(&all, 5, 1, 0.5), Some(Drop::Into(one)), "a header's middle");
+        assert_eq!(drop(&all, 2, 1, 0.5), None, "its own group's");
+        assert_eq!(drop(&all, 5, 1, 0.1), Some(Drop::Gap { at: 1, group: None }), "a header's top: before the group");
+        assert_eq!(drop(&all, 5, 2, 0.2), Some(Drop::Gap { at: 2, group: Some(one) }), "between a header and its first tab");
+        assert_eq!(drop(&all, 5, 3, 0.8), Some(Drop::Gap { at: 4, group: None }), "after a group's last tab: loose");
+        assert_eq!(drop(&all, 3, 3, 0.8), Some(Drop::Gap { at: 4, group: None }), "its own row's foot, out of its group");
+        assert_eq!(drop(&all, 3, 3, 0.2), None, "where it is");
+        assert_eq!(drop(&all, 1, 0, 0.8), None, "just after itself, loose as it is");
+        assert_eq!(drop(&all, 2, all.len(), 0.0), Some(Drop::Gap { at: all.len(), group: None }), "past the last row");
+        // Never among a split tab's panes: after them.
+        let split = rows(&listed(&tabs, &[1, 2, 1, 1, 1]), &groups, &[2]);
+        assert_eq!(split[3].id, RowId::Pane(2, 0));
+        assert_eq!(drop(&split, 5, 3, 0.2), Some(Drop::Gap { at: 5, group: Some(one) }));
+        assert_eq!(drop_at(&split, group_of, RowId::Pane(2, 1), 0, 0.2), None, "a pane isn't dragged");
+        // Where each gap lands among the tabs.
+        let tabs_listed = listed(&tabs, &[1; 5]);
+        assert_eq!([1, 2, 4, 5, all.len()].map(|at| landing(&all, &tabs_listed, at)), [Some(1), Some(1), Some(3), Some(3), None]);
+    }
+
+    #[test]
+    fn a_group_dragged_lands_only_between_groups_and_loose_tabs() {
+        let (groups, tabs, one, two) = grouped();
+        let all = rows(&listed(&tabs, &[1; 5]), &groups, &[]);
+        let group_of = |id: u64| tabs.iter().find(|t| t.0 == id).and_then(|t| t.1);
+        let drop = |group: u64, over: usize, part: f32| drop_at(&all, group_of, RowId::Group(group), over, part);
+        // Rows: tab 1, group one, 2, 3, group two, 4, 5.
+        assert_eq!(drop(one, 0, 0.2), Some(Drop::Gap { at: 0, group: None }));
+        assert_eq!(drop(one, 6, 0.8), Some(Drop::Gap { at: 7, group: None }));
+        assert_eq!(drop(one, 1, 0.5), None, "onto its own header");
+        assert_eq!(drop(one, 3, 0.2), None, "within its own tabs");
+        assert_eq!(drop(one, 4, 0.2), None, "just after itself");
+        // Over another's tabs: that group's nearer end.
+        assert_eq!(drop(two, 2, 0.2), Some(Drop::Gap { at: 1, group: None }), "nearer its header");
+        assert_eq!(drop(two, 2, 0.8), None, "nearer its end, which is just before two");
+        assert_eq!(drop(two, 0, 0.8), Some(Drop::Gap { at: 1, group: None }), "a tab's foot");
     }
 
     #[test]

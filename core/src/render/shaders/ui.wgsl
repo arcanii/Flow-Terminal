@@ -897,8 +897,10 @@ fn quad_color(in: QuadOut) -> vec4<f32> {
         // over a pixel. params.y above 0 is a ring's radius around seg.xy,
         // in units seg.zw pixels across and down, params.z its half
         // thickness; below 0 a line through seg.xy and seg.zw, params.z
-        // thick either side; 0 a bar whose soft edges are seg (left, top,
-        // right, bottom), a hard one far out, so the quad's side is its edge.
+        // thick either side (below -1.5 the segment between them, its ends
+        // round: Canvas::capsule); 0 a bar whose soft edges are seg (left,
+        // top, right, bottom), a hard one far out, so the quad's side is its
+        // edge.
         var a = 0.0;
         if (in.params.y > 0.0) {
             // The distance to the ring in units, made pixels the way it points.
@@ -909,7 +911,11 @@ fn quad_color(in: QuadOut) -> vec4<f32> {
         } else if (in.params.y < 0.0) {
             let pa = in.local - in.seg.xy;
             let ba = in.seg.zw - in.seg.xy;
-            let dist = abs(pa.x * ba.y - pa.y * ba.x) / max(length(ba), 1e-4);
+            var dist = abs(pa.x * ba.y - pa.y * ba.x) / max(length(ba), 1e-4);
+            if (in.params.y < -1.5) {
+                let along = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-4), 0.0, 1.0);
+                dist = length(pa - ba * along);
+            }
             a = clamp(in.params.z + 0.5 - dist, 0.0, 1.0);
         } else {
             let e = min(in.local - in.seg.xy, in.seg.zw - in.local);

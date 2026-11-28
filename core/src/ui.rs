@@ -1164,6 +1164,22 @@ pub struct SidebarView {
     /// and whether it has the keys (popped out, it always has).
     pub pinned: bool,
     pub keys: bool,
+    /// A row being dragged, and where it would land.
+    pub drag: Option<SidebarDrag>,
+}
+
+/// A row dragged in the sidebar (`tab_sidebar::drop_at`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct SidebarDrag {
+    /// Its place among the rows, and its name, which follows the pointer.
+    pub row: Option<usize>,
+    pub name: String,
+    /// The group's header it would go into, by its place.
+    pub onto: Option<usize>,
+    /// The gap it would go into: above the row at this place (the rows'
+    /// count, after the last), set in and in its color where it would join
+    /// a group there.
+    pub gap: Option<(usize, Option<[u8; 3]>)>,
 }
 
 #[derive(Debug, Clone)]
@@ -4270,7 +4286,8 @@ fn draw_sidebar(c: &mut Canvas<'_>, v: &View<'_>, sb: &SidebarView, hits: &mut V
         c.text(r.x + (r.w - c.text_width(&label)) * 0.5, r.y + (foot_h - ch) * 0.5, &label, rgba(FOREGROUND, if over { 1.0 } else { 0.8 }), false);
         hits.push((r, hit));
     }
-    // The pin: a pushpin, lit while it's pinned.
+    // The pin: a pushpin leaning over, ready to pin it; pinned, upright and
+    // pressed in to its collar, lit (the user's word, 2026-11-28).
     let over = pin.contains(v.hover);
     if sb.pinned {
         c.rect(pin.x, pin.y, pin.w, pin.h, rgba(ACCENT, 0.22), 8.0 * s);
@@ -4278,11 +4295,15 @@ fn draw_sidebar(c: &mut Canvas<'_>, v: &View<'_>, sb: &SidebarView, hits: &mut V
     } else {
         c.rect(pin.x, pin.y, pin.w, pin.h, rgba([255, 255, 255], if over { 0.12 } else { 0.06 }), 8.0 * s);
     }
-    let ink = if sb.pinned { rgba(ACCENT, 1.0) } else { rgba(FOREGROUND, if over { 1.0 } else { 0.75 }) };
-    let (cx, cy) = (pin.x + pin.w * 0.5, pin.y + pin.h * 0.5);
-    c.rect((cx - 3.5 * s).round(), (cy - 7.0 * s).round(), (7.0 * s).round(), (6.0 * s).round(), ink, 2.0 * s);
-    c.rect((cx - 5.5 * s).round(), (cy - 1.5 * s).round(), (11.0 * s).round(), (2.0 * s).round().max(1.0), ink, 1.0 * s);
-    c.rect((cx - 0.75 * s).round(), (cy + 0.5 * s).round(), (1.5 * s).round().max(1.0), (6.5 * s).round(), ink, 0.75 * s);
+    // Opaque, dimmed by its color, so its parts don't show through each
+    // other where they meet.
+    let ink = if sb.pinned {
+        rgba(ACCENT, 1.0)
+    } else {
+        let (f, k) = (rgba(FOREGROUND, 1.0), if over { 1.0 } else { 0.75 });
+        [f[0] * k, f[1] * k, f[2] * k, 1.0]
+    };
+    draw_pin(c, (pin.x + pin.w * 0.5, pin.y + pin.h * 0.5), sb.pinned, ink, s);
     hits.push((pin, Hit::SidebarPin));
 
     // The rows, from the first shown, the chosen one kept in view.
@@ -4309,6 +4330,8 @@ fn draw_sidebar(c: &mut Canvas<'_>, v: &View<'_>, sb: &SidebarView, hits: &mut V
     let mut y = list_y;
     let mut shown = 0;
     let indent = 14.0 * s;
+    // Each row drawn and where, for where a dragged row would land.
+    let mut drawn: Vec<(usize, Rect)> = Vec::new();
     for (i, row) in sb.rows.iter().enumerate().skip(top) {
         let rh = height(row);
         if y + rh > list_y + list_h + 0.5 {
@@ -4352,7 +4375,7 @@ fn draw_sidebar(c: &mut Canvas<'_>, v: &View<'_>, sb: &SidebarView, hits: &mut V
         // Its × and …, on the right, where it's chosen or under the pointer.
         let mut right = r.x + r.w - 4.0 * s;
         let b = (ch * 1.25).round();
-        let buttons = (over || (chosen && sb.keys)) && !matches!(row.kind, SidebarKind::Pane { .. });
+        let buttons = (over || (chosen && sb.keys)) && sb.drag.is_none() && !matches!(row.kind, SidebarKind::Pane { .. });
         let name_y = match row.kind {
             SidebarKind::Group { .. } => r.y + (r.h - ch) * 0.5,
             _ => r.y + 5.0 * s,
@@ -4445,6 +4468,34 @@ fn draw_sidebar(c: &mut Canvas<'_>, v: &View<'_>, sb: &SidebarView, hits: &mut V
                 draw_sidebar_line(c, (tx, ly), lroom, line, s);
             }
         }
+        drawn.push((i, r));
+        if let Some(d) = &sb.drag {
+            // The header a tab dragged would go into, lit in its color.
+            if let (Some(_), SidebarKind::Group { color, .. }) = (d.onto.filter(|&k| k == i), &row.kind) {
+                c.rect(r.x, r.y, r.w, r.h, rgba(*color, 0.16), 8.0 * s);
+                c.outline(r.x, r.y, r.w, r.h, rgba(*color, 0.9), 8.0 * s, 1.5 * s);
+            }
+            // The row dragged, dimmed where it was.
+            if d.row == Some(i) {
+                c.rect(r.x, r.y, r.w, r.h, rgba(PANEL_TINT, 0.6), 8.0 * s);
+            }
+        }
+    }
+    if let Some(d) = &sb.drag {
+        // The gap it would go into: a line, set in and in a group's color
+        // where it would join that group, above the row it goes before.
+        if let Some((at, color)) = d.gap {
+            let y = drawn.iter().find(|(k, _)| *k == at).map(|(_, r)| r.y - 1.0 * s).or_else(|| drawn.last().filter(|(k, _)| k + 1 == at).map(|(_, r)| r.y + r.h + 1.0 * s));
+            if let Some(y) = y {
+                let col = color.unwrap_or(ACCENT);
+                let t = (2.0 * s).round().max(1.0);
+                let dot = (7.0 * s).round();
+                let lx = x + pad * 0.5 + 8.0 * s + if color.is_some() { indent } else { 0.0 } + dot * 0.5;
+                let rx = x + w - pad;
+                c.rect(lx, (y - t * 0.5).round(), (rx - lx).max(0.0), t, rgba(col, 0.95), t * 0.5);
+                c.outline(lx - dot, (y - dot * 0.5).round(), dot, dot, rgba(col, 0.95), dot * 0.5, t);
+            }
+        }
     }
     // Where the list is, where it doesn't all fit.
     if shown < n && n > 0 {
@@ -4459,7 +4510,37 @@ fn draw_sidebar(c: &mut Canvas<'_>, v: &View<'_>, sb: &SidebarView, hits: &mut V
     if let (Some(menu), Some(at)) = (&sb.menu, menu_at) {
         draw_row_menu(c, v, menu, at, false, hits);
     }
+    // The name of the row dragged, beside the pointer.
+    if let Some(d) = &sb.drag {
+        let name = fit(c, &d.name, w - 40.0 * s);
+        let (cw, chh) = (c.text_width(&name) + 20.0 * s, ch + 10.0 * s);
+        let cx = (v.hover.0 + 14.0 * s).min(l.width - cw - 4.0 * s);
+        let cy = (v.hover.1 - chh * 0.5).clamp(l.title.h, (l.height - chh - 4.0 * s).max(l.title.h));
+        c.glow(cx, cy, cw, chh, rgba(ACCENT, 0.22), 8.0 * s, 16.0 * s);
+        c.glass(cx, cy, cw, chh, rgba(PANEL_TINT, 1.0), 8.0 * s);
+        c.text(cx + 10.0 * s, cy + 5.0 * s, &name, rgba(FOREGROUND, 1.0), true);
+    }
     (caret, top, Some(x + w))
+}
+
+/// The sidebar's pin, a pushpin around `(cx, cy)`, in points of `s`
+/// pixels: its head, its body, its collar and its needle, leaning over to
+/// the right while it isn't pinned; pinned, upright and pressed in to its
+/// collar, which sits on the board, its needle in it.
+fn draw_pin(c: &mut Canvas<'_>, (cx, cy): (f32, f32), pinned: bool, ink: Rgba, s: f32) {
+    // Each part a segment and its half thickness, the pin upright.
+    let parts: [([f32; 2], [f32; 2], f32); 4] = if pinned {
+        [([-3.0, -3.6], [3.0, -3.6], 1.6), ([0.0, -3.6], [0.0, 1.2], 2.2), ([-5.0, 2.4], [5.0, 2.4], 1.3), ([-7.0, 4.6], [7.0, 4.6], 0.6)]
+    } else {
+        [([-3.0, -6.5], [3.0, -6.5], 1.6), ([0.0, -6.5], [0.0, -1.5], 2.2), ([-5.0, -1.0], [5.0, -1.0], 1.3), ([0.0, -1.0], [0.0, 6.8], 0.7)]
+    };
+    let (sin, cos) = if pinned { (0.0, 1.0) } else { std::f32::consts::FRAC_PI_4.sin_cos() };
+    let at = |[x, y]: [f32; 2]| [cx + (x * cos - y * sin) * s, cy + 0.4 * s + (x * sin + y * cos) * s];
+    for (k, (a, b, half)) in parts.into_iter().enumerate() {
+        // The board it's pinned to is fainter than the pin.
+        let color = if pinned && k == 3 { [ink[0], ink[1], ink[2], ink[3] * 0.55] } else { ink };
+        c.capsule(at(a), at(b), (half * s).max(0.6), color);
+    }
 }
 
 /// A tab's or a group's menu (`tab_sidebar::Menu`), drawn by Flow: under

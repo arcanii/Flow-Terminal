@@ -268,6 +268,54 @@ impl TabGroups {
         }
     }
 
+    /// Moves tab `i` to just before tab `before` (the end where none), into
+    /// group `group` there or loose, as a drag in the sidebar drops it, and
+    /// gives its place now. A move that would part a group's tabs (loose,
+    /// or into another group, between two of one group's tabs; into a
+    /// group away from all its tabs), or into a group that isn't there,
+    /// leaves it where it is.
+    pub fn place<T: Grouped>(&mut self, tabs: &mut Vec<T>, i: usize, before: Option<usize>, group: Option<u64>) -> usize {
+        if i >= tabs.len() || group.is_some_and(|g| self.get(g).is_none()) {
+            return i;
+        }
+        let mut at = before.unwrap_or(tabs.len()).min(tabs.len());
+        // Its place among the others once it's out of theirs.
+        if at > i {
+            at -= 1;
+        }
+        let mut tab = tabs.remove(i);
+        let prev = at.checked_sub(1).and_then(|k| tabs.get(k)).and_then(Grouped::group);
+        let next = tabs.get(at).and_then(Grouped::group);
+        let parts = (prev.is_some() && prev == next && prev != group) || group.is_some_and(|g| prev != Some(g) && next != Some(g) && tabs.iter().any(|t| t.group() == Some(g)));
+        if parts {
+            tabs.insert(i, tab);
+            return i;
+        }
+        tab.set_group(group);
+        tabs.insert(at, tab);
+        self.settle(tabs);
+        at
+    }
+
+    /// Moves group `id`'s tabs, together, to just before tab `before` (the
+    /// end where none), as a drag of its header in the sidebar drops it.
+    /// Into another group's tabs, or within its own, it stays where it is.
+    pub fn place_group<T: Grouped>(&mut self, tabs: &mut Vec<T>, id: u64, before: Option<usize>) {
+        let Some(start) = tabs.iter().position(|t| t.group() == Some(id)) else { return };
+        let Some(end) = run_end(tabs, id) else { return };
+        let before = before.unwrap_or(tabs.len()).min(tabs.len());
+        if (start..=end).contains(&before) {
+            return;
+        }
+        let run: Vec<T> = tabs.drain(start..end).collect();
+        let at = if before > end { before - (end - start) } else { before };
+        let prev = at.checked_sub(1).and_then(|k| tabs.get(k)).and_then(Grouped::group);
+        let next = tabs.get(at).and_then(Grouped::group);
+        let at = if prev.is_some() && prev == next { start } else { at };
+        tabs.splice(at..at, run);
+        self.settle(tabs);
+    }
+
     /// After tabs closed, opened or moved: a group no tab is in goes, a tab
     /// naming a group that isn't there is loose, and the groups go in the
     /// order their tabs come.
@@ -493,9 +541,9 @@ mod tests {
         let mut g = TabGroups::default();
         let mut t = tabs("abcdefgh");
         let mut letter = b'i';
-        for _ in 0..2000 {
+        for _ in 0..3000 {
             let i = next(t.len());
-            match next(7) {
+            match next(9) {
                 0 => {
                     g.new_group(&mut t, i, numbered);
                 }
@@ -519,6 +567,19 @@ mod tests {
                     let up = next(2) == 0;
                     if let Some(group) = g.all().get(next(g.all().len().max(1))).map(|g| g.id) {
                         g.step_group(&mut t, group, up);
+                    }
+                }
+                // Dragged anywhere, into any group or none, the refused
+                // moves among them.
+                6 => {
+                    let before = Some(next(t.len() + 1)).filter(|&b| b < t.len());
+                    let group = g.all().get(next(g.all().len() + 1)).map(|g| g.id);
+                    g.place(&mut t, i, before, group);
+                }
+                7 => {
+                    let before = Some(next(t.len() + 1)).filter(|&b| b < t.len());
+                    if let Some(group) = g.all().get(next(g.all().len().max(1))).map(|g| g.id) {
+                        g.place_group(&mut t, group, before);
                     }
                 }
                 _ => {
@@ -596,6 +657,74 @@ mod tests {
         g.step_group(&mut t, one, false);
         assert_eq!(shown(&g, &t), "D1E1afB2C2", "at the end it stays");
         holds(&g, &t);
+    }
+
+    #[test]
+    fn a_tab_dropped_goes_where_it_lands_but_never_parts_a_group() {
+        let mut g = TabGroups::default();
+        let mut t = tabs("abcdef");
+        let (one, _) = g.new_group(&mut t, 1, numbered).unwrap();
+        g.join(&mut t, 2, one);
+        g.join(&mut t, 3, one);
+        assert_eq!(shown(&g, &t), "aB1C1D1ef");
+        // a dropped between c and d, into the group there.
+        assert_eq!(g.place(&mut t, 0, Some(3), Some(one)), 2);
+        assert_eq!(shown(&g, &t), "B1C1A1D1ef");
+        // f before b, the group's first: into it, first.
+        assert_eq!(g.place(&mut t, 5, Some(0), Some(one)), 0);
+        assert_eq!(shown(&g, &t), "F1B1C1A1D1e");
+        // c out, loose after the group, before e; then loose at the end.
+        assert_eq!(g.place(&mut t, 2, Some(5), None), 4);
+        assert_eq!(shown(&g, &t), "F1B1A1D1ce");
+        assert_eq!(g.place(&mut t, 4, None, None), 5);
+        assert_eq!(shown(&g, &t), "F1B1A1D1ec");
+        // Before itself: where it is, its group as said.
+        assert_eq!(g.place(&mut t, 4, Some(4), None), 4);
+        assert_eq!(shown(&g, &t), "F1B1A1D1ec");
+        holds(&g, &t);
+        // Refused: loose between b and a, into the group away from its
+        // tabs, into a group that isn't there.
+        assert_eq!(g.place(&mut t, 4, Some(2), None), 4);
+        assert_eq!(g.place(&mut t, 4, None, Some(one)), 4);
+        assert_eq!(g.place(&mut t, 4, Some(0), Some(99)), 4);
+        assert_eq!(shown(&g, &t), "F1B1A1D1ec");
+        // Into another group between two of the first's: refused too.
+        let (two, _) = g.new_group(&mut t, 5, numbered).unwrap();
+        assert_eq!(g.place(&mut t, 4, Some(2), Some(two)), 4);
+        // A group's last tab dropped into another: the group goes.
+        let (three, _) = g.new_group(&mut t, 4, numbered).unwrap();
+        g.place(&mut t, 4, Some(5), Some(two));
+        assert!(g.get(three).is_none());
+        assert_eq!(shown(&g, &t), "F1B1A1D1E2C2");
+        holds(&g, &t);
+    }
+
+    #[test]
+    fn a_group_dropped_goes_whole_but_never_into_another() {
+        let mut g = TabGroups::default();
+        let mut t = tabs("abcdefg");
+        let (one, _) = g.new_group(&mut t, 1, numbered).unwrap();
+        g.join(&mut t, 2, one);
+        let (two, _) = g.new_group(&mut t, 4, numbered).unwrap();
+        g.join(&mut t, 5, two);
+        assert_eq!(shown(&g, &t), "aB1C1dE2F2g");
+        // Group one to the end, then before a.
+        g.place_group(&mut t, one, None);
+        assert_eq!(shown(&g, &t), "adE1F1gB2C2");
+        g.place_group(&mut t, one, Some(0));
+        assert_eq!(shown(&g, &t), "B1C1adE2F2g");
+        // Group two between a and d.
+        g.place_group(&mut t, two, Some(3));
+        assert_eq!(shown(&g, &t), "B1C1aE2F2dg");
+        holds(&g, &t);
+        // Refused: into group one's tabs, within or beside its own.
+        g.place_group(&mut t, two, Some(1));
+        g.place_group(&mut t, two, Some(4));
+        g.place_group(&mut t, two, Some(5));
+        g.place_group(&mut t, two, Some(3));
+        assert_eq!(shown(&g, &t), "B1C1aE2F2dg");
+        g.place_group(&mut t, 99, Some(0));
+        assert_eq!(shown(&g, &t), "B1C1aE2F2dg");
     }
 
     #[test]

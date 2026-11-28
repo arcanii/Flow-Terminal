@@ -2328,7 +2328,14 @@ and a right click on a tab's pill opens its menu there (`Menu::pill`,
 `left` (`App::sidebar_room`) narrows the terminal in `Layout::compute`, the
 keys stay with the pane until its key gives them to it
 (`Sidebar::keys`, `sidebar_has_keys`), and its edge drags its width
-(`window.tab_sidebar_width`, `Hit::SidebarEdge`).
+(`window.tab_sidebar_width`, `Hit::SidebarEdge`); its own pin unpins it
+popped, still out, and is drawn leaning over or pressed in
+(`ui::draw_pin`, from `Canvas::capsule`'s round-ended segments). A tab's
+row or a group's header dragged in the sidebar (`Sidebar::pressed`,
+`drag`, past `DRAG_AFTER`) lands where `tab_sidebar::drop_at` says, a
+header's middle (`Drop::Into`) or the gap nearer the pointer
+(`Drop::Gap`, a group's where the row below is its), moved by
+`TabGroups::place` and `place_group`, which refuse to part a group.
 
 **Recording the terminal.** `Command::Record` (⇧⌘R, and `keys.rs`'s
 `RECORD_ELSEWHERE`: Ctrl+Alt+Shift+R on Windows, Ctrl+Alt+Shift+V on
