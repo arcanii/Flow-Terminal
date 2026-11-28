@@ -84,6 +84,40 @@ tabs' order, apart from `App` so it's tested without a window:
   So there's never a group with no tabs.
 - **Ungroup** leaves its tabs where they are, loose.
 
+As built in step 2 (2026-11-28, `core/src/tab_groups.rs` and
+`core/src/app/groups.rs`):
+
+- **A group** is its id, name and color (`tab_groups::Group`); it folds
+  and wears a theme from steps 3 and 6. `TabGroups` holds them and its
+  moves (`new_group`, `join`, `leave`, `settle`), which work on any list
+  of tabs that say their group (`Grouped`), so they're tested apart, a
+  long run of random moves among them.
+- **The colors** are `tab_groups::COLORS`, eight, by name: blue, green,
+  yellow, pink, teal, orange, purple and red. A new group takes the first
+  that the fewest groups wear, so one given up comes back first.
+- **New tabs:** `App::open_tab_in` (⌘T, the +, the new-tab picker, the
+  palette's new tab in a shell, an update's and an app's hello tab)
+  joins the group of the tab in front (`join_front_group`). The flow
+  command's tab takes the group of the tab that asked, beside it. An
+  outside app's tab goes at the end, loose. Restart Tab replaces the
+  pane in place, so its tab keeps its group and name.
+- **The palette** offers Move Tab to Group: *name* for each group but
+  the front tab's own, **Remove Tab from Group** for a tab in one (the
+  design had Ungroup in the tab's menu alone, and without the sidebar
+  nothing else could take a tab out), and Go to Tab: *name* for each
+  tab, its group's name beside it. None of them is kept among what was
+  chosen lately (their `Item::key` is empty), since tabs' and groups'
+  ids are new each run. A toast says where the tab in front went.
+- **Names:** a new group is named `Group 1`, `Group 2` (`tab_group.name`),
+  the first number no group has. Typing a group's name waits for the
+  sidebar, where its header is (step 3).
+- **`tabs.json`:** `OpenGroup` is a group's name and its color's name;
+  each `OpenTab`'s `group` its place among them. Read back, a group's name
+  is held as a tab's is, an unknown color takes the next in turn, and a
+  tab whose group's tabs ended before it is loose (`together`), so a file
+  written by hand still keeps each group's tabs together.
+- **Readers** hear each tab's group after its name (`access.in_group`).
+
 ### A group's theme
 
 A tab that has no theme of its own wears its group's, so the chain is:
@@ -370,6 +404,7 @@ Each step is a commit of its own, tested before the next:
 2. **Groups:** `tab_groups.rs` and its tests, `tabs.json`, the title
    bar's marks, and the palette's New Group, Move Tab to Group and Go to
    Tab. Groups can then be made and used before the sidebar exists.
+   Built on 2026-11-28 (see The groups).
 3. **The sidebar over the terminal:** its rows, keys, clicks, folds,
    menus, Close Group, readers, help, and `tab-sidebar.png`.
 4. **Pinned:** `Layout::compute`'s `left`, the Settings row, the width's

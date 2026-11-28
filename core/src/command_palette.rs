@@ -2,7 +2,8 @@
 //! by typing a few letters of its name. Its items are Flow's commands (in
 //! the words of the Mac's menus, with their keys), every setting (which
 //! opens Settings at its row), every theme (worn as Settings' Theme row
-//! wears it), every page of help, and a new tab in each shell.
+//! wears it), every page of help, a new tab in each shell, each tab to
+//! go to, and each group the tab in front may move into (`tab_groups`).
 //!
 //! What's typed matches an item by its letters in order, any case: a
 //! letter at the start of a word, or straight after the one before, counts
@@ -39,6 +40,12 @@ pub enum Act {
     Help(usize),
     /// Opens a tab in the shell, by its place among the profiles.
     Shell(usize),
+    /// Brings the tab forward, by its id.
+    Tab(u64),
+    /// Moves the tab in front into the group, by its id.
+    Group(u64),
+    /// Takes the tab in front out of its group.
+    Ungroup,
 }
 
 /// What kind of thing an item is, said beside it.
@@ -49,6 +56,7 @@ pub enum Kind {
     Theme,
     Help,
     NewTab,
+    Tab,
 }
 
 impl Kind {
@@ -59,6 +67,7 @@ impl Kind {
             Kind::Theme => "palette.kind_theme",
             Kind::Help => "palette.kind_help",
             Kind::NewTab => "palette.kind_new_tab",
+            Kind::Tab => "palette.kind_tab",
         })
     }
 }
@@ -74,8 +83,19 @@ pub struct Item {
     pub act: Act,
     /// What it's remembered by among the recently chosen, the same in any
     /// language: `command:NewTab`, `setting:FontSize`, `theme:green`,
-    /// `help:find`, `shell:zsh`.
+    /// `help:find`, `shell:zsh`. A tab's and a group's is empty: they may
+    /// be gone by the next run, so they aren't remembered.
     pub key: String,
+}
+
+/// The tabs and groups as the palette opens: each tab's id, name and its
+/// group's name (empty, loose), the groups the tab in front may move into
+/// (by id and name, its own left out), and whether it's in one.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Tabs {
+    pub tabs: Vec<(u64, String, String)>,
+    pub groups: Vec<(u64, String)>,
+    pub grouped: bool,
 }
 
 /// How many of the latest chosen are remembered.
@@ -128,13 +148,14 @@ impl Recent {
 
 /// Flow's commands, in the menus' words; their keys are as they're bound
 /// (`keys.rs`).
-const COMMANDS: [(Command, &str); 40] = [
+const COMMANDS: [(Command, &str); 41] = [
     (Command::NewTab, "menu.new_tab"),
     (Command::CloseTab, "menu.close_tab"),
     (Command::NextTab, "menu.next_tab"),
     (Command::PreviousTab, "menu.previous_tab"),
     (Command::RestartTab, "menu.restart_tab"),
     (Command::RenameTab, "menu.rename_tab"),
+    (Command::NewGroup, "menu.new_group"),
     (Command::SplitRight, "menu.split_right"),
     (Command::SplitDown, "menu.split_down"),
     (Command::Find, "menu.find"),
@@ -174,9 +195,10 @@ const COMMANDS: [(Command, &str); 40] = [
 /// Every item, in the order they come before anything's typed: Flow's
 /// commands (Check for Updates only where there's an updater), every
 /// setting in `entries` (Settings' rows, every section open), the themes
-/// (their ids and names), the pages of help (their names and titles) and a
-/// new tab in each of `shells` (their ids and labels).
-pub fn items(entries: &[Entry], themes: &[(String, String)], help: &[(&str, &str)], shells: &[(&str, String)], can_update: bool) -> Vec<Item> {
+/// (their ids and names), the pages of help (their names and titles), a
+/// new tab in each of `shells` (their ids and labels), then `tabs`' moves
+/// for the tab in front and each tab to go to.
+pub fn items(entries: &[Entry], themes: &[(String, String)], help: &[(&str, &str)], shells: &[(&str, String)], tabs: &Tabs, can_update: bool) -> Vec<Item> {
     let ai = crate::ai::provider::in_use().name();
     let app = [("app", &crate::APP_NAME as &dyn std::fmt::Display), ("ai", &ai)];
     let bound = crate::keys::bound();
@@ -198,6 +220,12 @@ pub fn items(entries: &[Entry], themes: &[(String, String)], help: &[(&str, &str
     items.extend(themes.iter().map(|(id, name)| Item { label: name.clone(), detail: String::new(), kind: Kind::Theme, keys: String::new(), act: Act::Theme(id.clone()), key: format!("theme:{id}") }));
     items.extend(help.iter().enumerate().map(|(i, (name, title))| Item { label: title.to_string(), detail: String::new(), kind: Kind::Help, keys: String::new(), act: Act::Help(i), key: format!("help:{name}") }));
     items.extend(shells.iter().enumerate().map(|(i, (id, label))| Item { label: label.clone(), detail: String::new(), kind: Kind::NewTab, keys: String::new(), act: Act::Shell(i), key: format!("shell:{id}") }));
+    let command = |label: String, act: Act| Item { label, detail: String::new(), kind: Kind::Command, keys: String::new(), act, key: String::new() };
+    items.extend(tabs.groups.iter().map(|(id, name)| command(tf("palette.move_to_group", &[("group", name)]), Act::Group(*id))));
+    if tabs.grouped {
+        items.push(command(t("palette.ungroup_tab").to_string(), Act::Ungroup));
+    }
+    items.extend(tabs.tabs.iter().map(|(id, name, group)| Item { label: tf("palette.go_to_tab", &[("tab", name)]), detail: group.clone(), kind: Kind::Tab, keys: String::new(), act: Act::Tab(*id), key: String::new() }));
     items
 }
 
@@ -325,7 +353,7 @@ mod tests {
         let themes = vec![("green".to_string(), "Green screen".to_string())];
         let help = [("flow", "Flow"), ("find", "Find in the scrollback")];
         let shells = vec![("zsh", "zsh".to_string()), ("bash", "bash".to_string())];
-        let items = items(&rows, &themes, &help, &shells, false);
+        let items = items(&rows, &themes, &help, &shells, &Tabs::default(), false);
         for (cmd, ..) in COMMANDS.iter().filter(|(c, ..)| *c != Command::CheckForUpdates) {
             assert!(items.iter().any(|i| i.act == Act::Command(*cmd)), "{cmd:?}");
         }
@@ -347,12 +375,28 @@ mod tests {
     }
 
     #[test]
+    fn each_tab_and_group_is_an_item_that_isnt_remembered() {
+        crate::i18n::set_language("en", &[]);
+        let tabs = Tabs { tabs: vec![(7, "zsh 1".into(), "Web".into()), (9, "build".into(), String::new())], groups: vec![(3, "Docs".into())], grouped: true };
+        let all = items(&[], &[], &[], &[], &tabs, false);
+        let ours: Vec<&Item> = all.iter().filter(|i| matches!(i.act, Act::Tab(_) | Act::Group(_) | Act::Ungroup)).collect();
+        let shown: Vec<(&str, &str, Kind)> = ours.iter().map(|i| (i.label.as_str(), i.detail.as_str(), i.kind)).collect();
+        assert_eq!(shown, [("Move Tab to Group: Docs", "", Kind::Command), ("Remove Tab from Group", "", Kind::Command), ("Go to Tab: zsh 1", "Web", Kind::Tab), ("Go to Tab: build", "", Kind::Tab)]);
+        assert_eq!(ours.iter().map(|i| i.act.clone()).collect::<Vec<_>>(), [Act::Group(3), Act::Ungroup, Act::Tab(7), Act::Tab(9)]);
+        assert!(ours.iter().all(|i| i.key.is_empty()), "a tab or a group may be gone by the next run");
+        // Loose, the tab in front has nothing to leave.
+        let loose = items(&[], &[], &[], &[], &Tabs { grouped: false, ..tabs }, false);
+        assert!(!loose.iter().any(|i| i.act == Act::Ungroup));
+        assert!(loose.iter().any(|i| i.act == Act::Command(Command::NewGroup)), "New Group is a command");
+    }
+
+    #[test]
     fn every_item_is_remembered_by_a_key_of_its_own_whatever_the_language() {
         let keys = |code: &str| {
             crate::i18n::set_language(code, &[]);
             let rows = crate::settings::entries(&crate::config::Config::default(), &Default::default(), None, &[], false, true, Default::default());
             let help: Vec<(&str, &str)> = crate::help::Page::ALL.iter().map(|p| (p.name(), p.title())).collect();
-            let items = items(&rows, &[("green".into(), "Green screen".into())], &help, &[("zsh", "zsh".into())], true);
+            let items = items(&rows, &[("green".into(), "Green screen".into())], &help, &[("zsh", "zsh".into())], &Tabs::default(), true);
             items.into_iter().map(|i| (i.key, i.label)).collect::<Vec<_>>()
         };
         let (en, ja) = (keys("en"), keys("ja"));
@@ -419,7 +463,7 @@ mod tests {
         cfg.ui.closed_sections.clear();
         cfg.fx.crt = 0.6;
         let entries = crate::settings::entries(&cfg, &crate::settings::FontChoices::default(), None, &[], false, true, crate::settings::Tally::default());
-        let mut p = Palette::new(items(&entries, &[], &[], &[], false), Index::new(&entries, &entries), &[]);
+        let mut p = Palette::new(items(&entries, &[], &[], &[], &Tabs::default(), false), Index::new(&entries, &entries), &[]);
         let mut find = |q: &str| {
             p.query = q.into();
             p.refilter(&[]);

@@ -185,6 +185,10 @@ pub struct ThemeConfig {
 #[serde(default)]
 pub struct OpenTabs {
     pub tabs: Vec<OpenTab>,
+    /// The groups the tabs are in (`tab_groups`), in the order their tabs
+    /// come; none written where there are none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub groups: Vec<OpenGroup>,
     /// The one in front.
     pub active: usize,
     /// Written by a Flow that hands over to a new one (Restart after an
@@ -217,6 +221,18 @@ pub struct OpenTab {
     /// The name the user gave it; none, its shell's.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    /// Its group, by its place in [`OpenTabs`]' `groups`; none, loose.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group: Option<usize>,
+}
+
+/// One of [`OpenTabs`]' groups: its name and its color, by the color's
+/// name (`tab_groups::COLORS`).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct OpenGroup {
+    pub name: String,
+    pub color: String,
 }
 
 fn is_zero(n: &usize) -> bool {

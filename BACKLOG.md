@@ -1679,7 +1679,9 @@ Tried live on the Mac, where both worked. What's left:
 Asked for on 2026-11-27, with a picture of another app's sidebar: a
 panel that pops out from the window's left edge, listing the tabs, which
 can be put into groups, the groups kept between launches. Designed on
-2026-11-28 (`docs/design/tab-groups.md`). Nothing is built yet.
+2026-11-28 (`docs/design/tab-groups.md`). Steps 1 and 2 are built
+(2026-11-28): tabs have names, and groups are made and used from the
+command palette.
 
 - **Decided:**
   - It pops out over the terminal, and a pin keeps it out, beside a
@@ -1689,9 +1691,9 @@ can be put into groups, the groups kept between launches. Designed on
   - A group lives in `tabs.json` with its tabs and goes with its last
     one.
 - **Its steps,** a commit each:
-  1. tab names typed in place;
-  2. groups, their marks and the palette's items;
-  3. the sidebar over the terminal;
+  1. tab names typed in place (built);
+  2. groups, their marks and the palette's items (built);
+  3. the sidebar over the terminal, with a group's name typed in place;
   4. pinned;
   5. dragging, in the sidebar and the title bar;
   6. a group's theme;

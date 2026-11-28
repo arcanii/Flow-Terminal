@@ -102,6 +102,8 @@ pub enum Command {
     RestartTab,
     /// Type a name for the tab in front, in its pill in the title bar.
     RenameTab,
+    /// Put the tab in front into a group of its own (`tab_groups`).
+    NewGroup,
     /// Efficient mode on or off.
     ToggleEfficient,
     /// The window kept on top of every other, or not (`window.on_top`).

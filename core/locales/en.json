@@ -739,10 +739,6 @@
       "hint": "The commands the history keeps, each counted once however often it ran. Clear, pressed twice, forgets them all.",
       "clear": "Clear"
     },
-    "tab_name": {
-    "title": "Name this tab",
-    "hint": "Enter keeps the name · Esc puts back the one before · left empty, the tab takes its shell's name again"
-  },
   "about": {
       "hint": "Version {version}. Updates are checked automatically in installed release builds.",
       "hint_linux": "Version {version}. Flow installed from a release with its install.sh updates itself, from About.",
@@ -1053,6 +1049,13 @@
     "bad": "Bad pattern",
     "placeholder_pattern": "Find a pattern (regular expression)"
   },
+  "tab_name": {
+    "title": "Name this tab",
+    "hint": "Enter keeps the name · Esc puts back the one before · left empty, the tab takes its shell's name again"
+  },
+  "tab_group": {
+    "name": "Group {n}"
+  },
   "palette": {
     "placeholder": "Type to find a command, setting, theme or page",
     "nothing": "Nothing matches",
@@ -1061,6 +1064,10 @@
     "kind_theme": "Theme",
     "kind_help": "Help",
     "kind_new_tab": "New tab",
+    "kind_tab": "Tab",
+    "move_to_group": "Move Tab to Group: {group}",
+    "ungroup_tab": "Remove Tab from Group",
+    "go_to_tab": "Go to Tab: {tab}",
     "hint": "↑↓ choose · Enter do it · Esc close"
   },
   "ask_why": {
@@ -1071,7 +1078,7 @@
     "footer": "↑↓ scroll · Tab, Enter links · Esc back · F1 or {help} close",
     "flow": {
       "title": "Flow",
-      "body": "Each of Flow's own screens has a page of help like this one: press **F1** while it's open (the command history, Settings and its color picker, the assistant's panel, the key dialog), or **{help}** anywhere. A link opens its page: click it, or choose it with Tab and press Enter. Esc goes back to the page before, and on the first page closes help, as the same key does at once. In the terminal, F1 is the program's: many use it for help of their own.\n\n# Keys\n- Every key here can be changed: [Flow's keys](help:keys) lists them all as they're bound, and Settings' **Keys** changes them.\n- {split_right} splits the pane in front in two side by side, and {split_down} one above the other; {pane_move} and the arrows move between panes, a click gives one the keys, and {close_tab} closes the pane in front first, as does the ✕ at the top right of the pane under the pointer (or a theme's frame's close box). Each pane wears a theme of its own, which Settings on it changes.\n- {new_tab} opens a tab with the default shell (the **+** in the title bar [lists every shell](help:shells)), {close_tab} closes it, and {pick_tab} shows tab 1 to 9. Double-click a tab to give it a name of your own, or choose **Rename Tab** in the [command palette](help:palette): Enter keeps it, Esc puts back the one before, and a name left empty gives the tab its shell's name again. Flow keeps the names with the tabs it opens again.\n- {copy} copies what's selected, and {paste} pastes.\n- {bigger}, {smaller} and {reset} change the font's size.\n- {history} searches the [command history](help:history).\n- {find} [finds words in the scrollback](help:find).\n- Scrolled back, a pill at the terminal's top right says how many lines are below: click it, or press {scroll_bottom}, to go back down; {scroll_top} goes to the top. {previous_command} and {next_command} go from one command run to the next, each marked on the scrollbar where its prompt was (a failed one in red). The scrollbar along the right edge goes anywhere in between: drag it, or click where to go. Settings' **Scrollbar** (under Terminal) shows it while scrolling, always or never.\n- {assistant} opens the [assistant's panel](help:assistant), and closes it.\n- {settings} opens [Settings](help:settings).\n- {palette} opens the [command palette](help:palette): every command, setting, theme and page, found by typing.\n- {efficient} turns efficient mode on and off, as **🌱e-mode** in the title bar does: the liquid, the CRT, effects and the theme's sounds pause for real work.\n- **on-top** in the title bar keeps Flow's window in front of every other window, and turns that off again (Settings' **Always on top**; on the Mac, **Window → Float on Top**). [Settings](help:settings)' Keys can give it a key.\n- {record} records the terminal to an animated WebP, the liquid and the tube in it, while a clock in the title bar runs; {record} again, or a click on the clock, stops it, and the system's save panel asks where to keep it.\n- {restart} restarts the tab in front: its shell ends and starts again in its place, greeting you with the startup logo as Flow does when it starts, and the other tabs stay as they are. While a program runs in it, it asks first: press {restart} again to end it and restart. Settings' **Restart** restarts all of Flow.\n- A click on the Flow logo shows [About Flow](help:about).\n\n# The mouse\nOver a program that takes the mouse (an editor, a game, `htop`), hold Shift to select, open the menu or scroll back.\n\nAt the shell's prompt, a click on the line you're typing moves the cursor there, as the arrow keys would; anywhere else a click selects. Settings' **Click to move the cursor** turns it off.\n\nA link a program writes (OSC 8, such as an app's name in `flowapp list`) is underlined under the pointer, and where it goes shows at the terminal's foot: hold {jump} and click to open it. Flow opens web and mail links, and shows a link to a file on this computer in its folder, never running it.\n\n# Pages\nIn a tab, `flow-help` prints every page, and `flow-help settings` one of them.\n- [Flow's keys](help:keys)\n- [Command history](help:history)\n- [Find in the scrollback](help:find)\n- [The command palette](help:palette)\n- [The assistant](help:assistant)\n- [Settings](help:settings)\n- [Picking a color](help:picker)\n- [The theme gallery](help:gallery)\n- [The API key](help:key)\n- [A 3D model from a file](help:model)\n- [A new tab](help:shells)\n- [Flow's apps](help:apps)\n- [The flow command](help:command)\n- [Outside apps](help:outside)\n- [A server asks](help:server_ask)\n- [About Flow](help:about)\n- [Checking for updates](help:updates)\n- [Legal](help:legal)"
+      "body": "Each of Flow's own screens has a page of help like this one: press **F1** while it's open (the command history, Settings and its color picker, the assistant's panel, the key dialog), or **{help}** anywhere. A link opens its page: click it, or choose it with Tab and press Enter. Esc goes back to the page before, and on the first page closes help, as the same key does at once. In the terminal, F1 is the program's: many use it for help of their own.\n\n# Keys\n- Every key here can be changed: [Flow's keys](help:keys) lists them all as they're bound, and Settings' **Keys** changes them.\n- {split_right} splits the pane in front in two side by side, and {split_down} one above the other; {pane_move} and the arrows move between panes, a click gives one the keys, and {close_tab} closes the pane in front first, as does the ✕ at the top right of the pane under the pointer (or a theme's frame's close box). Each pane wears a theme of its own, which Settings on it changes.\n- {new_tab} opens a tab with the default shell (the **+** in the title bar [lists every shell](help:shells)), {close_tab} closes it, and {pick_tab} shows tab 1 to 9. Double-click a tab to give it a name of your own, or choose **Rename Tab** in the [command palette](help:palette): Enter keeps it, Esc puts back the one before, and a name left empty gives the tab its shell's name again. Flow keeps the names with the tabs it opens again. **New Group** in the palette puts the tab in front into a group of its own, a bar in its color under each of its tabs; **Move Tab to Group** moves it into another, **Remove Tab from Group** takes it out, and **Go to Tab** finds any tab by its name. A tab you open from one in a group joins it, and Flow keeps the groups with the tabs.\n- {copy} copies what's selected, and {paste} pastes.\n- {bigger}, {smaller} and {reset} change the font's size.\n- {history} searches the [command history](help:history).\n- {find} [finds words in the scrollback](help:find).\n- Scrolled back, a pill at the terminal's top right says how many lines are below: click it, or press {scroll_bottom}, to go back down; {scroll_top} goes to the top. {previous_command} and {next_command} go from one command run to the next, each marked on the scrollbar where its prompt was (a failed one in red). The scrollbar along the right edge goes anywhere in between: drag it, or click where to go. Settings' **Scrollbar** (under Terminal) shows it while scrolling, always or never.\n- {assistant} opens the [assistant's panel](help:assistant), and closes it.\n- {settings} opens [Settings](help:settings).\n- {palette} opens the [command palette](help:palette): every command, setting, theme and page, found by typing.\n- {efficient} turns efficient mode on and off, as **🌱e-mode** in the title bar does: the liquid, the CRT, effects and the theme's sounds pause for real work.\n- **on-top** in the title bar keeps Flow's window in front of every other window, and turns that off again (Settings' **Always on top**; on the Mac, **Window → Float on Top**). [Settings](help:settings)' Keys can give it a key.\n- {record} records the terminal to an animated WebP, the liquid and the tube in it, while a clock in the title bar runs; {record} again, or a click on the clock, stops it, and the system's save panel asks where to keep it.\n- {restart} restarts the tab in front: its shell ends and starts again in its place, greeting you with the startup logo as Flow does when it starts, and the other tabs stay as they are. While a program runs in it, it asks first: press {restart} again to end it and restart. Settings' **Restart** restarts all of Flow.\n- A click on the Flow logo shows [About Flow](help:about).\n\n# The mouse\nOver a program that takes the mouse (an editor, a game, `htop`), hold Shift to select, open the menu or scroll back.\n\nAt the shell's prompt, a click on the line you're typing moves the cursor there, as the arrow keys would; anywhere else a click selects. Settings' **Click to move the cursor** turns it off.\n\nA link a program writes (OSC 8, such as an app's name in `flowapp list`) is underlined under the pointer, and where it goes shows at the terminal's foot: hold {jump} and click to open it. Flow opens web and mail links, and shows a link to a file on this computer in its folder, never running it.\n\n# Pages\nIn a tab, `flow-help` prints every page, and `flow-help settings` one of them.\n- [Flow's keys](help:keys)\n- [Command history](help:history)\n- [Find in the scrollback](help:find)\n- [The command palette](help:palette)\n- [The assistant](help:assistant)\n- [Settings](help:settings)\n- [Picking a color](help:picker)\n- [The theme gallery](help:gallery)\n- [The API key](help:key)\n- [A 3D model from a file](help:model)\n- [A new tab](help:shells)\n- [Flow's apps](help:apps)\n- [The flow command](help:command)\n- [Outside apps](help:outside)\n- [A server asks](help:server_ask)\n- [About Flow](help:about)\n- [Checking for updates](help:updates)\n- [Legal](help:legal)"
     },
     "keys": {
       "title": "Flow's keys",
@@ -1090,7 +1097,7 @@
     },
     "palette": {
       "title": "The command palette",
-      "body": "{palette} opens the command palette over everything (on the Mac, **View → Command Palette…** does too), and Esc closes it.\n\n# Finding\nType a few letters of what you want, in order and in any case: `nt` finds **New Tab**, `opa` the glass's **Opacity**, and a setting is found by its section too, so `glass opa` finds it as well. A setting is found by any words about it as well, as Settings' search finds it: what its hint says, its choices (`amber` finds **Phosphor**) and its key in config.toml (`fx.crt`), after what's found by name. A letter that starts a word, or follows the last one found, counts most, so the best match comes first. What you chose lately comes first before anything's typed, and ahead of others that match as well.\n\n# What's in it\n- **Commands:** everything in Flow's menus, with its keys: tabs, copy and paste, find, the history, text size, efficient mode, recording the terminal, the assistant and its key, Settings, help, About, restart and quit.\n- **Settings:** every row, which opens [Settings](help:settings) at it.\n- **Themes:** every theme, which the tab in front puts on, as Settings' Theme row does.\n- **Help:** every page of help.\n- **New tab:** a tab in each shell, as the [new-tab picker](help:shells) opens one.\n\n# Choosing\n↑ and ↓ choose, Page Up and Page Down by eight, and the wheel scrolls. Enter, or a click, does what's chosen and closes the palette."
+      "body": "{palette} opens the command palette over everything (on the Mac, **View → Command Palette…** does too), and Esc closes it.\n\n# Finding\nType a few letters of what you want, in order and in any case: `nt` finds **New Tab**, `opa` the glass's **Opacity**, and a setting is found by its section too, so `glass opa` finds it as well. A setting is found by any words about it as well, as Settings' search finds it: what its hint says, its choices (`amber` finds **Phosphor**) and its key in config.toml (`fx.crt`), after what's found by name. A letter that starts a word, or follows the last one found, counts most, so the best match comes first. What you chose lately comes first before anything's typed, and ahead of others that match as well.\n\n# What's in it\n- **Commands:** everything in Flow's menus, with its keys: tabs, copy and paste, find, the history, text size, efficient mode, recording the terminal, the assistant and its key, Settings, help, About, restart and quit.\n- **Settings:** every row, which opens [Settings](help:settings) at it.\n- **Themes:** every theme, which the tab in front puts on, as Settings' Theme row does.\n- **Help:** every page of help.\n- **New tab:** a tab in each shell, as the [new-tab picker](help:shells) opens one.\n- **Tabs:** **Go to Tab** for each tab, by its name, and for the tab in front **Move Tab to Group** for each group and **Remove Tab from Group**. These aren't kept among what you chose lately.\n\n# Choosing\n↑ and ↓ choose, Page Up and Page Down by eight, and the wheel scrolls. Enter, or a click, does what's chosen and closes the palette."
     },
     "assistant": {
       "title": "The assistant",
@@ -1638,6 +1645,8 @@
     "key_removed": "API key removed from this computer",
     "key_not_removed": "Could not remove the key: {error}",
     "exited": "{shell} exited",
+    "grouped": "{tab} is in {group} now",
+    "ungrouped": "{tab} is in no group now",
     "crt_saved": "Saved the “{name}” preset",
     "crt_deleted": "Deleted the “{name}” preset",
     "theme_saved": "Saved the “{name}” theme",
@@ -1800,6 +1809,7 @@
     "next_tab": "Show Next Tab",
     "close_tab": "Close Tab",
     "rename_tab": "Rename Tab",
+    "new_group": "New Group",
     "restart_tab": "Restart Tab",
     "split_right": "Split Right",
     "split_down": "Split Down",
@@ -1862,6 +1872,7 @@
     "hint": "↑↓ choose · ←→ packages and themes · Enter {act} · Esc close"
   },
   "access": {
+    "in_group": "{tab}, in {group}",
     "model_in_use": "in use",
     "server_token": "Token for {server}",
     "steps": "Steps, {done} of {n} done; now: {now}",

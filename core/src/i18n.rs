@@ -200,7 +200,8 @@ mod tests {
     }
 
     /// Every "section.key" string in the sources, for a section the language
-    /// files have, is a key English has. Keys put together at run time
+    /// files have, and every key handed to `t` or `tf`, is a key English
+    /// has. Keys put together at run time
     /// (`settings.options.style.rain`) are checked by building the UI.
     #[test]
     fn the_keys_in_the_sources_are_in_english() {
@@ -233,6 +234,24 @@ mod tests {
                 if keyish && sections.contains(section) {
                     assert!(tables()[0].contains_key(literal), "{} uses {literal}, which en.json lacks", file.display());
                     checked += 1;
+                }
+            }
+            // A key handed straight to `t` or `tf` is checked whatever its
+            // section, so one put under the wrong section in the files
+            // (`tab_name` inside `settings`) is found too; this file's own
+            // tests ask for missing ones.
+            if file.ends_with("i18n.rs") {
+                continue;
+            }
+            for call in ["t(\"", "tf(\""] {
+                for (at, _) in source.match_indices(call) {
+                    if source[..at].chars().next_back().is_some_and(|c| c.is_alphanumeric() || c == '_') {
+                        continue;
+                    }
+                    let literal = source[at + call.len()..].split('"').next().unwrap_or("");
+                    if literal.contains('.') && !literal.ends_with('.') && literal.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '.') {
+                        assert!(tables()[0].contains_key(literal), "{} uses {literal}, which en.json lacks", file.display());
+                    }
                 }
             }
         }

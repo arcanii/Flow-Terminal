@@ -59,6 +59,7 @@ mod settings_search;
 mod sixel;
 pub mod shell;
 pub mod sound;
+mod tab_groups;
 mod text;
 mod ui;
 pub mod version;

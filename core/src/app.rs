@@ -46,6 +46,7 @@ use crate::settings::{self, Change, ColorPicker, Control, Editing, Named, Naming
 
 mod attach;
 mod flow_tabs;
+mod groups;
 mod outside;
 mod server_ask;
 mod servers;
@@ -242,6 +243,18 @@ struct Tab {
     alert: Option<bool>,
     /// The name the user gave it (`App::rename_tab`); none, its shell's.
     name: Option<String>,
+    /// The group it's in (`App::groups`), by the group's id; none, loose.
+    group: Option<u64>,
+}
+
+impl crate::tab_groups::Grouped for Tab {
+    fn group(&self) -> Option<u64> {
+        self.group
+    }
+
+    fn set_group(&mut self, group: Option<u64>) {
+        self.group = group;
+    }
 }
 
 impl Tab {
@@ -895,6 +908,8 @@ pub struct App {
     flow_tabs: flow_tabs::FlowTabs,
     /// A tab's name being typed in its pill, which has the keys meanwhile.
     renaming: Option<tab_names::Renaming>,
+    /// The groups the tabs are in, in the order their tabs come.
+    groups: crate::tab_groups::TabGroups,
     /// A model on screen moves by itself, so frames keep coming.
     models_moving: bool,
     /// When Flow's logo, resting after a click, turns on again: a frame is
@@ -1202,6 +1217,7 @@ impl App {
             hello_tab: None,
             flow_tabs: Default::default(),
             renaming: None,
+            groups: Default::default(),
             models_moving: false,
             models_rest: None,
             pictures_due: None,
@@ -1686,7 +1702,11 @@ impl App {
         // With no tab to start from, a snapshot's starts in the home folder
         // it made (`shell::start_folder`), never where Flow was run from.
         let cwd = self.session().and_then(|s| Self::folder_of(s, profile));
+        let (count, front) = (self.tabs.len(), self.tabs.get(self.active).and_then(|t| t.group));
         self.open_tab_at(idx, look, None, cwd);
+        if self.tabs.len() > count {
+            self.join_front_group(front);
+        }
     }
 
     /// The folder `session`'s shell is in, for a new shell of `profile` to
@@ -1758,7 +1778,7 @@ impl App {
                 }
                 let pane = Pane { id: PANE_IDS.fetch_add(1, std::sync::atomic::Ordering::Relaxed), look: None, own: None, profile: idx, session, allowance: Allowance::default(), run: None, by: None };
                 let id = TAB_IDS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                self.tabs.push(Tab { id, look, own, panes: vec![pane], split: crate::panes::Split::default(), focus: 0, alert: None, name: None });
+                self.tabs.push(Tab { id, look, own, panes: vec![pane], split: crate::panes::Split::default(), focus: 0, alert: None, name: None, group: None });
                 self.select_tab(self.tabs.len() - 1);
             }
             Err(err) => {
@@ -1974,6 +1994,7 @@ impl App {
         for pane in std::mem::take(&mut self.tabs).into_iter().flat_map(|t| t.panes) {
             self.job_lost(pane.session.id);
         }
+        self.groups.clear();
         self.active = 0;
         self.selecting = false;
         self.mouse_report.forget();
@@ -2001,6 +2022,7 @@ impl App {
     /// The tabs as they stand, to open again: each one's shell, theme and
     /// folder, in their order, and the one in front.
     fn open_tabs(&self) -> crate::config::OpenTabs {
+        let groups = self.groups.all();
         let tabs = self
             .tabs
             .iter()
@@ -2030,10 +2052,12 @@ impl App {
                     split,
                     focus: tab.focus,
                     name: tab.name.clone(),
+                    group: tab.group.and_then(|id| groups.iter().position(|g| g.id == id)),
                 })
             })
             .collect();
-        crate::config::OpenTabs { tabs, active: self.active, restart: false }
+        let groups = groups.iter().map(|g| crate::config::OpenGroup { name: g.name.clone(), color: g.color_name().to_string() }).collect();
+        crate::config::OpenTabs { tabs, groups, active: self.active, restart: false }
     }
 
     /// Opens `kept`'s tabs again, each with its shell (by its label too,
@@ -2047,7 +2071,13 @@ impl App {
         }
         let looks = crate::looks::ids(self.base.as_ref().unwrap_or(&self.config));
         let first = self.tabs.len();
-        for tab in &kept.tabs {
+        // Each tab's group, by its place among those kept (none past their
+        // end), each group's tabs together, and each group made again as
+        // its first tab opens: one no tab opens in isn't.
+        let in_groups: Vec<Option<usize>> = kept.tabs.iter().map(|t| t.group.filter(|g| *g < kept.groups.len())).collect();
+        let in_groups = crate::tab_groups::together(&in_groups);
+        let mut made: Vec<Option<u64>> = vec![None; kept.groups.len()];
+        for (tab, in_group) in kept.tabs.iter().zip(in_groups) {
             let profile = reopened_shell(&self.profiles, tab).unwrap_or_else(|| self.default_profile());
             let look = tab.look.clone().filter(|id| looks.contains(id));
             // As `folder_of` keeps them, a tabs.json of an older Flow too.
@@ -2057,6 +2087,8 @@ impl App {
             if self.tabs.len() > count {
                 // As typed in Flow; one written by hand is held to the same.
                 self.tabs[count].name = tab.name.as_deref().and_then(tab_name);
+                let group = in_group.map(|k| *made[k].get_or_insert_with(|| self.kept_group(&kept.groups[k], k)));
+                self.tabs[count].group = group;
             }
             // Its other panes, as it was split, where every one starts.
             let Some(split) = tab.split.clone().filter(|s| self.tabs.len() > count && s.fits(tab.more.len() + 1)) else { continue };
@@ -2082,6 +2114,7 @@ impl App {
                 t.put_in_front(tab.focus.min(t.panes.len() - 1));
             }
         }
+        self.groups.settle(&mut self.tabs);
         if self.tabs.len() == first {
             return false;
         }
@@ -2205,6 +2238,8 @@ impl App {
     /// tab beside it comes to the front.
     fn tab_gone(&mut self, id: SessionId, i: usize, el: &ActiveEventLoop) {
         self.job_lost(id);
+        // A group goes with its last tab.
+        self.groups.settle(&mut self.tabs);
         if self.tabs.is_empty() {
             el.exit();
             return;
@@ -2238,7 +2273,7 @@ impl App {
                     Some(id) => format!("{label} · {}", crate::looks::name(id)),
                     None => label,
                 };
-                ui::TabLabel { label, alert: tab.alert }
+                ui::TabLabel { label, alert: tab.alert, group: self.groups.of(tab).map(|g| (g.id, g.rgb())) }
             })
             .collect()
     }
@@ -2373,6 +2408,7 @@ impl App {
             Command::Restart => self.restart_by_key(),
             Command::RestartTab => self.restart_tab_by_key(),
             Command::RenameTab => self.rename_tab(self.active),
+            Command::NewGroup => self.new_group(),
             Command::Copy => {
                 self.copy_selection();
             }
@@ -9732,7 +9768,7 @@ impl App {
         let themes: Vec<(String, String)> = crate::looks::ids(&self.config).into_iter().map(|id| (crate::looks::name(&id), id)).map(|(name, id)| (id, name)).collect();
         let help: Vec<(&str, &str)> = crate::help::Page::ALL.iter().map(|page| (page.name(), page.title())).collect();
         let shells: Vec<(&str, String)> = self.profiles.iter().map(|p| (p.id, p.label.clone())).collect();
-        let items = crate::command_palette::items(&entries, &themes, &help, &shells, self.platform.updater_available());
+        let items = crate::command_palette::items(&entries, &themes, &help, &shells, &self.palette_tabs(), self.platform.updater_available());
         // Every setting's words, as Settings' search reads them, in the
         // language in use and in English.
         let english = crate::i18n::in_english(|| self.settings_entries_of(&every));
@@ -9779,7 +9815,10 @@ impl App {
     /// come first next time.
     fn run_palette(&mut self, el: &ActiveEventLoop) {
         let Some(item) = self.palette.take().and_then(|p| p.chosen().cloned()) else { return };
-        self.palette_recent.chose(&item.key);
+        // A tab or a group, which may be gone by the next run, isn't kept.
+        if !item.key.is_empty() {
+            self.palette_recent.chose(&item.key);
+        }
         if self.snapshot.is_none() {
             self.palette_recent.save();
         }
@@ -9794,6 +9833,9 @@ impl App {
                 }
             }
             Act::Shell(i) => self.open_tab_in(i, None),
+            Act::Tab(id) => self.go_to_tab(id),
+            Act::Group(id) => self.move_to_group(id),
+            Act::Ungroup => self.ungroup_tab(),
         }
         self.request_redraw();
     }
@@ -13598,9 +13640,13 @@ impl App {
             .iter()
             .enumerate()
             .map(|(i, l)| {
-                let label = match l.alert {
-                    Some(failed) => format!("{}, {}", l.label, t(if failed { "access.failed" } else { "access.done" })),
+                let label = match self.tabs.get(i).and_then(|t| self.groups.of(t)) {
+                    Some(g) => tf("access.in_group", &[("tab", &l.label), ("group", &g.name)]),
                     None => l.label.clone(),
+                };
+                let label = match l.alert {
+                    Some(failed) => format!("{label}, {}", t(if failed { "access.failed" } else { "access.done" })),
+                    None => label,
                 };
                 TabItem { label, rect: self.rect_of(Hit::Tab(i)), close: self.rect_of(Hit::CloseTab(i)) }
             })
@@ -15146,7 +15192,7 @@ mod tests {
                 OpenTab { shell: "bash".into(), label: "bash".into(), look: None, folder: None, own: Some(crate::looks::tab_part(&Config::default())), ..OpenTab::default() },
             ],
             active: 1,
-            restart: false,
+            ..OpenTabs::default()
         };
         let text = serde_json::to_string(&kept).unwrap();
         assert_eq!(serde_json::from_str::<OpenTabs>(&text).unwrap(), kept);
@@ -15160,6 +15206,33 @@ mod tests {
         assert!(text.contains(r#""name":"web""#), "{text}");
         assert_eq!(serde_json::from_str::<OpenTabs>(&text).unwrap(), named);
         assert!(thin.tabs[0].more.is_empty() && thin.tabs[0].split.is_none(), "one from before panes: one pane");
+    }
+
+    #[test]
+    fn the_tabs_groups_are_kept_with_them_and_none_written_without() {
+        use crate::config::{OpenGroup, OpenTab, OpenTabs};
+        let tab = |group: Option<usize>| OpenTab { shell: "zsh".into(), label: "zsh".into(), group, ..OpenTab::default() };
+        let kept = OpenTabs {
+            tabs: vec![tab(None), tab(Some(0)), tab(Some(0)), tab(Some(1))],
+            groups: vec![OpenGroup { name: "Web".into(), color: "teal".into() }, OpenGroup { name: "Group 2".into(), color: "blue".into() }],
+            ..OpenTabs::default()
+        };
+        let text = serde_json::to_string(&kept).unwrap();
+        assert!(text.contains(r#""groups":[{"name":"Web","color":"teal"}"#) && text.contains(r#""group":1"#), "{text}");
+        assert_eq!(serde_json::from_str::<OpenTabs>(&text).unwrap(), kept);
+        // None, none written: a file as before groups.
+        let loose = serde_json::to_string(&OpenTabs { tabs: vec![tab(None)], ..OpenTabs::default() }).unwrap();
+        assert!(!loose.contains("group"), "{loose}");
+        // A file from before groups reads with every tab loose, and a tab
+        // naming a group past the list's end is loose as it opens (one apart
+        // from the rest of its group too, `tab_groups`' own tests).
+        let old: OpenTabs = serde_json::from_str(r#"{"tabs":[{"shell":"zsh"},{"shell":"zsh","group":3}],"active":0}"#).unwrap();
+        assert!(old.groups.is_empty() && old.tabs[0].group.is_none());
+        let groups: Vec<Option<usize>> = old.tabs.iter().map(|t| t.group.filter(|g| *g < old.groups.len())).collect();
+        assert_eq!(crate::tab_groups::together(&groups), [None, None]);
+        // A group's color it doesn't know by name is the next in turn.
+        assert_eq!(crate::tab_groups::color_named("teal"), Some(4));
+        assert_eq!(crate::tab_groups::color_named("chartreuse"), None);
     }
 
     #[test]
@@ -15181,8 +15254,7 @@ mod tests {
                 focus: 2,
                 ..OpenTab::default()
             }],
-            active: 0,
-            restart: false,
+            ..OpenTabs::default()
         };
         let text = serde_json::to_string(&kept).unwrap();
         let back: OpenTabs = serde_json::from_str(&text).unwrap();

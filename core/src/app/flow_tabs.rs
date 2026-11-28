@@ -158,8 +158,8 @@ impl App {
         Some(json!({ "ok": true, "pane": pane }))
     }
 
-    /// A tab for `opening`, right after tab `tab` in the bar, in front
-    /// unless it's to open behind, where the tab in front stays and keeps
+    /// A tab for `opening`, right after tab `tab` in the bar and in its
+    /// group, in front unless it's to open behind, where the tab in front stays and keeps
     /// the keys. Its session; none where its shell couldn't start.
     fn tab_asked(&mut self, tab: usize, opening: &Opening) -> Option<SessionId> {
         let (count, front) = (self.tabs.len(), self.active);
@@ -168,9 +168,11 @@ impl App {
         if self.tabs.len() <= count {
             return None;
         }
-        let new = self.tabs.pop()?;
+        let mut new = self.tabs.pop()?;
         let id = new.session().id;
         let at = (tab + 1).min(self.tabs.len());
+        // Beside the asking tab, it's in that tab's group too.
+        new.group = self.tabs.get(tab).and_then(|t| t.group);
         self.tabs.insert(at, new);
         match opening.behind {
             true => {

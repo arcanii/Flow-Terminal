@@ -2,7 +2,7 @@
 
 # Working in the terminal
 
-Scrolling back, Caps Lock, naming tabs, split panes, the command palette,
+Scrolling back, Caps Lock, naming tabs, groups of tabs, split panes, the command palette,
 recording the terminal, finding in the scrollback, the command history and
 Flow's help.
 
@@ -62,6 +62,34 @@ Settings on that tab, the system's notice when a long command ends there,
 and to screen readers, and it goes with the tab when Flow opens its tabs again at the next start (Restart
 Tab keeps it too). Names keep to one line of at most 60 letters.
 
+## Groups of tabs
+
+Tabs can be kept together in groups, each with a name and a color. Choose
+**New Group** in the [command palette](#the-command-palette) (on the Mac,
+also **Shell → New Group**; Settings' Keys can give it a key) and the tab
+in front goes into a group of its own, named **Group 1**, **Group 2** and
+so on, in the next of eight colors. Each tab in a group has a bar in its
+group's color along the foot of its pill in the title bar, running on
+under the gap to the next tab of the same group, so a group's tabs read as
+one. Screen readers say each tab's group after its name.
+
+A group's tabs always stand together in the title bar, and tabs in no
+group may stand before, between or after the groups.
+
+- **Move Tab to Group: *name*** in the palette, one for each other group,
+  moves the tab in front into that group, after its tabs.
+- **Remove Tab from Group** takes it out, just after the rest of its group.
+- **Go to Tab: *name***, one for each tab, brings any tab forward by its
+  name, its group's name beside it.
+- A tab opened from a tab in a group (**New Tab**, the **+**, the new-tab
+  picker, and `flow` in a tab) joins that group, after its tabs; one opened
+  from a tab in no group goes at the end. Restart Tab keeps its tab's
+  group.
+- A group goes once no tab is in it: its last tab closed or moved out.
+- Flow keeps the groups with the tabs it opens again at the next start, as
+  it keeps their names, in `tabs.json`. An older Flow opens them in no
+  group.
+
 ## Split panes
 
 `⌘D` on the Mac (also **Shell → Split Right**) or `Ctrl+Shift+D` elsewhere
@@ -98,8 +126,9 @@ until it fills it, and Font size's line says what it holds.
 elsewhere opens a palette of everything Flow can do: its commands, in the
 words of the Mac's menus with their keys; every setting, which opens
 Settings at its row; every theme, which the tab in front puts on as
-Settings' Theme row does; every page of help; and a new tab in each shell.
-Type a few letters of what you want, in order and in any case: what's found
+Settings' Theme row does; every page of help; a new tab in each shell; and
+each tab to go to by its name, with the [groups](#groups-of-tabs) the tab
+in front can move into. Type a few letters of what you want, in order and in any case: what's found
 as typed comes first (at a word's start before inside one), then letters
 that start words (`nt` finds New Tab), and a setting is found by its
 section too (`glass opa`), and by any words about it, as
@@ -107,7 +136,8 @@ section too (`glass opa`), and by any words about it, as
 Settings says of it, its choices (`amber` finds Phosphor) and its key in
 `config.toml` (`fx.crt`), in English as well as Japanese, after what's
 found by name. What was chosen lately comes first before
-anything's typed, and ahead of others as good; Flow keeps the last eight in
+anything's typed, and ahead of others as good (a tab or a group, which
+may be gone by then, isn't kept); Flow keeps the last eight in
 `palette.json` beside `config.toml`, so they come first after a restart too,
 whatever the language. ↑ and ↓ choose (Page Up and
 Page Down by eight, or the wheel), Enter or a click does it, Esc closes.

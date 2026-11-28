@@ -1092,6 +1092,9 @@ pub struct TabLabel {
     /// A long command finished there while another tab was in front, and
     /// whether it failed.
     pub alert: Option<bool>,
+    /// The group it's in, by its id, and the group's color, which marks
+    /// its pill (`tab_groups`).
+    pub group: Option<(u64, [u8; 3])>,
 }
 
 pub struct View<'a> {
@@ -1792,6 +1795,17 @@ fn draw_tabs(c: &mut Canvas<'_>, v: &View<'_>, x: f32, limit: f32, hits: &mut Ve
         let least = if typing(i).is_some() { (TAB_FIELD_LEAST * s).min(room * 0.5) } else { 40.0 * s };
         let w = natural[i].min(share).max(least);
         let r = Rect::new(x, y, w, h);
+        // A tab in a group: a bar in the group's color along the pill's
+        // foot, running on under the gap to the next tab where that's in
+        // the same group, so a group's tabs read as one.
+        if let Some((group, color)) = t.group {
+            let same = |j: Option<usize>| j.and_then(|j| v.tabs.get(j)).and_then(|n| n.group).is_some_and(|(g, _)| g == group);
+            let inset = h * 0.4;
+            let from = if same(i.checked_sub(1)) { r.x } else { r.x + inset };
+            let to = if same(Some(i + 1)) { r.x + w + gap } else { r.x + w - inset };
+            let thick = (2.0 * s).round().max(1.0);
+            c.rect(from, r.y + h + 2.0 * s, (to - from).max(0.0), thick, rgba(color, 0.95), thick * 0.5);
+        }
         if let Some(f) = typing(i) {
             *naming = Some(draw_tab_field(c, v, r, f));
             hits.push((r, Hit::Tab(i)));
