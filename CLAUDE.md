@@ -145,7 +145,7 @@ cargo run --release --example make_movie -- <dir>/oil oil.webp
   The current pictures were made on Windows, except `style-rain.png` (a
   downpour, `SHOWCASE_RAIN`),
   `style-water-below.png`, `style-none.png`, `style-crt.png`, `key.png`, `new-tab.png`, `tab-card.png`, `resources.png`, `settings.png`,
-  `settings-font.png`, `settings-apps.png`, `settings-skills.png`, `theme-gallery.png`, `find.png`, `palette.png`, `split.png`, `history.png`, `help.png`, `model.png`, `theme-home.webp`, `theme-green.png`, `theme-instruments.png`, `theme-amiga.png`, `settings-mcp.png`, `mcp-ask.png`, `settings-mcp-servers.png`, `mcp-call.png`, `mcp-ask-form.png`, `mcp-ask-link.png`, `assistant-files.png`, `assistant-drop.png`, `assistant-input.png` and `assistant-models.png` (macOS, scaled to 1650 × 1050
+  `settings-font.png`, `settings-apps.png`, `settings-skills.png`, `theme-gallery.png`, `find.png`, `palette.png`, `split.png`, `history.png`, `help.png`, `model.png`, `theme-home.webp`, `theme-green.png`, `theme-instruments.png`, `theme-amiga.png`, `settings-mcp.png`, `mcp-ask.png`, `settings-mcp-servers.png`, `mcp-call.png`, `mcp-ask-form.png`, `mcp-ask-link.png`, `assistant-files.png`, `assistant-drop.png`, `assistant-input.png`, `assistant-models.png` and `tab-sidebar.png` (macOS, scaled to 1650 × 1050
   from a 2× screen, but `new-tab.png`, `tab-card.png` and `resources.png`,
   kept at 2200 × 1400). `theme-home.webp` is the
   snapshot's `theme-home.png` through `cwebp -q 90 -m 6`, since its tube's
@@ -2291,6 +2291,34 @@ breaking ties. `App::run_palette` does the `Act`: `on_command`,
 `open_help` or `open_tab_in`. It's modal, as the history's search is
 (`palette_key`, clicks outside close it, the wheel moves the choice);
 `ui::draw_palette` draws it, and snapshots show it as `palette.png`.
+
+**Tabs' names, groups and the sidebar** (`docs/design/tab-groups.md`).
+A tab's name (`Tab::name`, `App::rename_tab`, `core/src/app/tab_names.rs`,
+`tab_names` numbering the rest) and a group's are typed in place
+(`tab_names::Named`, `Renaming`): in the tab's pill (`ui::draw_tab_field`)
+while the sidebar is in, in its row while it's out. `tab_groups.rs` holds
+the groups (`TabGroups`, `Group`: a name, one of `COLORS`, folded) and the
+moves that keep each group's tabs together in `App::tabs`' one order
+(`new_group`, `join`, `leave`, `step_tab`, `step_group`, `settle`, on any
+`Grouped` list), `core/src/app/groups.rs` what the window does with them
+(`regroup` keeps the tab in front in front; a tab opened from one in a
+group joins it, `join_front_group`; the palette's Go to Tab, Move Tab to
+Group and Remove Tab from Group, `command_palette::Tabs`), and `tabs.json`
+keeps both (`OpenTab::name`, `group`, `OpenTabs::groups`, `OpenGroup`,
+`tab_groups::together` for a file written by hand). The title bar marks a
+grouped tab with its color under its pill (`TabLabel::group`). The tab
+sidebar (`Command::TabSidebar`, ⇧⌘S, Ctrl+Shift+S, the title bar's
+`Hit::TabSidebar`) is `tab_sidebar.rs`'s rows, line, menus and state
+(`Sidebar`, rows by `RowId`), `core/src/app/sidebar.rs`'s keys, clicks and
+readers (a tree, `Chooser::Sidebar`), and `ui::draw_sidebar`, over the
+terminal and taking the keys and the pointer as the palette does, out
+until Esc, its key or a click outside it, whatever tab is chosen.
+Its line reads `ShellState::ended`, kept for it. Snapshots show it as
+`tab-sidebar.png` (`SIDEBAR_STAGE`). A tab keeps the number it opened
+with (`Tab::number`, `free_number`), so none is renamed as another
+closes, and closing a tab or a pane with something running in it
+(`Session::busy_with`) asks first, a toast and the same close again
+within `CONFIRM_WINDOW` (`App::close_now`), as Close Group does.
 
 **Recording the terminal.** `Command::Record` (⇧⌘R, and `keys.rs`'s
 `RECORD_ELSEWHERE`: Ctrl+Alt+Shift+R on Windows, Ctrl+Alt+Shift+V on

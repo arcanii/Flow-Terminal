@@ -36,6 +36,8 @@ pub struct Group {
     pub name: String,
     /// Its place in [`COLORS`].
     pub color: usize,
+    /// Folded shut in the sidebar, its tabs' rows hidden.
+    pub folded: bool,
 }
 
 impl Group {
@@ -88,8 +90,92 @@ impl TabGroups {
     pub fn add(&mut self, name: String, color: Option<usize>) -> u64 {
         self.ids += 1;
         let color = color.filter(|c| *c < COLORS.len()).unwrap_or_else(|| self.next_color());
-        self.groups.push(Group { id: self.ids, name, color });
+        self.groups.push(Group { id: self.ids, name, color, folded: false });
         self.ids
+    }
+
+    /// Group `id` renamed `name`.
+    pub fn rename(&mut self, id: u64, name: String) {
+        if let Some(g) = self.groups.iter_mut().find(|g| g.id == id) {
+            g.name = name;
+        }
+    }
+
+    /// Group `id` in color `color` (its place in [`COLORS`]).
+    pub fn recolor(&mut self, id: u64, color: usize) {
+        if let Some(g) = self.groups.iter_mut().find(|g| g.id == id).filter(|_| color < COLORS.len()) {
+            g.color = color;
+        }
+    }
+
+    /// Group `id` folded shut, or open.
+    pub fn fold(&mut self, id: u64, folded: bool) {
+        if let Some(g) = self.groups.iter_mut().find(|g| g.id == id) {
+            g.folded = folded;
+        }
+    }
+
+    /// Ungroup: every tab of group `id` loose where it stands, and the
+    /// group gone.
+    pub fn ungroup<T: Grouped>(&mut self, tabs: &mut [T], id: u64) {
+        for tab in tabs.iter_mut().filter(|t| t.group() == Some(id)) {
+            tab.set_group(None);
+        }
+        self.settle(tabs);
+    }
+
+    /// Moves tab `i` one step up the order (down where `up` is false), as
+    /// ⌥↑ and ⌥↓ do in the sidebar, and gives its place now. Past its
+    /// neighbour where they're in the same group, or both loose; at its
+    /// group's edge it leaves the group, staying where it is; loose beside
+    /// a group, it joins it there, at that end. So a tab goes into and out
+    /// of each group it passes, one step each, and never splits one.
+    pub fn step_tab<T: Grouped>(&mut self, tabs: &mut [T], i: usize, up: bool) -> usize {
+        let Some(group) = tabs.get(i).map(Grouped::group) else { return i };
+        let Some(j) = (if up { i.checked_sub(1) } else { Some(i + 1).filter(|&j| j < tabs.len()) }) else {
+            // At the end of the order: a group's last tab still leaves it.
+            if group.is_some() {
+                tabs[i].set_group(None);
+                self.settle(tabs);
+            }
+            return i;
+        };
+        let beside = tabs[j].group();
+        match (group, beside) {
+            (g, b) if g == b => tabs.swap(i, j),
+            (Some(_), _) => tabs[i].set_group(None),
+            (None, b) => tabs[i].set_group(b),
+        }
+        self.settle(tabs);
+        if group == beside { j } else { i }
+    }
+
+    /// Moves group `id`'s tabs, together, past what's before them (after,
+    /// where `up` is false): a loose tab, or another group's tabs.
+    pub fn step_group<T: Grouped>(&mut self, tabs: &mut [T], id: u64, up: bool) {
+        let Some(start) = tabs.iter().position(|t| t.group() == Some(id)) else { return };
+        let Some(end) = run_end(tabs, id) else { return };
+        // What's beside it: one tab, or the whole of the group it's in.
+        let (from, to) = if up {
+            let Some(before) = start.checked_sub(1) else { return };
+            match tabs[before].group() {
+                Some(other) => (tabs.iter().position(|t| t.group() == Some(other)).unwrap_or(before), start),
+                None => (before, start),
+            }
+        } else {
+            let Some(after) = Some(end).filter(|&e| e < tabs.len()) else { return };
+            match tabs[after].group() {
+                Some(other) => (end, run_end(tabs, other).unwrap_or(after + 1)),
+                None => (end, end + 1),
+            }
+        };
+        // Swapping the run and what's beside it is a turn of the two.
+        if up {
+            tabs[from..end].rotate_left(start - from);
+        } else {
+            tabs[start..to].rotate_left(from - start);
+        }
+        self.settle(tabs);
     }
 
     /// The color a new group takes: the first of [`COLORS`] that the
@@ -373,7 +459,7 @@ mod tests {
         let mut letter = b'i';
         for _ in 0..2000 {
             let i = next(t.len());
-            match next(5) {
+            match next(7) {
                 0 => {
                     g.new_group(&mut t, i, numbered);
                 }
@@ -389,6 +475,16 @@ mod tests {
                     t.remove(i);
                     g.settle(&mut t);
                 }
+                4 => {
+                    let up = next(2) == 0;
+                    g.step_tab(&mut t, i, up);
+                }
+                5 => {
+                    let up = next(2) == 0;
+                    if let Some(group) = g.all().get(next(g.all().len().max(1))).map(|g| g.id) {
+                        g.step_group(&mut t, group, up);
+                    }
+                }
                 _ => {
                     // A new tab at the end, joining the group of the one in
                     // front as ⌘T's does.
@@ -402,6 +498,84 @@ mod tests {
             }
             holds(&g, &t);
         }
+    }
+
+    /// Each tab's letter and whether it's in a group, as `aB` writes them:
+    /// a capital is in group `id`'s run, by the order of the groups.
+    fn shown(groups: &TabGroups, tabs: &[T]) -> String {
+        tabs.iter()
+            .map(|t| match t.1.and_then(|g| groups.all().iter().position(|x| x.id == g)) {
+                Some(k) => format!("{}{}", t.0.to_ascii_uppercase(), k + 1),
+                None => t.0.to_string(),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_tab_stepped_along_goes_into_and_out_of_each_group_it_passes() {
+        let mut g = TabGroups::default();
+        let mut t = tabs("abcd");
+        let (id, _) = g.new_group(&mut t, 1, numbered).unwrap();
+        g.join(&mut t, 2, id);
+        assert_eq!(shown(&g, &t), "aB1C1d");
+        // d, loose, steps up into the group at its end, then along it, then
+        // out of it at its start, then past a.
+        assert_eq!(g.step_tab(&mut t, 3, true), 3);
+        assert_eq!(shown(&g, &t), "aB1C1D1");
+        assert_eq!(g.step_tab(&mut t, 3, true), 2);
+        assert_eq!(shown(&g, &t), "aB1D1C1");
+        assert_eq!(g.step_tab(&mut t, 2, true), 1);
+        assert_eq!(shown(&g, &t), "aD1B1C1");
+        assert_eq!(g.step_tab(&mut t, 1, true), 1);
+        assert_eq!(shown(&g, &t), "adB1C1");
+        assert_eq!(g.step_tab(&mut t, 1, true), 0);
+        assert_eq!(shown(&g, &t), "daB1C1");
+        // At the top it stays; a group's last tab at the end steps out.
+        assert_eq!(g.step_tab(&mut t, 0, true), 0);
+        assert_eq!(g.step_tab(&mut t, 3, false), 3);
+        assert_eq!(shown(&g, &t), "daB1c");
+        holds(&g, &t);
+        // A group's only tab stepping out takes the group with it.
+        g.step_tab(&mut t, 2, true);
+        assert_eq!((shown(&g, &t), g.all().len()), ("dabc".into(), 0));
+    }
+
+    #[test]
+    fn a_group_steps_past_a_loose_tab_or_a_whole_group() {
+        let mut g = TabGroups::default();
+        let mut t = tabs("abcdef");
+        let (one, _) = g.new_group(&mut t, 1, numbered).unwrap();
+        g.join(&mut t, 2, one);
+        let (two, _) = g.new_group(&mut t, 3, numbered).unwrap();
+        g.join(&mut t, 4, two);
+        assert_eq!(shown(&g, &t), "aB1C1D2E2f");
+        g.step_group(&mut t, two, true);
+        assert_eq!(shown(&g, &t), "aD1E1B2C2f", "past the whole of group 1, which is now second");
+        g.step_group(&mut t, two, true);
+        assert_eq!(shown(&g, &t), "D1E1aB2C2f");
+        g.step_group(&mut t, two, true);
+        assert_eq!(shown(&g, &t), "D1E1aB2C2f", "at the top it stays");
+        g.step_group(&mut t, one, false);
+        assert_eq!(shown(&g, &t), "D1E1afB2C2");
+        g.step_group(&mut t, one, false);
+        assert_eq!(shown(&g, &t), "D1E1afB2C2", "at the end it stays");
+        holds(&g, &t);
+    }
+
+    #[test]
+    fn a_group_folds_renames_recolors_and_ungroups() {
+        let mut g = TabGroups::default();
+        let mut t = tabs("abc");
+        let (id, _) = g.new_group(&mut t, 0, numbered).unwrap();
+        g.join(&mut t, 2, id);
+        g.fold(id, true);
+        g.rename(id, "Web".into());
+        g.recolor(id, 5);
+        g.recolor(id, 99);
+        assert_eq!(g.get(id).map(|g| (g.folded, g.name.as_str(), g.color)), Some((true, "Web", 5)));
+        // Ungrouped, its tabs stay where they are.
+        g.ungroup(&mut t, id);
+        assert_eq!((letters(&t), t.iter().all(|t| t.1.is_none()), g.all().len()), ("acb".into(), true, 0));
     }
 
     #[test]

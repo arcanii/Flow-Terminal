@@ -104,6 +104,8 @@ pub enum Command {
     RenameTab,
     /// Put the tab in front into a group of its own (`tab_groups`).
     NewGroup,
+    /// The tab sidebar out over the terminal, or in (`tab_sidebar`).
+    TabSidebar,
     /// Efficient mode on or off.
     ToggleEfficient,
     /// The window kept on top of every other, or not (`window.on_top`).

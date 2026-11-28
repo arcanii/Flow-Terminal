@@ -125,7 +125,7 @@ impl MenuTarget {
 }
 
 /// Commands without an argument, in tag order (tag = index + 1).
-const COMMANDS: [Command; 43] = [
+const COMMANDS: [Command; 44] = [
     Command::About,
     Command::CheckForUpdates,
     Command::Settings,
@@ -169,6 +169,7 @@ const COMMANDS: [Command; 43] = [
     Command::ToggleOnTop,
     Command::RenameTab,
     Command::NewGroup,
+    Command::TabSidebar,
 ];
 /// `Command::NewTabWith(i)` is tagged `SHELL_TAG + i`, and
 /// `Command::HelpPage(i)` `HELP_TAG + i`.
@@ -400,6 +401,7 @@ pub fn install_menu_bar(waker: Waker, shells: &[String], can_update: bool) {
     m.bound(&menu, t("menu.next_command"), Command::NextCommand);
     m.separator(&menu);
     m.bound(&menu, t("menu.palette"), Command::Palette);
+    m.bound(&menu, t("menu.tab_sidebar"), Command::TabSidebar);
     m.bound(&menu, t("menu.efficient"), Command::ToggleEfficient);
     m.bound(&menu, t("menu.record"), Command::Record);
     m.bound(&menu, t("menu.save_theme"), Command::SaveTheme);

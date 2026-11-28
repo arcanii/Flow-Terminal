@@ -148,7 +148,7 @@ impl Recent {
 
 /// Flow's commands, in the menus' words; their keys are as they're bound
 /// (`keys.rs`).
-const COMMANDS: [(Command, &str); 41] = [
+const COMMANDS: [(Command, &str); 42] = [
     (Command::NewTab, "menu.new_tab"),
     (Command::CloseTab, "menu.close_tab"),
     (Command::NextTab, "menu.next_tab"),
@@ -156,6 +156,7 @@ const COMMANDS: [(Command, &str); 41] = [
     (Command::RestartTab, "menu.restart_tab"),
     (Command::RenameTab, "menu.rename_tab"),
     (Command::NewGroup, "menu.new_group"),
+    (Command::TabSidebar, "menu.tab_sidebar"),
     (Command::SplitRight, "menu.split_right"),
     (Command::SplitDown, "menu.split_down"),
     (Command::Find, "menu.find"),

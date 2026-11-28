@@ -13,10 +13,15 @@ done; Settings as a dialog, its sections headings that say whether they're
 open, a switch a check box, a slider with its value and its range, a choice
 with its words, its buttons and its text rows; the find bar, the command
 palette, the command history, help, About, the API key's dialog and Flow's
-questions as dialogs; and toasts, read out as they come. What has the keys
+questions as dialogs; the [tab sidebar](terminal.md#the-tab-sidebar) as a
+tree, each group an item that says whether it's folded open, each tab
+under it with what it's doing as its description, and a row's menu as a
+menu; and toasts, read out as they come. A tab in a group says its group
+after its name. What has the keys
 has the reader's focus, and moves as the keys move it. The reader's own
 commands work as the mouse and keys do: pressing a button clicks it, a
-slider steps or takes a value, and choosing an item in the palette, the
-history, help's links or the new-tab picker chooses it; typing stays the
+slider steps or takes a value, choosing an item in the palette, the
+history, help's links, the new-tab picker or the tab sidebar chooses it,
+and expanding or collapsing a group in the sidebar folds it; typing stays the
 keyboard's. Flow tells a reader only once one asks, and only when what's
 shown has changed, so without one it costs nothing.

@@ -25,8 +25,9 @@ they're bound.
 | `Esc` (panel) | `Esc` (panel) | Stop Claude, let go of a selection, clear the input, or go back to the terminal |
 | `Ctrl+L` (panel) | `⌃L` (panel) | Start a new conversation |
 | `Ctrl+Shift+T` | `⌘T` | New tab with the default shell (+ in the title bar too; … beside it picks the shell and the theme) |
-| `Ctrl+Shift+W` | `⌘W` | Close the tab (the last one closes Flow) |
+| `Ctrl+Shift+W` | `⌘W` | Close the pane in front, or the tab (the last one closes Flow); where something runs in it, a toast says what, and the key again within a few seconds closes it |
 | double-click a tab, or none at first ([Keys](settings.md)) | double-click a tab, or none at first, **Shell → Rename Tab** | [Name the tab](terminal.md#naming-a-tab) in front, typed in its pill: Enter keeps the name, Esc puts back the one before, and an empty name gives the tab its shell's again |
+| `Ctrl+Shift+S` | `⇧⌘S`, **View → Tab Sidebar** | The [tab sidebar](terminal.md#the-tab-sidebar) out over the terminal, or away again; its own keys are on that page |
 | none at first ([Keys](settings.md)) | none at first, **Shell → New Group** | Put the tab in front into a [group](terminal.md#groups-of-tabs) of its own (the palette moves it into another, or out) |
 | `Ctrl+Shift+1..9` | `⌘1`…`⌘9` | Show tab 1–9 |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | `⌃Tab` / `⌃⇧Tab`, `⇧⌘]` / `⇧⌘[` | Next / previous tab |

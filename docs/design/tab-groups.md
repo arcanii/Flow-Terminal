@@ -153,6 +153,13 @@ the keys, or with Rename in its menu.
 
 As built in step 1 (2026-11-28, `core/src/app/tab_names.rs`):
 
+- **Numbers kept** (the user, 2026-11-28, trying step 3: a tab closing
+  renumbered the rest, so which had gone wasn't clear): each tab keeps the
+  number it opened with (`Tab::number`, the lowest its shell's open tabs
+  don't have, `free_number`, kept in `tabs.json` as `OpenTab::number`), and
+  `tab_names` shows it unless it's 1 and no other unnamed tab runs that
+  shell.
+
 - **Starting:** a double click on a tab names it, the first click having
   brought it forward. Rename Tab (`Command::RenameTab`, `rename_tab` in
   `keys::TABLE`, no key at first) does it from the palette and the Mac's
@@ -219,6 +226,67 @@ palette and the panel are drawn. Its rows, top to bottom:
 Where the rows don't fit, the list scrolls, as Settings' does, keeping
 the row the keys are on in view. The wheel scrolls it.
 
+As built in step 3 (2026-11-28, `core/src/tab_sidebar.rs`,
+`core/src/app/sidebar.rs`, `ui::draw_sidebar`):
+
+- **The pure part** is `tab_sidebar`: `rows` (from `Listed` tabs, the
+  groups and the split tabs folded open), `line` (from a pane's `Doing`),
+  `folder_shown`, `arrow` (what → and ← do), `starting_with` (a letter),
+  the menus (`tab_menu`, `group_menu`, `MenuItem`, `words`) and the state
+  (`Sidebar`: out since when, the chosen row by its `RowId`, the first row
+  shown, the split tabs folded open, a menu, Close Group's first press,
+  which `group_closes_now` weighs). A row is a `RowId` (a group, a tab or a pane by
+  ids), so the keys stay on it as tabs move; where it goes, `keep_chosen`
+  gives the keys to its group's header or the row where it was.
+- **The line** reads the pane's `ShellState`: `progress`, `command` while
+  `running_since` holds and it isn't at its prompt, `ended` (new: the last
+  command that ended with a code, kept until the next ends, never taken)
+  and `cwd`, its home the snapshot's own in snapshots
+  (`shell::plain_home`).
+- **Drawing:** `ui::SidebarView` is made afresh each frame while it's out
+  (`App::sidebar_view`, owned, so it's made before the renderer is
+  borrowed), and `Drawn::sidebar_top` hands back the first row the drawing
+  kept the chosen one in view by. Group headers are `1.8` lines tall,
+  tabs and panes `2.9` (name and line). It's drawn after the terminal and
+  the panel, and clears the hits under it, as the palette does; the tab
+  card shows beside a row (`Hit::SidebarRow`, mapped to its tab in
+  `on_mouse_move`). Its menu is drawn under the row's …, over it where
+  there's no room below.
+- **A click on a tab's row** brings the tab forward, the sidebar staying
+  out, and a second click makes a double click, which names it. A double
+  click on a group's header puts its fold back and names it.
+- **Renaming** (`tab_names::Named`, a tab or a group) types in the row
+  while the sidebar is out and in the pill while it's in; a group's name
+  left empty keeps the one it had. New Group from the sidebar's foot, its
+  menu's Move to New Group, and New Group anywhere while it's out, name the
+  group at once.
+- **Keys** go to `App::sidebar_key` after Settings and the new-tab picker,
+  before the find bar: its own, a menu's while one is open, the context-menu key
+  too, and every other key as it's bound (`do_bound`);
+  nothing reaches the terminal. Opening the palette, Settings, the history
+  or About puts it away.
+- **Moving with the keys:** `TabGroups::step_tab` and `step_group` (a tab
+  passes its neighbour where they share a group or are both loose, leaves
+  its group at the group's edge, joins a group it's loose beside; a group
+  passes a loose tab or a whole group). A tab moved into a folded group
+  opens it.
+- **The width** is `tab_sidebar::WIDTH`, 260 points, at most a third of
+  the window, until step 4 makes it a setting.
+- **Readers** get a `DialogKind::TabSidebar`: its rows a list of
+  `Chooser::Sidebar`, drawn as a `Tree` of `TreeItem`s with their level
+  and, for a group or a split tab, expanded or collapsed and the action
+  that turns it over (`Do::Fold`), a menu as `Chooser::SidebarMenu`'s
+  `Menu` and `MenuItem`s, and the foot's buttons; the title bar's button
+  is a toggle in `lead`. `App::sidebar_focus` names the row or menu item
+  the keys are on, and a name being typed is the `TabName` field over it
+  (`App::naming_dialog`), titled for a group where it's one.
+- **Snapshots** have a stage of their own after the scrolled pane
+  (`SIDEBAR_STAGE`): four tabs opened in the snapshot's shell, given two
+  and a half seconds to settle, then made up (`App::show_sidebar`) as Web
+  (`server` running `npm run dev`, `tests` with `cargo test` passed) and
+  Docs, folded, beside the split tab folded open to its panes, the count's
+  `false` its ✗; captured as `tab-sidebar.png`, then closed again.
+
 ### Over the terminal, or pinned
 
 - **It opens and closes** with its key, ⇧⌘S on the Mac and Ctrl+Shift+S
@@ -233,8 +301,10 @@ the row the keys are on in view. The wheel scrolls it.
   - It slides out over `SIDEBAR_SLIDE` (about 150 ms), at once in
     efficient mode, and draws no frames once it's still.
   - It takes the keys, as the palette does.
-  - Choosing a tab brings that tab forward and closes the sidebar, and
-    so do a click outside it, Esc and its key again.
+  - Choosing a tab brings that tab forward and leaves the sidebar out
+    (the user, 2026-11-28, trying step 3: it was to close it, but then
+    looking through tabs took it out again for each); a click outside it,
+    Esc and its key again put it away.
 - **Pinned** (`ui.tab_sidebar_pinned`, the pin, Settings' Window section,
   the View menu's Pin Tab Sidebar), it stays out, and the terminal
   narrows to make room for it.
@@ -311,11 +381,20 @@ these, built as it opens, so all of it can be done without a pointer:
 ### Closing a group whole
 
 Close Group closes every tab in it at once where each waits at its
-prompt (`Session::at_prompt`). Where one doesn't, the first press says
+prompt (`Session::busy_with`). Where one doesn't, the first press says
 which tabs are busy, in the row and a toast, and a second press within
 `CONFIRM_WINDOW` closes them, as Settings' Remove asks twice. Where the
 group holds every tab, closing it quits Flow, so it always asks twice and
 says so.
+
+A single tab or pane asks the same way (the user, 2026-11-28, trying step
+3, a busy tab gone at once from its ×): its × in the title bar or the
+sidebar, ⌘W, ⌘⌫ on its row and a pane's ✕ close it at once while nothing
+runs in it (`Session::busy_with`: integrated, not at its prompt and not
+drawing the next), else the first says what runs (`toast.close_running`)
+and the same close again within `CONFIRM_WINDOW` closes it
+(`App::close_now`, `close_tab_asking`, `close_pane_asking`, `CloseOf`).
+A shell that never said anything counts as waiting, so it never asks.
 
 ### Dragging
 
@@ -406,7 +485,8 @@ Each step is a commit of its own, tested before the next:
    Tab. Groups can then be made and used before the sidebar exists.
    Built on 2026-11-28 (see The groups).
 3. **The sidebar over the terminal:** its rows, keys, clicks, folds,
-   menus, Close Group, readers, help, and `tab-sidebar.png`.
+   menus, Close Group, readers, help, and `tab-sidebar.png`. Built on
+   2026-11-28 (see The sidebar).
 4. **Pinned:** `Layout::compute`'s `left`, the Settings row, the width's
    drag, and `tab-sidebar-pinned.png`.
 5. **Dragging,** in the sidebar and the title bar.

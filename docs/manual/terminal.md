@@ -2,7 +2,7 @@
 
 # Working in the terminal
 
-Scrolling back, Caps Lock, naming tabs, groups of tabs, split panes, the command palette,
+Scrolling back, Caps Lock, naming tabs, groups of tabs, the tab sidebar, split panes, the command palette,
 recording the terminal, finding in the scrollback, the command history and
 Flow's help.
 
@@ -49,7 +49,9 @@ there it comes with the first letter typed with Caps Lock on.
 
 A tab is called after its shell (**zsh**, or **zsh 1** and **zsh 2** where
 two run it), with the theme it wears where that isn't Settings' (**zsh ·
-Green screen**). Double-click a tab to give it a name of its own, or
+Green screen**). A tab keeps the number it opened with as others close,
+so **zsh 2** is still **zsh 2** once **zsh 1** has gone, and a new tab
+takes the lowest number free. Double-click a tab to give it a name of its own, or
 choose **Rename Tab** in the [command palette](#the-command-palette) (on
 the Mac, also **Shell → Rename Tab**; Settings' Keys can give it a key).
 The name is typed in the tab's own pill in the title bar, where every key
@@ -89,6 +91,76 @@ group may stand before, between or after the groups.
 - Flow keeps the groups with the tabs it opens again at the next start, as
   it keeps their names, in `tabs.json`. An older Flow opens them in no
   group.
+
+The [tab sidebar](#the-tab-sidebar) shows the groups too, and names,
+folds, colors, moves and closes them.
+
+## The tab sidebar
+
+`⇧⌘S` on the Mac (also **View → Tab Sidebar**) or `Ctrl+Shift+S`
+elsewhere brings a card out from the window's left edge over the
+terminal, as do the three lines left of the tabs in the title bar and
+**Tab Sidebar** in the [command palette](#the-command-palette); Settings'
+Keys can change its key. It lists every tab in the title bar's order, each
+group's under its header (its color, its name and how many tabs it holds),
+and under each tab's name a line saying what it's doing, the first of:
+
+1. a program's progress, as a thin bar and its share;
+2. the command running, after a dot;
+3. how the last command ended, ✓ or ✗ with the command, until the next
+   one starts;
+4. its folder, `~` for your home folder, cut from its start where it's
+   long.
+
+The tab in front is lit, a tab whose long command ended while it was
+behind glows as its pill does, and a split tab folds open (its ▸) to show
+its panes, a row each with its own line, the assistant's pane and an
+outside app's named so. Resting the pointer on a tab's row shows what its
+programs use beside it, as in the title bar.
+
+The sidebar lies over the terminal and leaves its size alone, so no
+program sees a resize. While it's out it takes the keys and the pointer:
+choosing a tab (a click, or Enter) brings it to the front and leaves the
+sidebar out, so you can look at one tab after another, and a pane's row
+brings that pane to the front. Esc, its key again or a click outside it
+puts it away. Every other key of Flow's still works.
+
+| Key | Does |
+|---|---|
+| `↑` `↓` | Move through the rows (`Page Up`, `Page Down` by eight, `Home`, `End`) |
+| `Enter` | Bring the tab or pane forward, or fold a group open or shut |
+| `→` `←` | Fold a group or a split tab open or shut, or go from a group's tab to its header |
+| `F2` | Name the row's tab or group, typed in its row |
+| `⌥↑` `⌥↓` (`Alt+↑`, `Alt+↓`) | Move the tab a step, into the next group or out of its own at a group's edge, or a whole group past what's beside it |
+| `⌘⌫` (`Ctrl+Delete`) | Close the row's tab, or its group |
+| a letter | Go to the next row whose name starts with it |
+| `Esc` | Put the sidebar away (or close a row's menu) |
+| `F1` | Its help page |
+
+A click on a group's header folds it shut or open. Under the pointer,
+and on the row the keys are on, a row shows its **…**, which opens its
+menu (a right click does too), and its **×**, which closes its tab or its
+group. A tab's menu holds **Rename**, **Move to** each other group and to
+a new one, **Remove from Group**, **Restart Tab** and **Close**; a group's
+**Rename**, its eight colors, **Ungroup** (its tabs stay where they are)
+and **Close Group**. A double click on a tab's or a group's name names it
+too, and **New Tab** and **New Group** wait at the sidebar's foot, New
+Group's name ready to be typed. Where the rows don't all fit, the list
+scrolls, keeping the row the keys are on in view, and the wheel scrolls
+it.
+
+A tab's **×**, here or in the title bar, `⌘W` (`Ctrl+Shift+W`) and a
+pane's **✕** close it at once while it waits at its prompt. Where something
+runs in it, a toast says what, and the same again within a few seconds
+closes it.
+
+**Close Group** closes every tab in the group at once while each waits at
+its prompt. Where one is running something, it says which in a toast and
+turns the group's name red, and pressing it again within a few seconds
+closes them; where the group holds every tab, closing it quits Flow, so it
+always asks twice.
+
+![The tab sidebar over the terminal, a group of two, a folded one, and a split tab's panes](../screenshots/tab-sidebar.png)
 
 ## Split panes
 

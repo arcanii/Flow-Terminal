@@ -224,15 +224,21 @@ pub struct OpenTab {
     /// Its group, by its place in [`OpenTabs`]' `groups`; none, loose.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub group: Option<usize>,
+    /// Its number among its shell's tabs (`Tab::number`); 0, none kept.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub number: usize,
 }
 
-/// One of [`OpenTabs`]' groups: its name and its color, by the color's
-/// name (`tab_groups::COLORS`).
+/// One of [`OpenTabs`]' groups: its name, its color, by the color's name
+/// (`tab_groups::COLORS`), and whether it's folded.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct OpenGroup {
     pub name: String,
     pub color: String,
+    /// Folded shut in the sidebar.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub folded: bool,
 }
 
 fn is_zero(n: &usize) -> bool {

@@ -466,7 +466,7 @@ const RECORD_ELSEWHERE: &[&str] = if cfg!(windows) { &["ctrl+alt+shift+r"] } els
 /// Every key Flow has, in the order Settings and help list them. The
 /// defaults are the keys Flow had before they could be changed, which a
 /// test holds them to.
-pub const TABLE: [Entry; 44] = [
+pub const TABLE: [Entry; 45] = [
     cmd("new_tab", Command::NewTab, "menu.new_tab", Group::Tabs, &["cmd+t"], &["ctrl+shift+t"]),
     cmd("close_tab", Command::CloseTab, "menu.close_tab", Group::Tabs, &["cmd+w"], &["ctrl+shift+w"]),
     cmd("next_tab", Command::NextTab, "menu.next_tab", Group::Tabs, &["cmd+shift+]", "ctrl+tab"], &["ctrl+tab"]),
@@ -475,6 +475,7 @@ pub const TABLE: [Entry; 44] = [
     cmd("restart_tab", Command::RestartTab, "menu.restart_tab", Group::Tabs, &["cmd+shift+b"], &["ctrl+shift+b"]),
     cmd("rename_tab", Command::RenameTab, "menu.rename_tab", Group::Tabs, &[], &[]),
     cmd("new_group", Command::NewGroup, "menu.new_group", Group::Tabs, &[], &[]),
+    cmd("tab_sidebar", Command::TabSidebar, "menu.tab_sidebar", Group::Tabs, &["cmd+shift+s"], &["ctrl+shift+s"]),
     cmd("split_right", Command::SplitRight, "menu.split_right", Group::Tabs, &["cmd+d"], &["ctrl+shift+d"]),
     cmd("split_down", Command::SplitDown, "menu.split_down", Group::Tabs, &["cmd+shift+d"], &["ctrl+alt+shift+d"]),
     Entry { name: "move_between_panes", does: Does::Panes, words: "keys.move_between_panes", group: Group::Tabs, mac: &["cmd+alt"], other: &["ctrl+alt"] },
@@ -1082,7 +1083,7 @@ mod tests {
     #[test]
     fn the_defaults_are_the_keys_flow_had_on_each_system() {
         let record = if cfg!(windows) { "Ctrl+Alt+Shift+R" } else { "Ctrl+Alt+Shift+V" };
-        let had: [(&str, &str, &str); 44] = [
+        let had: [(&str, &str, &str); 45] = [
             ("new_tab", "⌘T", "Ctrl+Shift+T"),
             ("close_tab", "⌘W", "Ctrl+Shift+W"),
             ("next_tab", "⇧⌘], ⌃Tab", "Ctrl+Tab"),
@@ -1091,6 +1092,7 @@ mod tests {
             ("restart_tab", "⇧⌘B", "Ctrl+Shift+B"),
             ("rename_tab", "", ""),
             ("new_group", "", ""),
+            ("tab_sidebar", "⇧⌘S", "Ctrl+Shift+S"),
             ("split_right", "⌘D", "Ctrl+Shift+D"),
             ("split_down", "⇧⌘D", "Ctrl+Alt+Shift+D"),
             ("move_between_panes", "⌥⌘←→↑↓", "Ctrl+Alt+←→↑↓"),

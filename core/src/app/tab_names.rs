@@ -1,18 +1,36 @@
-//! A tab's name typed in place, in its pill in the title bar
-//! (`docs/design/tab-groups.md`'s first step): a double click on the tab
-//! in front, or Rename Tab (the palette, the Mac's Shell menu, a key the
-//! user gives it), puts a field there with the name in it. Every key goes
-//! to the field while it's there, as Settings' text rows take them: Enter
-//! keeps the name, Esc puts back the old one, and a click anywhere else
-//! keeps it too. A name left empty gives the tab its shell's name again.
-//! The name goes into `tabs.json` with the tab.
+//! A tab's or a group's name typed in place (`docs/design/tab-groups.md`'s
+//! first and third steps): a double click on the tab in front, or Rename
+//! Tab (the palette, the Mac's Shell menu, a key the user gives it), puts
+//! a field in its pill in the title bar with the name in it, or in its row
+//! while the tab sidebar is out; a group's name is typed in its header
+//! there (F2, a double click, its menu's Rename). Every key goes to the
+//! field while it's there, as Settings' text rows take them: Enter keeps
+//! the name, Esc puts back the old one, and a click anywhere else keeps it
+//! too. A tab's name left empty gives it its shell's name again; a group's
+//! keeps the one it had. The names go into `tabs.json`.
 
 use super::*;
 
-/// A tab's name being typed.
+/// What's being named, by its id: tabs open, close and move meanwhile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Named {
+    Tab(u64),
+    Group(u64),
+}
+
+impl Named {
+    /// Its row in the tab sidebar.
+    pub(super) fn row(self) -> crate::tab_sidebar::RowId {
+        match self {
+            Named::Tab(id) => crate::tab_sidebar::RowId::Tab(id),
+            Named::Group(id) => crate::tab_sidebar::RowId::Group(id),
+        }
+    }
+}
+
+/// A name being typed.
 pub(super) struct Renaming {
-    /// Which tab, by its id: tabs open, close and move meanwhile.
-    pub(super) tab: u64,
+    pub(super) what: Named,
     pub(super) field: settings::TextField,
 }
 
@@ -25,21 +43,50 @@ impl App {
         self.finish_renaming(true);
         let Some(tab) = self.tabs.get(i) else { return };
         let typed = tab.name.clone().unwrap_or_else(|| self.unnamed(i));
-        self.renaming = Some(Renaming { tab: tab.id, field: settings::TextField::line(&typed, TAB_NAME_MOST) });
+        self.renaming = Some(Renaming { what: Named::Tab(tab.id), field: settings::TextField::line(&typed, TAB_NAME_MOST) });
         self.request_redraw();
     }
 
-    /// What tab `i` is called without a name of its own: its shell's,
-    /// numbered among the other tabs without one.
+    /// Starts typing group `id`'s name, in its header in the sidebar.
+    pub(super) fn rename_group(&mut self, id: u64) {
+        self.finish_renaming(true);
+        let Some(group) = self.groups.get(id) else { return };
+        self.renaming = Some(Renaming { what: Named::Group(id), field: settings::TextField::line(&group.name, TAB_NAME_MOST) });
+        self.request_redraw();
+    }
+
+    /// Whether `hit`, under a press, is the field the name is typed in: the
+    /// tab's pill, or its or its group's row in the sidebar.
+    pub(super) fn on_the_name(&self, hit: Option<Hit>) -> bool {
+        let Some(r) = &self.renaming else { return false };
+        match (hit, r.what) {
+            (Some(Hit::Tab(i)), Named::Tab(id)) => self.tabs.get(i).is_some_and(|t| t.id == id) && !self.sidebar.is_open(),
+            (Some(Hit::SidebarRow(row)), what) => self.sidebar.rows.get(row).is_some_and(|row| row.id == what.row()),
+            _ => false,
+        }
+    }
+
+    /// Whether a name is being typed, of a tab or a group that's still
+    /// there.
+    pub(super) fn naming(&self) -> bool {
+        match self.renaming.as_ref().map(|r| r.what) {
+            Some(Named::Tab(_)) => self.renaming_at().is_some(),
+            Some(Named::Group(id)) => self.groups.get(id).is_some(),
+            None => false,
+        }
+    }
+
+    /// What tab `i` is called without a name of its own: its shell's, with
+    /// the number it keeps (`Tab::number`).
     pub(super) fn unnamed(&self, i: usize) -> String {
-        let tabs: Vec<(&str, Option<&str>)> = self.tabs.iter().enumerate().map(|(j, t)| (self.profiles[t.profile()].label.as_str(), t.name.as_deref().filter(|_| j != i))).collect();
+        let tabs: Vec<(&str, Option<&str>, usize)> = self.tabs.iter().enumerate().map(|(j, t)| (self.profiles[t.profile()].label.as_str(), t.name.as_deref().filter(|_| j != i), t.number)).collect();
         tab_names(&tabs).swap_remove(i)
     }
 
     /// The place of the tab whose name is being typed, while it's still open.
     pub(super) fn renaming_at(&self) -> Option<usize> {
-        let r = self.renaming.as_ref()?;
-        self.tabs.iter().position(|t| t.id == r.tab)
+        let Some(Named::Tab(id)) = self.renaming.as_ref().map(|r| r.what) else { return None };
+        self.tabs.iter().position(|t| t.id == id)
     }
 
     /// Stops typing a tab's name: keeping what's typed (`keep`), or leaving
@@ -49,9 +96,21 @@ impl App {
     pub(super) fn finish_renaming(&mut self, keep: bool) {
         let Some(r) = self.renaming.take() else { return };
         self.request_redraw();
-        let Some(i) = self.tabs.iter().position(|t| t.id == r.tab).filter(|_| keep) else { return };
-        let unnamed = self.unnamed(i);
-        self.tabs[i].name = tab_name(&r.field.text()).filter(|n| *n != unnamed);
+        if !keep {
+            return;
+        }
+        match r.what {
+            Named::Tab(id) => {
+                let Some(i) = self.tabs.iter().position(|t| t.id == id) else { return };
+                let unnamed = self.unnamed(i);
+                self.tabs[i].name = tab_name(&r.field.text()).filter(|n| *n != unnamed);
+            }
+            Named::Group(id) => {
+                if let Some(name) = tab_name(&r.field.text()) {
+                    self.groups.rename(id, name);
+                }
+            }
+        }
     }
 
     /// A key while a tab's name is being typed: it takes them all. The

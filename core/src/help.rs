@@ -44,6 +44,8 @@ pub enum Page {
     Updates,
     /// The new-tab picker the + after the tabs opens.
     Shells,
+    /// The tab sidebar, its groups and its keys.
+    TabSidebar,
     /// Flow's apps, as `flowapp` keeps them (no screen of its own: reached
     /// from Flow's page, the Help menu and `flow-help apps`).
     Apps,
@@ -88,13 +90,15 @@ pub struct Front {
     pub palette: bool,
     /// The assistant's panel has the keys.
     pub assistant: bool,
+    /// The tab sidebar is out, with the keys.
+    pub sidebar: bool,
     /// A tab's name is being typed in the title bar: Flow's own page says how.
     pub renaming: bool,
 }
 
 impl Page {
     /// Every page, in the order the Mac's Help menu lists them.
-    pub const ALL: [Page; 19] = [
+    pub const ALL: [Page; 20] = [
         Page::Flow,
         Page::Keys,
         Page::History,
@@ -107,6 +111,7 @@ impl Page {
         Page::Key,
         Page::Model,
         Page::Shells,
+        Page::TabSidebar,
         Page::Apps,
         Page::FlowCommand,
         Page::Outside,
@@ -143,6 +148,8 @@ impl Page {
             Some(Page::Settings)
         } else if f.shells {
             Some(Page::Shells)
+        } else if f.sidebar {
+            Some(Page::TabSidebar)
         } else if f.find {
             Some(Page::Find)
         } else if f.assistant {
@@ -172,6 +179,7 @@ impl Page {
             Page::About => "about",
             Page::Updates => "updates",
             Page::Shells => "shells",
+            Page::TabSidebar => "tabs",
             Page::Apps => "apps",
             Page::FlowCommand => "command",
             Page::Outside => "outside",
@@ -217,6 +225,7 @@ impl Page {
             Page::About => "help.about.title",
             Page::Updates => "help.updates.title",
             Page::Shells => "help.shells.title",
+            Page::TabSidebar => "help.tabs.title",
             Page::Apps => "help.apps.title",
             Page::FlowCommand => "help.command.title",
             Page::Outside => "help.outside.title",
@@ -243,6 +252,7 @@ impl Page {
             Page::About => "help.about.body",
             Page::Updates => "help.updates.body",
             Page::Shells => "help.shells.body",
+            Page::TabSidebar => "help.tabs.body",
             Page::Apps => "help.apps.body",
             Page::FlowCommand => "help.command.body",
             Page::Outside => "help.outside.body",
@@ -309,7 +319,7 @@ fn keys_page() -> String {
 
 /// The keys the pages name (`{history}`) that are Flow's keys, and their
 /// names in `keys::TABLE`: shown as they're bound.
-const BOUND: [(&str, &str); 27] = [
+const BOUND: [(&str, &str); 28] = [
     ("help", "help"),
     ("history", "search_history"),
     ("find", "find"),
@@ -337,11 +347,12 @@ const BOUND: [(&str, &str); 27] = [
     ("efficient", "efficient"),
     ("restart", "restart_tab"),
     ("next_tab", "next_tab"),
+    ("sidebar", "tab_sidebar"),
 ];
 
 /// The keys the pages name that are inside Flow's own screens, which
 /// aren't bound: on the Mac, then elsewhere.
-const FIXED: [(&str, &str, &str); 18] = [
+const FIXED: [(&str, &str, &str); 20] = [
     ("find_pattern", "⌥⌘R", "Alt+R"),
     // The assistant's input (`panel_input`).
     ("input_rows", "⌘← ⌘→", "Home and End"),
@@ -362,6 +373,9 @@ const FIXED: [(&str, &str, &str); 18] = [
     // Settings' Hotkey choices (`hotkey::CHOICES`), not F12 on Windows.
     ("hotkeys", "⌃`, ⌥Space, F12, ⌃Space", if cfg!(windows) { "Ctrl+`, Alt+Space, Ctrl+Space" } else { "Ctrl+`, Alt+Space, F12, Ctrl+Space" }),
     ("quit", "⌘Q", "Alt+F4"),
+    // The tab sidebar's own (`App::sidebar_key`).
+    ("sidebar_close", "⌘⌫", "Ctrl+Delete"),
+    ("sidebar_move", "⌥↑ ⌥↓", "Alt+↑ Alt+↓"),
 ];
 
 /// A page laid out to a width, its links to other pages read: each one's

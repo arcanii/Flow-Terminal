@@ -246,6 +246,8 @@ pub enum DialogKind {
     AiModels,
     /// A tab's name being typed in its pill in the title bar.
     TabName,
+    /// The tab sidebar (`tab_sidebar`): its rows as a tree, a row's menu.
+    TabSidebar,
 }
 
 /// A list in a dialog, the one chosen in it, and what choosing does.
@@ -262,6 +264,9 @@ pub struct Item {
     pub label: String,
     pub detail: String,
     pub rect: Option<Rect>,
+    /// In a tree (the tab sidebar's), how far in it's set, from 0, and
+    /// whether it's folded open, where it folds.
+    pub tree: Option<(usize, Option<bool>)>,
 }
 
 /// The lists a reader can choose in, as the keys do.
@@ -278,6 +283,9 @@ pub enum Chooser {
     PackageThemes,
     /// `/model`'s list of the assistant's models.
     Models,
+    /// The tab sidebar's rows, a tree, and a row's menu.
+    Sidebar,
+    SidebarMenu,
 }
 
 /// What has the keys.
@@ -335,6 +343,8 @@ pub enum Do {
     ClosePane(usize),
     FocusField(DialogKind),
     Choose(Chooser, usize),
+    /// Folds item `usize` of a tree open (true) or shut.
+    Fold(Chooser, usize, bool),
 }
 
 /// What to do for `request`, on the node it names: none where the node
@@ -361,6 +371,8 @@ pub fn what_to_do(targets: &Targets, request: &ActionRequest) -> Option<Do> {
         (Target::ClosePane(p), Action::Click) => Do::ClosePane(p),
         (Target::Item { chooser, index, .. }, Action::Focus) => Do::Choose(chooser, index),
         (Target::Item { chooser, index, rect }, Action::Click) => rect.map_or(Do::Choose(chooser, index), Do::Click),
+        (Target::Item { chooser, index, .. }, Action::Expand) => Do::Fold(chooser, index, true),
+        (Target::Item { chooser, index, .. }, Action::Collapse) => Do::Fold(chooser, index, false),
         _ => return None,
     })
 }
@@ -972,16 +984,31 @@ fn dialog_node(b: &mut Build, d: &Dialog) -> NodeId {
     }
     for (l, list) in d.lists.iter().enumerate() {
         let links = list.chooser == Chooser::Links;
+        // What a list and its items are to a reader: a tree's, a menu's,
+        // links, or a list box's options.
+        let (role, item_role) = match list.chooser {
+            Chooser::Links => (Role::List, Role::Link),
+            Chooser::Sidebar => (Role::Tree, Role::TreeItem),
+            Chooser::SidebarMenu => (Role::Menu, Role::MenuItem),
+            _ => (Role::ListBox, Role::ListBoxOption),
+        };
         let mut items = Vec::new();
         for (i, item) in list.items.iter().enumerate() {
             let item_id = id(Part::ListItem, k, (l << 20) | i);
-            let mut node = Node::new(if links { Role::Link } else { Role::ListBoxOption });
+            let mut node = Node::new(item_role);
             node.set_label(spoken(&item.label));
             if !item.detail.is_empty() {
                 node.set_description(item.detail.clone());
             }
-            if !links {
+            if !links && item_role != Role::MenuItem {
                 node.set_selected(Some(i) == list.chosen);
+            }
+            if let Some((level, expanded)) = item.tree {
+                node.set_level(level + 1);
+                if let Some(open) = expanded {
+                    node.set_expanded(open);
+                    node.add_action(if open { Action::Collapse } else { Action::Expand });
+                }
             }
             if let Some(r) = item.rect {
                 node.set_bounds(bounds(r));
@@ -991,7 +1018,7 @@ fn dialog_node(b: &mut Build, d: &Dialog) -> NodeId {
             b.target(item_id, Target::Item { chooser: list.chooser, index: i, rect: item.rect });
             items.push(b.push(item_id, node));
         }
-        let mut node = Node::new(if links { Role::List } else { Role::ListBox });
+        let mut node = Node::new(role);
         node.set_label(list.label.clone());
         node.set_children(items);
         children.push(b.push(id(Part::List, k, l), node));
@@ -1250,7 +1277,7 @@ mod tests {
             kind: DialogKind::Palette,
             title: "Palette".into(),
             field: Some(Field::line("Find", "", "new", None)),
-            lists: vec![List { label: "Found".into(), chooser: Chooser::Palette, items: vec![Item { label: "New Tab".into(), detail: String::new(), rect: rect(10.0, 10.0, 100.0, 20.0) }], chosen: Some(0) }],
+            lists: vec![List { label: "Found".into(), chooser: Chooser::Palette, items: vec![Item { tree: None, label: "New Tab".into(), detail: String::new(), rect: rect(10.0, 10.0, 100.0, 20.0) }], chosen: Some(0) }],
             active: Some((0, 0)),
             ..Dialog::default()
         };
@@ -1276,6 +1303,40 @@ mod tests {
         // A node that does nothing, and one that's gone.
         assert_eq!(ask(&targets, ROOT, Action::Click, None), None);
         assert_eq!(ask(&targets, id(Part::Tab, 0, 9), Action::Click, None), None);
+    }
+
+    #[test]
+    fn the_tab_sidebar_is_a_tree_whose_groups_fold_and_a_rows_menu_is_a_menu() {
+        let ask = |targets: &Targets, node: NodeId, action: Action| what_to_do(targets, &ActionRequest { action, target_tree: TreeId::ROOT, target_node: node, data: None });
+        let item = |label: &str, detail: &str, tree: (usize, Option<bool>)| Item { label: label.into(), detail: detail.into(), rect: rect(0.0, 0.0, 200.0, 30.0), tree: Some(tree) };
+        let rows = vec![item("Web, 2 tabs", "", (0, Some(true))), item("zsh 1", "~/src", (1, None)), item("build", "running cargo build", (1, Some(false)))];
+        let sidebar = Dialog {
+            kind: DialogKind::TabSidebar,
+            title: "Tabs".into(),
+            lists: vec![
+                List { label: "Tabs".into(), chooser: Chooser::Sidebar, items: rows, chosen: Some(1) },
+                List { label: "More".into(), chooser: Chooser::SidebarMenu, items: vec![Item { label: "Rename".into(), ..Item::default() }], chosen: Some(0) },
+            ],
+            ..Dialog::default()
+        };
+        let (update, targets) = tree(&AccessView { dialogs: vec![sidebar], focus: Focus::Item(DialogKind::TabSidebar, 0, 1), ..view() });
+        let got = read(update);
+        let k = DialogKind::TabSidebar as usize;
+        let row = |i: usize| id(Part::ListItem, k, i);
+        assert_eq!(node(&got, id(Part::List, k, 0)).role(), Role::Tree);
+        let group = node(&got, row(0));
+        assert_eq!((group.role(), group.level(), group.data().is_expanded()), (Role::TreeItem, Some(1), Some(true)));
+        let tab = node(&got, row(1));
+        assert_eq!((tab.level(), tab.description().as_deref(), tab.is_selected(), tab.data().is_expanded()), (Some(2), Some("~/src"), Some(true), None));
+        assert_eq!(got.state().focus().map(|f| f.id()), Some(tab.id()), "the row the keys are on");
+        // An open group collapses, a folded split tab expands, and choosing
+        // a row moves the keys there.
+        assert_eq!(ask(&targets, row(0), Action::Collapse), Some(Do::Fold(Chooser::Sidebar, 0, false)));
+        assert_eq!(ask(&targets, row(2), Action::Expand), Some(Do::Fold(Chooser::Sidebar, 2, true)));
+        assert_eq!(ask(&targets, row(1), Action::Focus), Some(Do::Choose(Chooser::Sidebar, 1)));
+        // Its menu is a menu of items.
+        assert_eq!(node(&got, id(Part::List, k, 1)).role(), Role::Menu);
+        assert_eq!(node(&got, id(Part::ListItem, k, 1 << 20)).role(), Role::MenuItem);
     }
 
     #[test]

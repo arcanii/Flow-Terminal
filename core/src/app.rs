@@ -50,6 +50,7 @@ mod groups;
 mod outside;
 mod server_ask;
 mod servers;
+mod sidebar;
 mod tab_names;
 use crate::shell::{BashFlavor, ShellProfile};
 use crate::ui::{self, AiPanel, CardStatus, Entry, Hit, HistoryPanel, KeyDialog, Layout, ModelAsk, Preedit, Rect, SettingsView, ToolCard, View};
@@ -245,6 +246,10 @@ struct Tab {
     name: Option<String>,
     /// The group it's in (`App::groups`), by the group's id; none, loose.
     group: Option<u64>,
+    /// Its number among its shell's tabs, which its name shows where it has
+    /// none of its own (`tab_names`): the lowest free as it opened, kept
+    /// while others close.
+    number: usize,
 }
 
 impl crate::tab_groups::Grouped for Tab {
@@ -300,6 +305,14 @@ impl Tab {
         self.own = self.panes[p].own.take();
         self.focus = p;
     }
+}
+
+/// What a close that asks first is of: a tab, by its id, or a pane of a
+/// split tab, by its session.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CloseOf {
+    Tab(u64),
+    Pane(SessionId),
 }
 
 /// The tab ids handed out so far.
@@ -498,6 +511,8 @@ struct SnapshotPlan {
     /// panel's conversation as it was.
     helpers_from: Option<(usize, Vec<Entry>)>,
     helpers_typed: bool,
+    /// The sidebar's stage's tabs are open: where the first of them is.
+    sidebar_from: Option<usize>,
 }
 
 /// A command that ran at least this long (seconds) gets the big splash when it's done.
@@ -586,6 +601,9 @@ const RECORDING_STAGE: u8 = 61;
 const SCROLLED_STAGE: u8 = 62;
 /// How long that recording runs.
 const SNAPSHOT_RECORDING: f32 = 3.0;
+/// After the scrolled pane, the tab sidebar out over made-up tabs in
+/// made-up groups (`tab-sidebar.png`).
+const SIDEBAR_STAGE: u8 = 64;
 /// Before it, a tab of the assistant's own pane and two helpers' beside
 /// the user's, their cards in the panel (`helpers.png`).
 const HELPERS_STAGE: u8 = 63;
@@ -910,6 +928,8 @@ pub struct App {
     renaming: Option<tab_names::Renaming>,
     /// The groups the tabs are in, in the order their tabs come.
     groups: crate::tab_groups::TabGroups,
+    /// The tab sidebar: out or in, its rows and the one chosen.
+    sidebar: crate::tab_sidebar::Sidebar,
     /// A model on screen moves by itself, so frames keep coming.
     models_moving: bool,
     /// When Flow's logo, resting after a click, turns on again: a frame is
@@ -939,6 +959,9 @@ pub struct App {
     restart_asked: Option<Instant>,
     /// When ⇧⌘B asked first to restart a tab, and which tab's session.
     restart_tab_asked: Option<(Instant, SessionId)>,
+    /// A tab or a pane with something running, asked to close once: the
+    /// same close again within `CONFIRM_WINDOW` closes it.
+    close_asked: Option<(CloseOf, Instant)>,
     /// Flow's sounds (none in snapshots and recordings).
     sound: Sound,
     /// When a program's bell last rang, and when a setting last played a
@@ -1157,6 +1180,7 @@ impl App {
                 scrolled_typed: false,
                 helpers_from: None,
                 helpers_typed: false,
+                sidebar_from: None,
             }),
             fixed_step: None,
             flow_time: 0.0,
@@ -1218,6 +1242,7 @@ impl App {
             flow_tabs: Default::default(),
             renaming: None,
             groups: Default::default(),
+            sidebar: Default::default(),
             models_moving: false,
             models_rest: None,
             pictures_due: None,
@@ -1227,6 +1252,7 @@ impl App {
             power_asking: false,
             restart_asked: None,
             restart_tab_asked: None,
+            close_asked: None,
             sound,
             bell_rang: None,
             bell_flash: None,
@@ -1778,7 +1804,8 @@ impl App {
                 }
                 let pane = Pane { id: PANE_IDS.fetch_add(1, std::sync::atomic::Ordering::Relaxed), look: None, own: None, profile: idx, session, allowance: Allowance::default(), run: None, by: None };
                 let id = TAB_IDS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                self.tabs.push(Tab { id, look, own, panes: vec![pane], split: crate::panes::Split::default(), focus: 0, alert: None, name: None, group: None });
+                let number = self.number_for(&profile.label, None);
+                self.tabs.push(Tab { id, look, own, panes: vec![pane], split: crate::panes::Split::default(), focus: 0, alert: None, name: None, group: None, number });
                 self.select_tab(self.tabs.len() - 1);
             }
             Err(err) => {
@@ -1786,6 +1813,14 @@ impl App {
                 self.show_toast(tf("toast.could_not_start", &[("shell", &profile.label), ("error", &err)]));
             }
         }
+    }
+
+    /// The number a tab of shell `shell` takes (`Tab::number`): `wanted`
+    /// where no other open tab of that shell has it (a tab opened again
+    /// from `tabs.json`), else the lowest free.
+    fn number_for(&self, shell: &str, wanted: Option<usize>) -> usize {
+        let taken: Vec<usize> = self.tabs.iter().filter(|t| self.profiles.get(t.profile()).is_some_and(|p| p.label == shell)).map(|t| t.number).collect();
+        wanted.filter(|n| *n > 0 && !taken.contains(n)).unwrap_or_else(|| free_number(&taken))
     }
 
     /// Brings tab `i` to the front, which clears its glow.
@@ -2053,10 +2088,11 @@ impl App {
                     focus: tab.focus,
                     name: tab.name.clone(),
                     group: tab.group.and_then(|id| groups.iter().position(|g| g.id == id)),
+                    number: tab.number,
                 })
             })
             .collect();
-        let groups = groups.iter().map(|g| crate::config::OpenGroup { name: g.name.clone(), color: g.color_name().to_string() }).collect();
+        let groups = groups.iter().map(|g| crate::config::OpenGroup { name: g.name.clone(), color: g.color_name().to_string(), folded: g.folded }).collect();
         crate::config::OpenTabs { tabs, groups, active: self.active, restart: false }
     }
 
@@ -2089,6 +2125,10 @@ impl App {
                 self.tabs[count].name = tab.name.as_deref().and_then(tab_name);
                 let group = in_group.map(|k| *made[k].get_or_insert_with(|| self.kept_group(&kept.groups[k], k)));
                 self.tabs[count].group = group;
+                // Its number as it was, where no tab opened before it took it.
+                let shell = self.profiles[self.tabs[count].profile()].label.clone();
+                let others = std::mem::take(&mut self.tabs[count].number);
+                self.tabs[count].number = self.number_for(&shell, Some(tab.number).filter(|n| *n > 0).or(Some(others)));
             }
             // Its other panes, as it was split, where every one starts.
             let Some(split) = tab.split.clone().filter(|s| self.tabs.len() > count && s.fits(tab.more.len() + 1)) else { continue };
@@ -2202,20 +2242,61 @@ impl App {
     /// box, a pane's ✕, a reader's press.
     fn close_pane_at(&mut self, p: usize, el: &ActiveEventLoop) {
         match self.tabs.get(self.active).map(|t| (t.panes.len(), t.panes.get(p).map(|pane| pane.session.id))) {
-            Some((n, Some(id))) if n > 1 => self.close_pane(self.active, id),
-            Some((_, Some(_))) => self.close_tab(self.active, el),
+            Some((n, Some(id))) if n > 1 => self.close_pane_asking(self.active, id),
+            Some((_, Some(_))) => self.close_tab_asking(self.active, el),
             _ => {}
         }
         self.request_redraw();
+    }
+
+    /// Whether `what` closes now: at once where nothing runs in it
+    /// (`running`, each busy pane's command, empty where its shell didn't
+    /// say which), else only when the same close was asked for within
+    /// `CONFIRM_WINDOW` (decided 2026-11-28); the first time, a toast says
+    /// what runs in `name` and that closing it again ends it.
+    fn close_now(&mut self, what: CloseOf, name: &str, running: &[String]) -> bool {
+        let asked = self.close_asked.take().is_some_and(|(was, at)| was == what && at.elapsed() < CONFIRM_WINDOW);
+        if running.is_empty() || asked {
+            return true;
+        }
+        self.close_asked = Some((what, Instant::now()));
+        let words = match running.iter().find(|c| !c.is_empty()) {
+            Some(command) => tf("toast.close_running", &[("tab", &name), ("command", command)]),
+            None => tf("toast.close_busy", &[("tab", &name)]),
+        };
+        self.show_toast(words);
+        false
+    }
+
+    /// Closes tab `i` (its × in the title bar or the sidebar, ⌘W, ⌘⌫ on
+    /// its row), asking first while something runs in one of its panes.
+    fn close_tab_asking(&mut self, i: usize, el: &ActiveEventLoop) {
+        let Some(tab) = self.tabs.get(i) else { return };
+        let running: Vec<String> = tab.panes.iter().filter_map(|p| p.session.busy_with()).collect();
+        let (id, name) = (tab.id, self.tab_labels().get(i).map(|l| l.label.clone()).unwrap_or_default());
+        if self.close_now(CloseOf::Tab(id), &name, &running) {
+            self.close_tab(i, el);
+        }
+    }
+
+    /// Closes pane `id` of tab `i` (⌘W, its ✕, its frame's close box),
+    /// asking first while something runs in it.
+    fn close_pane_asking(&mut self, i: usize, id: SessionId) {
+        let Some(pane) = self.tabs.get(i).and_then(|t| t.panes.iter().find(|p| p.session.id == id)) else { return };
+        let running: Vec<String> = pane.session.busy_with().into_iter().collect();
+        let name = self.tab_labels().get(i).map(|l| l.label.clone()).unwrap_or_default();
+        if self.close_now(CloseOf::Pane(id), &name, &running) {
+            self.close_pane(i, id);
+        }
     }
 
     fn close_pane_or_tab(&mut self, el: &ActiveEventLoop) {
         match self.tabs.get(self.active) {
             Some(t) if t.panes.len() > 1 => {
                 let id = t.session().id;
-                self.close_pane(self.active, id);
+                self.close_pane_asking(self.active, id);
             }
-            Some(_) => self.close_tab(self.active, el),
+            Some(_) => self.close_tab_asking(self.active, el),
             None => {}
         }
     }
@@ -2263,7 +2344,7 @@ impl App {
     /// shell's, with the theme it wears where that isn't Settings' (a name
     /// of the user's stands as typed).
     fn tab_labels(&self) -> Vec<ui::TabLabel> {
-        let tabs: Vec<(&str, Option<&str>)> = self.tabs.iter().map(|t| (self.profiles[t.profile()].label.as_str(), t.name.as_deref())).collect();
+        let tabs: Vec<(&str, Option<&str>, usize)> = self.tabs.iter().map(|t| (self.profiles[t.profile()].label.as_str(), t.name.as_deref(), t.number)).collect();
         tab_names(&tabs)
             .into_iter()
             .zip(&self.tabs)
@@ -2409,6 +2490,7 @@ impl App {
             Command::RestartTab => self.restart_tab_by_key(),
             Command::RenameTab => self.rename_tab(self.active),
             Command::NewGroup => self.new_group(),
+            Command::TabSidebar => self.toggle_sidebar(),
             Command::Copy => {
                 self.copy_selection();
             }
@@ -2508,7 +2590,7 @@ impl App {
         if self.server_ask_in_front() && self.server_ask_type(text.lines().next().unwrap_or_default()) {
             return;
         }
-        if self.renaming_at().is_some() && self.rename_type(text.trim()) {
+        if self.naming() && self.rename_type(text.trim()) {
             return;
         }
         if let Some(s) = self.menu.as_mut().filter(|m| m.editing.is_none() && m.naming.is_none() && m.picker.is_none()).and_then(|m| m.search.as_mut()) {
@@ -2994,7 +3076,7 @@ impl App {
         // A tab's name being typed takes every key, as Settings' text rows
         // do, while its tab is still open.
         if self.renaming.is_some() {
-            if self.renaming_at().is_some() {
+            if self.naming() {
                 return self.rename_key(&event);
             }
             self.renaming = None;
@@ -3067,6 +3149,12 @@ impl App {
             self.tab_picker = Some(picker);
             self.request_redraw();
             return;
+        }
+
+        // The tab sidebar, while it's out, takes the keys: its own, and
+        // Flow's shortcuts as they're bound.
+        if self.sidebar.is_open() {
+            return self.sidebar_key(&event, action, el);
         }
 
         // The find bar, while it has the keys: all but the shortcuts it
@@ -3163,7 +3251,7 @@ impl App {
         if self.server_ask_in_front() && self.server_ask_type(text) {
             return;
         }
-        if self.renaming_at().is_some() && self.rename_type(text) {
+        if self.naming() && self.rename_type(text) {
             return;
         }
         if let Some(e) = self.menu.as_mut().and_then(|m| m.editing.as_mut()) {
@@ -5719,6 +5807,11 @@ impl App {
         self.mouse_prev = Some((p, now));
         let tab = self.hits.iter().rev().find(|(r, _)| r.contains(p)).and_then(|(_, h)| match h {
             Hit::Tab(i) => Some(*i),
+            // A tab's row in the sidebar shows its card beside it.
+            Hit::SidebarRow(r) => self.sidebar.rows.get(*r).and_then(|row| match row.id {
+                crate::tab_sidebar::RowId::Tab(id) => self.tabs.iter().position(|t| t.id == id),
+                _ => None,
+            }),
             _ => None,
         });
         let hover = match (self.resources.hover, tab) {
@@ -5734,9 +5827,9 @@ impl App {
             self.resources.hover = hover;
             self.resources.card_drawn = false;
         }
-        // Help keeps no frames coming, so its links and buttons light up
-        // under the pointer by a frame of their own.
-        if self.help.is_some() {
+        // Help and the sidebar keep no frames coming, so their links, rows
+        // and buttons light up under the pointer by a frame of their own.
+        if self.help.is_some() || self.sidebar.is_open() {
             let hit = |at: (f32, f32)| self.hits.iter().rev().find(|(r, _)| r.contains(at)).map(|(_, h)| *h);
             if hit(self.mouse) != hit(p) {
                 self.request_redraw();
@@ -5985,6 +6078,7 @@ impl App {
             || !self.servers.asks.is_empty()
             || self.update_ask
             || self.restart_ask.is_some()
+            || self.sidebar.is_open()
     }
 
     /// Whether an MCP server's question is the card in front, taking the
@@ -6207,8 +6301,8 @@ impl App {
         // A press on the pill whose name is being typed leaves it typing;
         // one anywhere else keeps the name and goes on.
         if state == ElementState::Pressed && self.renaming.is_some() {
-            let on_it = self.renaming_at().is_some_and(|i| self.hits.iter().rev().find(|(r, _)| r.contains(self.mouse)).is_some_and(|(_, h)| *h == Hit::Tab(i)));
-            if on_it {
+            let hit = self.hits.iter().rev().find(|(r, _)| r.contains(self.mouse)).map(|(_, h)| *h);
+            if self.on_the_name(hit) {
                 return;
             }
             self.finish_renaming(true);
@@ -6311,6 +6405,12 @@ impl App {
             || (cfg!(target_os = "macos") && button == MouseButton::Left && self.modifiers.control_key());
         if context_click && state == ElementState::Pressed {
             if self.menu.is_some() {
+                return;
+            }
+            // In the tab sidebar, a row's menu.
+            if self.sidebar.is_open() {
+                let hit = self.hits.iter().rev().find(|(r, _)| r.contains(p)).map(|(_, h)| *h);
+                self.sidebar_context(hit);
                 return;
             }
             // Flow's title bar stands in for the window manager's, so a right
@@ -6506,6 +6606,11 @@ impl App {
         self.clicks = (now, count);
 
         let hit = self.hits.iter().rev().find(|(r, _)| r.contains(p)).map(|(_, h)| *h);
+        // The tab sidebar takes the pointer while it's out.
+        if self.sidebar.is_open() {
+            self.sidebar_click(hit, el);
+            return;
+        }
         // A click away from the open new-tab picker just closes it.
         if self.tab_picker.is_some() && !matches!(hit, Some(Hit::TabPickerShell(_) | Hit::TabPickerTheme(_) | Hit::TabPickerOpen | Hit::TabPickerSave | Hit::NewTabChoose)) {
             self.tab_picker = None;
@@ -6667,8 +6772,11 @@ impl App {
             // forward.
             Hit::Tab(i) if self.clicks.1 == 2 && i == self.active => self.rename_tab(i),
             Hit::Tab(i) => self.select_tab(i),
-            Hit::CloseTab(i) => self.close_tab(i, el),
+            Hit::CloseTab(i) => self.close_tab_asking(i, el),
             Hit::NewTab => self.new_tab(),
+            Hit::TabSidebar => self.toggle_sidebar(),
+            // The sidebar's own, which `sidebar_click` takes while it's out.
+            Hit::SidebarCard | Hit::SidebarRow(_) | Hit::SidebarFold(_) | Hit::SidebarClose(_) | Hit::SidebarMore(_) | Hit::SidebarNewTab | Hit::SidebarNewGroup | Hit::SidebarMenuItem(_) => self.sidebar_click(Some(hit), el),
             Hit::NewTabChoose => {
                 self.tab_picker = match self.tab_picker {
                     Some(_) => None,
@@ -6850,7 +6958,8 @@ impl App {
             find: self.find.as_ref().is_some_and(|f| f.focus) && !self.ai.focus,
             palette: self.palette.is_some(),
             assistant: self.ai.focus && self.layout.panel.is_some(),
-            renaming: self.renaming_at().is_some(),
+            sidebar: self.sidebar.is_open(),
+            renaming: self.naming(),
         }
     }
 
@@ -6895,6 +7004,7 @@ impl App {
     }
 
     fn open_about(&mut self) {
+        self.close_sidebar();
         self.close_settings();
         self.resources.open = false;
         self.about = Some(Instant::now());
@@ -7885,6 +7995,7 @@ impl App {
         if self.menu.is_some() {
             self.close_settings();
         } else if self.key_dialog.is_none() {
+            self.close_sidebar();
             self.see_apps();
             self.see_memory();
             self.menu = Some(SettingsMenu::default());
@@ -9540,6 +9651,12 @@ impl App {
             self.request_redraw();
             return;
         }
+        // Over the tab sidebar, the wheel scrolls its rows.
+        if self.sidebar.is_open() && self.palette.is_none() && self.menu.is_none() {
+            let lines = self.wheel_lines(delta);
+            self.sidebar_wheel(lines);
+            return;
+        }
         // Over the new-tab picker, the wheel moves the choice in the list
         // under the pointer (else the one the arrows move in), as over the
         // history's search, and the list follows it where it's cut short.
@@ -9758,6 +9875,7 @@ impl App {
         if self.palette.take().is_some() || self.key_dialog.is_some() {
             return;
         }
+        self.close_sidebar();
         self.close_settings();
         self.about = None;
         self.tab_picker = None;
@@ -9987,6 +10105,7 @@ impl App {
         if self.history_panel.take().is_some() || self.key_dialog.is_some() {
             return;
         }
+        self.close_sidebar();
         self.close_settings();
         self.about = None;
         self.tab_picker = None;
@@ -11893,6 +12012,7 @@ impl App {
             || self.history_panel.is_some()
             || self.find.as_ref().is_some_and(|f| f.focus)
             || self.palette.is_some()
+            || self.sidebar_sliding()
             || (self.models_moving && !self.typing_held())
             || self.menu.is_some()
             || self.about.is_some()
@@ -12090,7 +12210,10 @@ impl App {
             t.panes.iter().enumerate().map(|(p, pane)| (self.scrollbar_shown(&pane.session, now), self.dragging_scrollbar.is_some_and(|(held, _)| held == p))).collect()
         });
         let on_top = self.platform.on_top_possible().then(|| self.on_top());
-        let renaming_at = self.renaming_at();
+        // A tab's name is typed in its pill while the sidebar is in, and in
+        // its row while it's out.
+        let renaming_at = self.renaming_at().filter(|_| !self.sidebar.is_open());
+        let sidebar = self.sidebar_view();
         let renderer = self.renderer.as_mut()?;
         renderer.fluid.set_material(fx_style.material());
         renderer.fluid.splats.extend(stirred.splats);
@@ -12170,6 +12293,7 @@ impl App {
             themes: &themes,
             tab_picker: self.tab_picker.as_ref(),
             renaming: renaming_at.zip(self.renaming.as_ref()).map(|(i, r)| (i, &r.field)),
+            sidebar,
             session,
             ai: &self.ai,
             key_dialog: self.key_dialog.as_ref(),
@@ -12253,6 +12377,7 @@ impl App {
         self.models_moving = images.iter().any(|b| b.image.model.as_ref().is_some_and(|m| m.animating_at(now)));
         self.models_rest = images.iter().filter_map(|b| b.image.model.as_ref()?.rests_until(now)).min();
         self.hits = drawn.hits;
+        self.sidebar.top.set(drawn.sidebar_top);
         self.place_ime(drawn.caret);
         Some((quads, images, style))
     }
@@ -12590,6 +12715,24 @@ impl App {
                     self.jumped = None;
                     if let Some(s) = self.session() {
                         s.emu.lock().term.scroll_display(Scroll::Bottom);
+                    }
+                    let plan = self.snapshot.as_mut().unwrap();
+                    plan.stage = SIDEBAR_STAGE;
+                    plan.stage_started = t;
+                    return;
+                }
+            }
+            // Made-up tabs opened, then, once their shells have settled,
+            // put in groups and shown in the sidebar.
+            SIDEBAR_STAGE => {
+                let waited = t - self.snapshot.as_ref().unwrap().stage_started;
+                if self.snapshot.as_ref().unwrap().sidebar_from.is_none() {
+                    let first = self.show_sidebar_open();
+                    self.snapshot.as_mut().unwrap().sidebar_from = Some(first);
+                }
+                if waited > 2.5 {
+                    if let Some(first) = self.snapshot.as_mut().unwrap().sidebar_from.take() {
+                        self.show_sidebar(&dir.join("tab-sidebar.png"), first, el);
                     }
                     let plan = self.snapshot.as_mut().unwrap();
                     plan.stage = HELPERS_STAGE;
@@ -13076,19 +13219,26 @@ fn warmed_hardware() -> Option<crate::hardware::Hardware> {
     WARMED.lock().ok().and_then(|mut warmed| warmed.take())
 }
 
-/// The tabs' names, each tab's shell and the name the user gave it: that
-/// name, else its shell's, numbered when more than one tab without a name
-/// runs it.
-fn tab_names(tabs: &[(&str, Option<&str>)]) -> Vec<String> {
-    let unnamed = |shell: &str, tabs: &[(&str, Option<&str>)]| tabs.iter().filter(|(s, name)| *s == shell && name.is_none()).count();
+/// The tabs' names, from each tab's shell, the name the user gave it and
+/// its number (`Tab::number`): that name, else its shell's with its
+/// number, which it keeps from when it opened however the others come and
+/// go, so a tab closing renames none of them. The number is left off only
+/// where it's 1 and no other tab without a name runs that shell.
+fn tab_names(tabs: &[(&str, Option<&str>, usize)]) -> Vec<String> {
+    let unnamed = |shell: &str| tabs.iter().filter(|(s, name, _)| *s == shell && name.is_none()).count();
     tabs.iter()
-        .enumerate()
-        .map(|(i, &(shell, name))| match name {
+        .map(|&(shell, name, number)| match name {
             Some(name) => name.to_string(),
-            None if unnamed(shell, tabs) > 1 => format!("{shell} {}", unnamed(shell, &tabs[..i]) + 1),
+            None if number > 1 || unnamed(shell) > 1 => format!("{shell} {}", number.max(1)),
             None => shell.to_string(),
         })
         .collect()
+}
+
+/// The number a tab opening takes (`Tab::number`): the lowest of those its
+/// shell's open tabs (`taken`) don't have, from 1.
+fn free_number(taken: &[usize]) -> usize {
+    (1..).find(|n| !taken.contains(n)).unwrap_or(1)
 }
 
 /// The most letters a tab's name takes: room for words, not a sentence,
@@ -13545,6 +13695,7 @@ impl App {
                 }
             }
             access::Do::Choose(chooser, i) => self.choose_for_reader(chooser, i),
+            access::Do::Fold(chooser, i, open) => self.fold_for_reader(chooser, i, open),
         }
         self.request_redraw();
     }
@@ -13572,6 +13723,16 @@ impl App {
     fn choose_for_reader(&mut self, chooser: access::Chooser, i: usize) {
         use access::Chooser;
         match chooser {
+            Chooser::Sidebar => {
+                if let Some(row) = self.sidebar.rows.get(i) {
+                    self.sidebar.chosen = Some(row.id);
+                }
+            }
+            Chooser::SidebarMenu => {
+                if let Some(m) = self.sidebar.menu.as_mut().filter(|m| i < m.items.len()) {
+                    m.chosen = i;
+                }
+            }
             Chooser::Palette => {
                 if let Some(p) = self.palette.as_mut().filter(|p| i < p.found.len()) {
                     p.selected = i;
@@ -13799,7 +13960,7 @@ impl App {
         access::AccessView {
             size: (self.layout.width, self.layout.height),
             title: tf("access.window", &[("tab", &front), ("app", &APP_NAME)]),
-            lead: vec![Button::new(tf("menu.about", &[("app", &APP_NAME)]), self.rect_of(Hit::About))],
+            lead: vec![Button::new(tf("menu.about", &[("app", &APP_NAME)]), self.rect_of(Hit::About)), Button::toggle(t("menu.tab_sidebar"), self.rect_of(Hit::TabSidebar), self.sidebar.is_open())],
             tabs,
             active: self.active,
             bar,
@@ -13829,7 +13990,7 @@ impl App {
         }
         // A tab's name being typed has the keys, under the cards that come
         // over it by themselves.
-        if self.renaming_at().is_some() && !matches!(Page::in_front(self.front()), Some(Page::Key | Page::Model | Page::Outside | Page::ServerAsk | Page::Updates)) {
+        if self.naming() && !matches!(Page::in_front(self.front()), Some(Page::Key | Page::Model | Page::Outside | Page::ServerAsk | Page::Updates)) {
             return Focus::Field(DialogKind::TabName);
         }
         let Some(page) = Page::in_front(self.front()) else {
@@ -13862,6 +14023,7 @@ impl App {
                 None => Focus::Window,
             },
             Page::Find => Focus::Field(DialogKind::Find),
+            Page::TabSidebar => self.sidebar_focus(),
             Page::Assistant => match self.ai.model_pick {
                 Some(chosen) => Focus::Item(DialogKind::AiModels, 0, chosen),
                 None => Focus::Panel,
@@ -13875,17 +14037,9 @@ impl App {
         use access::{Button, Chooser, Dialog, DialogKind, Field, Item, List};
         let mut out = Vec::new();
         let button = |key: &str, hit: Hit| Button::new(t(key), self.rect_of(hit));
-        if let Some((i, r)) = self.renaming_at().zip(self.renaming.as_ref()) {
-            let (line, col) = r.field.caret();
-            out.push(Dialog {
-                kind: DialogKind::TabName,
-                title: t("tab_name.title").to_string(),
-                rect: self.rect_of(Hit::Tab(i)),
-                text: vec![t("tab_name.hint").to_string()],
-                field: Some(Field { caret: (line, col), ..Field::line(t("tab_name.title"), self.unnamed(i), &r.field.text(), self.rect_of(Hit::Tab(i))) }),
-                ..Dialog::default()
-            });
-        }
+        // The tab sidebar, and over it (or the title bar) a name being typed.
+        out.extend(self.sidebar_dialog());
+        out.extend(self.naming_dialog());
         if let Some(f) = &self.find {
             let count = match (f.current, f.matches.len()) {
                 _ if f.query.is_empty() => String::new(),
@@ -13935,8 +14089,8 @@ impl App {
                 });
             }
             if let Some(g) = &menu.gallery {
-                let packages = g.packages.iter().enumerate().map(|(i, p)| Item { label: p.name.clone(), detail: p.summary.clone(), rect: self.rect_of(Hit::GalleryPackage(i)) }).collect();
-                let themes = g.package().map(|p| p.themes()).unwrap_or_default().iter().enumerate().map(|(i, theme)| Item { label: crate::gallery::name_of(theme).to_string(), detail: String::new(), rect: self.rect_of(Hit::GalleryTheme(i)) }).collect();
+                let packages = g.packages.iter().enumerate().map(|(i, p)| Item { tree: None, label: p.name.clone(), detail: p.summary.clone(), rect: self.rect_of(Hit::GalleryPackage(i)) }).collect();
+                let themes = g.package().map(|p| p.themes()).unwrap_or_default().iter().enumerate().map(|(i, theme)| Item { tree: None, label: crate::gallery::name_of(theme).to_string(), detail: String::new(), rect: self.rect_of(Hit::GalleryTheme(i)) }).collect();
                 let mut buttons: Vec<Button> = g.acts().iter().enumerate().map(|(k, act)| Button::new(act.label(), self.rect_of(Hit::GalleryAct(k)))).collect();
                 if let Some(r) = self.rect_of(Hit::GalleryCheck) {
                     buttons.push(Button::new(t("gallery.check"), Some(r)));
@@ -13958,8 +14112,8 @@ impl App {
         }
         if let Some(picker) = &self.tab_picker {
             let base = self.base.as_ref().unwrap_or(&self.config);
-            let shells = self.profiles.iter().enumerate().map(|(i, p)| Item { label: p.label.clone(), detail: String::new(), rect: self.rect_of(Hit::TabPickerShell(i)) }).collect();
-            let themes = crate::looks::ids(base).iter().enumerate().map(|(i, id)| Item { label: crate::looks::name(id), detail: String::new(), rect: self.rect_of(Hit::TabPickerTheme(i)) }).collect();
+            let shells = self.profiles.iter().enumerate().map(|(i, p)| Item { tree: None, label: p.label.clone(), detail: String::new(), rect: self.rect_of(Hit::TabPickerShell(i)) }).collect();
+            let themes = crate::looks::ids(base).iter().enumerate().map(|(i, id)| Item { tree: None, label: crate::looks::name(id), detail: String::new(), rect: self.rect_of(Hit::TabPickerTheme(i)) }).collect();
             out.push(Dialog {
                 kind: DialogKind::Shells,
                 title: t("help.shells.title").to_string(),
@@ -13972,7 +14126,7 @@ impl App {
             });
         }
         if let Some(p) = &self.history_panel {
-            let items = p.found.iter().enumerate().take(MOST_READ).map(|(i, f)| Item { label: f.command.clone(), detail: f.cwd.clone().unwrap_or_default(), rect: self.rect_of(Hit::HistoryItem(i)) }).collect();
+            let items = p.found.iter().enumerate().take(MOST_READ).map(|(i, f)| Item { tree: None, label: f.command.clone(), detail: f.cwd.clone().unwrap_or_default(), rect: self.rect_of(Hit::HistoryItem(i)) }).collect();
             let mut buttons: Vec<Button> = Filter::ALL
                 .iter()
                 .enumerate()
@@ -14015,7 +14169,7 @@ impl App {
                     } else {
                         String::new()
                     };
-                    Item { label: m.full_name(), detail, rect: self.rect_of(Hit::ModelPick(i)) }
+                    Item { tree: None, label: m.full_name(), detail, rect: self.rect_of(Hit::ModelPick(i)) }
                 })
                 .collect();
             out.push(Dialog {
@@ -14031,7 +14185,7 @@ impl App {
             let items = p.found.iter().enumerate().take(MOST_READ).map(|(row, &i)| {
                 let item = &p.items[i];
                 let detail = [item.kind.words(), item.detail.as_str(), item.keys.as_str()].iter().filter(|s| !s.is_empty()).copied().collect::<Vec<_>>().join(", ");
-                Item { label: item.label.clone(), detail, rect: self.rect_of(Hit::PaletteItem(row)) }
+                Item { tree: None, label: item.label.clone(), detail, rect: self.rect_of(Hit::PaletteItem(row)) }
             }).collect();
             out.push(Dialog {
                 kind: DialogKind::Palette,
@@ -14192,7 +14346,7 @@ impl App {
                 }
             }
             text.extend((!para.is_empty()).then_some(para));
-            let links = help.page.links().iter().enumerate().map(|(i, page)| Item { label: page.title().to_string(), detail: String::new(), rect: self.rect_of(Hit::HelpLink(i)) }).collect();
+            let links = help.page.links().iter().enumerate().map(|(i, page)| Item { tree: None, label: page.title().to_string(), detail: String::new(), rect: self.rect_of(Hit::HelpLink(i)) }).collect();
             let mut buttons = Vec::new();
             if let Some(r) = self.rect_of(Hit::HelpBack) {
                 buttons.push(Button::new(t("access.back"), Some(r)));
@@ -15214,11 +15368,11 @@ mod tests {
         let tab = |group: Option<usize>| OpenTab { shell: "zsh".into(), label: "zsh".into(), group, ..OpenTab::default() };
         let kept = OpenTabs {
             tabs: vec![tab(None), tab(Some(0)), tab(Some(0)), tab(Some(1))],
-            groups: vec![OpenGroup { name: "Web".into(), color: "teal".into() }, OpenGroup { name: "Group 2".into(), color: "blue".into() }],
+            groups: vec![OpenGroup { name: "Web".into(), color: "teal".into(), folded: true }, OpenGroup { name: "Group 2".into(), color: "blue".into(), folded: false }],
             ..OpenTabs::default()
         };
         let text = serde_json::to_string(&kept).unwrap();
-        assert!(text.contains(r#""groups":[{"name":"Web","color":"teal"}"#) && text.contains(r#""group":1"#), "{text}");
+        assert!(text.contains(r#""groups":[{"name":"Web","color":"teal","folded":true},{"name":"Group 2","color":"blue"}]"#) && text.contains(r#""group":1"#), "{text}");
         assert_eq!(serde_json::from_str::<OpenTabs>(&text).unwrap(), kept);
         // None, none written: a file as before groups.
         let loose = serde_json::to_string(&OpenTabs { tabs: vec![tab(None)], ..OpenTabs::default() }).unwrap();
@@ -15638,16 +15792,28 @@ mod tests {
 
     #[test]
     fn tabs_running_the_same_shell_are_numbered() {
-        assert_eq!(tab_names(&[("zsh", None)]), ["zsh"]);
-        assert_eq!(tab_names(&[("zsh", None), ("bash", None), ("zsh", None), ("zsh", None)]), ["zsh 1", "bash", "zsh 2", "zsh 3"]);
+        assert_eq!(tab_names(&[("zsh", None, 1)]), ["zsh"]);
+        assert_eq!(tab_names(&[("zsh", None, 1), ("bash", None, 1), ("zsh", None, 2), ("zsh", None, 3)]), ["zsh 1", "bash", "zsh 2", "zsh 3"]);
     }
 
     #[test]
     fn a_named_tab_shows_its_name_and_the_rest_are_numbered_without_it() {
-        let names = tab_names(&[("zsh", Some("web")), ("zsh", None), ("zsh", None), ("bash", Some("zsh 1"))]);
-        assert_eq!(names, ["web", "zsh 1", "zsh 2", "zsh 1"], "named as typed, even as another's would be");
-        // The one zsh left without a name needs no number.
-        assert_eq!(tab_names(&[("zsh", Some("web")), ("zsh", None)]), ["web", "zsh"]);
+        let names = tab_names(&[("zsh", Some("web"), 1), ("zsh", None, 2), ("zsh", None, 3), ("bash", Some("zsh 1"), 1)]);
+        assert_eq!(names, ["web", "zsh 2", "zsh 3", "zsh 1"], "named as typed, even as another's would be");
+        // The one zsh left without a name needs no number where it's 1.
+        assert_eq!(tab_names(&[("zsh", Some("web"), 2), ("zsh", None, 1)]), ["web", "zsh"]);
+    }
+
+    #[test]
+    fn a_tab_keeps_its_number_as_others_close_and_a_new_one_takes_the_lowest_free() {
+        // zsh 1, 2 and 3; 1 closes: the others keep theirs.
+        assert_eq!(tab_names(&[("zsh", None, 2), ("zsh", None, 3)]), ["zsh 2", "zsh 3"]);
+        // Left alone as 2, it still says so.
+        assert_eq!(tab_names(&[("zsh", None, 2)]), ["zsh 2"]);
+        // A new one takes 1 again.
+        assert_eq!(free_number(&[2, 3]), 1);
+        assert_eq!(free_number(&[1, 2]), 3);
+        assert_eq!(free_number(&[]), 1);
     }
 
     #[test]

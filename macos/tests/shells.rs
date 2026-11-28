@@ -7,8 +7,9 @@
 //! zsh's builtin `which` too), what each notes for the command history as
 //! a person types (none of it a program's output that only looks like the
 //! hook's marks), that a program removed after it ran is found again
-//! further along the PATH, and that letters past ASCII Flow types into a
-//! shell without a UTF-8 locale are letters, not keys.
+//! further along the PATH, that letters past ASCII Flow types into a
+//! shell without a UTF-8 locale are letters, not keys, and that a command
+//! running keeps its pane busy until its prompt is back.
 #![cfg(target_os = "macos")]
 
 use std::path::PathBuf;
@@ -38,6 +39,33 @@ fn wait_for(what: &str, timeout: Duration, mut f: impl FnMut() -> bool) {
     while !f() {
         assert!(start.elapsed() < timeout, "timed out waiting for {what}");
         std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+/// A command typed at the prompt keeps its pane busy, by its words, until
+/// it ends and the next prompt is drawn, in zsh and bash: closing that tab
+/// or pane asks first (`App::close_now`), and Close Group does.
+#[test]
+fn a_command_running_keeps_its_pane_busy_until_its_prompt_is_back() {
+    let platform = setup();
+    for profile in platform.shells() {
+        let label = profile.label.clone();
+        let session = Session::spawn(2, profile, GridSize { cols: 120, rows: 30 }, (9.0, 18.0), 2000, None, Waker::from_fn(|_| {}))
+            .unwrap_or_else(|e| panic!("{label}: {e:#}"));
+        wait_for(&format!("{label} first prompt"), Duration::from_secs(30), || {
+            let st = session.state.lock();
+            st.integrated && st.at_prompt
+        });
+        assert_eq!(session.busy_with(), None, "{label}: waiting at its prompt");
+        for ch in "sleep 2".chars() {
+            session.write(ch.to_string().as_bytes());
+            std::thread::sleep(Duration::from_millis(15));
+        }
+        wait_for(&format!("{label}: the echo"), Duration::from_secs(10), || session.cursor_line().1.contains("sleep 2"));
+        session.write(b"\r");
+        wait_for(&format!("{label}: sleep running"), Duration::from_secs(5), || session.busy_with().is_some());
+        assert_eq!(session.busy_with().as_deref(), Some("sleep 2"), "{label}");
+        wait_for(&format!("{label}: its prompt back"), Duration::from_secs(10), || session.busy_with().is_none() && session.at_prompt() == Some(true));
     }
 }
 

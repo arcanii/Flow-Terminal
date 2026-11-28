@@ -922,6 +922,9 @@ pub struct ShellState {
     pub prompt_due: Option<Instant>,
     /// The last command that finished, until the UI takes it.
     pub finished: Option<Finished>,
+    /// The last command that ended with a code, and its code, kept (not
+    /// taken) for the tab sidebar's line, which says it until the next runs.
+    pub ended: Option<(String, i32)>,
     /// The command running now, as typed at the prompt or as the shell's
     /// hook says it ran it (OSC 633;E with the pane's nonce), and the line
     /// its output starts on, counted from the top of the scrollback.
@@ -1050,6 +1053,9 @@ impl ShellState {
     /// The shell's "done" marker: the command running, if one was, is over.
     fn command_done(&mut self, code: Option<i32>, command: Option<String>) {
         self.last_exit = code;
+        if let (Some(command), Some(code)) = (command.as_ref(), code) {
+            self.ended = Some((command.clone(), code));
+        }
         if let Some(start) = self.running_since.take() {
             self.finished = Some(Finished { exit: code, secs: start.elapsed().as_secs_f32(), command });
         }
@@ -1679,6 +1685,16 @@ impl Session {
     pub fn at_prompt(&self) -> Option<bool> {
         let st = self.state.lock();
         st.integrated.then_some(st.at_prompt)
+    }
+
+    /// What runs in the pane, as its shell says, for closing it: the
+    /// command started at its prompt (empty where the shell didn't say
+    /// which), or none while it waits at its prompt or draws the next one.
+    /// A shell that says nothing (never integrated) counts as waiting, so
+    /// closing it never asks.
+    pub fn busy_with(&self) -> Option<String> {
+        let st = self.state.lock();
+        (st.integrated && !st.at_prompt && st.prompt_due.is_none()).then(|| st.command.clone().unwrap_or_default())
     }
 
     /// Whether the shell is drawing the prompt after a command that ended
