@@ -85,8 +85,10 @@ impl Branches {
 /// for `.git`: a folder, or, in a worktree or a submodule, a file naming
 /// the folder (`gitdir:`). None outside a checkout, where what's there
 /// isn't git's, or where the folder or the one named isn't on this
-/// computer.
+/// computer. The folder is as its shell said it: Git Bash's `/c/…` is
+/// `C:\…` (`tools::windows_path`).
 pub fn head_of(folder: &Path) -> Option<Head> {
+    let folder = &PathBuf::from(crate::ai::tools::windows_path(&folder.to_string_lossy()));
     if !crate::link::on_this_computer(folder) {
         return None;
     }
@@ -170,6 +172,13 @@ mod tests {
         write(repo.join(".git/HEAD"), "ref: refs/heads/main\n");
         std::fs::create_dir_all(repo.join("src/app")).unwrap();
         assert_eq!(head_of(&repo.join("src/app")), Some(Head::Branch("main".into())));
+        // Git Bash says where it is as `/c/…`, which is `C:\…`.
+        #[cfg(windows)]
+        {
+            let slashed = repo.join("src/app").to_string_lossy().replace('\\', "/");
+            let git_bash = format!("/{}{}", slashed[..1].to_ascii_lowercase(), &slashed[2..]);
+            assert_eq!(head_of(Path::new(&git_bash)), Some(Head::Branch("main".into())), "{git_bash}");
+        }
         // A worktree's `.git` names its folder in the checkout's.
         write(repo.join(".git/worktrees/fix/HEAD"), "ref: refs/heads/fix\n");
         let tree = root.join("fix");

@@ -2352,7 +2352,8 @@ worn first and `follow_group_themes` wears afresh where a move changed
 what a tab follows. In a git checkout a tab's line shows its branch in
 its folder's place (`Line::Branch`, `ui::draw_branch_mark`), read by
 `git_branch::head_of` from `.git` (a worktree's or a submodule's
-`gitdir:` too) and `HEAD`, never running `git`, on this computer only, on
+`gitdir:` too) and `HEAD`, never running `git`, on this computer only
+(Git Bash's `/c/…` read as `C:\…`, `tools::windows_path`), on
 a `flow-git` thread (`App::ask_branches`, `UserEvent::GitHead`), kept per
 folder (`git_branch::Branches`) until a command ends there.
 

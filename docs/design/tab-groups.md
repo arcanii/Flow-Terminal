@@ -652,7 +652,10 @@ As built in step 7 (2026-11-28):
   name's control characters go and it's cut at 200 letters. Only regular
   files are read, their first 4 KiB, and the folder and a `gitdir:` only
   where `link::on_this_computer` says, as every folder a shell says is
-  (`untrusted-output.md`).
+  (`untrusted-output.md`). Git Bash says its folder as `/c/…`, which
+  Windows' `on_this_computer` refuses, so the folder is read as Windows
+  writes it first (`tools::windows_path`; found building it on Windows,
+  2026-11-28, where Git Bash's tabs showed no branch).
 - **When:** `git_branch::Branches` keeps each folder's answer and those
   being read. While the sidebar is out, `App::ask_branches` reads the
   folders of every pane not yet read on a `flow-git` thread, each coming

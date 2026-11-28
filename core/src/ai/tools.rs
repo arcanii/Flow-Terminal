@@ -2409,7 +2409,10 @@ pub fn file_elsewhere(call: &ToolCall, cwd: Option<&str>) -> bool {
     !crate::link::on_this_computer(&resolve_path(path, cwd))
 }
 
-fn windows_path(p: &str) -> String {
+/// On Windows, a path as Git Bash, MSYS2 or WSL writes one on a drive
+/// (`/c/…`, `/mnt/c/…`) as Windows writes it (`C:\…`); anything else, and
+/// everything elsewhere, as it is.
+pub(crate) fn windows_path(p: &str) -> String {
     if !cfg!(windows) {
         return p.to_string();
     }
