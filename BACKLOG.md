@@ -332,7 +332,7 @@ and [Linux release](docs/development.md#linux-release)). Still to do:
   title bar, its right-click menu, middle-click paste with other programs,
   the key in GNOME Keyring and KWallet, and typing through IBus and Fcitx.
 - **Publishing more of it:** every release since 0.1.23 has gone out for
-  x86-64 Linux, the latest `v0.1.47-linux` (the tarball and the .deb, with
+  x86-64 Linux, the latest `v0.1.49-linux` (the tarball and the .deb, with
   `appcast-linux-x86_64.xml` for Flow's own updater). From 0.1.37.1 a
   .deb's Flow downloads the next .deb, checks it with Flow's key and runs
   `sudo apt install` on it in a tab (the manual's Install).
@@ -340,8 +340,14 @@ and [Linux release](docs/development.md#linux-release)). Still to do:
     Flatpak): `flow-terminal-bin`, repackaging each release's tarball
     (`docs/design/aur.md`), built, linted and installed in a scratch Arch;
     `linux/scripts/aur.sh` writes it for each release, and from 0.1.48
-    Flow leaves pacman's copy to the AUR helper. Left:
-    - the user's AUR account, and publishing the package;
+    Flow leaves pacman's copy to the AUR helper. Each release's package
+    from 0.1.46 to 0.1.49 was written and tried there (makepkg agreeing
+    with its `.SRCINFO`, namcap, pacman's upgrade, `/usr/bin/flow` the
+    release's), but none published: the user's word, 2026-11-28, "Not
+    yet - let's put AUR in backlog for now". Left:
+    - the user's AUR account, and publishing the package (its first push
+      to `ssh://aur@aur.archlinux.org/flow-terminal-bin.git`, of
+      `aur.sh <version>`'s files for the release then);
     - seeing Flow's window on Arch (Hyprland, Omarchy's).
   - Still to come: an Arm64 tarball, an apt repository, so the .deb
     updates with the rest of the system's packages, and other packages
