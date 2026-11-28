@@ -135,7 +135,7 @@ impl App {
                         MenuItem::Color(c) => crate::tab_groups::COLORS.get(c).map(|(_, rgb)| *rgb),
                         _ => None,
                     };
-                    (tab_sidebar::words(item, &self.groups, m.many), swatch)
+                    (self.menu_words(m, item), swatch)
                 })
                 .collect();
             Some(ui::SidebarMenu { row, items, chosen: m.chosen })
@@ -415,6 +415,22 @@ impl App {
         self.request_redraw();
     }
 
+    /// A menu item's words (`tab_sidebar::words`), the theme a group wears
+    /// now marked ✓ in its list of themes.
+    fn menu_words(&self, m: &tab_sidebar::Menu, item: MenuItem) -> String {
+        let themes = crate::looks::ids(self.base.as_ref().unwrap_or(&self.config));
+        let words = tab_sidebar::words(item, &self.groups, m.many, &themes);
+        let worn = match (item, m.row) {
+            (MenuItem::GroupTheme(k), RowId::Group(g)) => self.groups.get(g).map(|g| g.theme.as_deref()) == Some(k.and_then(|k| themes.get(k).map(String::as_str))),
+            _ => false,
+        };
+        if worn {
+            format!("✓ {words}")
+        } else {
+            words
+        }
+    }
+
     /// A right click on tab `i`'s pill in the title bar: its menu, as its
     /// row's in the sidebar, under the pill.
     pub(super) fn pill_menu(&mut self, i: usize) {
@@ -428,7 +444,7 @@ impl App {
     pub(super) fn pill_menu_view(&self) -> Option<(usize, ui::SidebarMenu)> {
         let m = self.sidebar.menu.as_ref().filter(|_| self.pill_menu_open())?;
         let i = self.tab_of(m.row)?;
-        let items = m.items.iter().map(|&item| (tab_sidebar::words(item, &self.groups, m.many), None)).collect();
+        let items = m.items.iter().map(|&item| (self.menu_words(m, item), None)).collect();
         Some((i, ui::SidebarMenu { row: 0, items, chosen: m.chosen }))
     }
 
@@ -525,6 +541,18 @@ impl App {
             }
             (MenuItem::CloseTab, _, Some(_)) => self.sidebar_close_row(row, el),
             (MenuItem::Color(c), RowId::Group(id), _) => self.groups.recolor(id, c),
+            // Its themes, in the menu's place, the keys on the one it wears.
+            (MenuItem::Theme, RowId::Group(id), _) => {
+                let themes = crate::looks::ids(self.base.as_ref().unwrap_or(&self.config));
+                let current = self.groups.get(id).and_then(|g| g.theme.as_ref()).and_then(|t| themes.iter().position(|x| x == t));
+                self.sidebar.menu = Some(tab_sidebar::theme_menu(id, themes.len(), current));
+                self.request_redraw();
+                return;
+            }
+            (MenuItem::GroupTheme(k), RowId::Group(id), _) => {
+                let themes = crate::looks::ids(self.base.as_ref().unwrap_or(&self.config));
+                self.set_group_theme(id, k.and_then(|k| themes.get(k).cloned()));
+            }
             (MenuItem::UngroupAll, RowId::Group(id), _) => self.regroup(|groups, tabs| groups.ungroup(tabs, id)),
             (MenuItem::CloseGroup, RowId::Group(id), _) => self.close_group(id, el),
             _ => {}
@@ -1030,7 +1058,7 @@ impl App {
         use access::{Button, Chooser, Dialog, DialogKind, Item, List};
         // A tab's menu from its pill: a menu alone, the keys in it.
         if let Some(m) = self.sidebar.menu.as_ref().filter(|_| self.pill_menu_open()) {
-            let items = m.items.iter().enumerate().map(|(k, &item)| Item { label: tab_sidebar::words(item, &self.groups, m.many), rect: self.rect_of(Hit::SidebarMenuItem(k)), ..Item::default() }).collect();
+            let items = m.items.iter().enumerate().map(|(k, &item)| Item { label: self.menu_words(m, item), rect: self.rect_of(Hit::SidebarMenuItem(k)), ..Item::default() }).collect();
             let title = self.tab_of(m.row).and_then(|i| self.tab_labels().get(i).map(|l| l.label.clone())).unwrap_or_default();
             return Some(Dialog { kind: DialogKind::TabSidebar, title, lists: vec![List { label: t("sidebar.tab_menu").to_string(), chooser: Chooser::SidebarMenu, items, chosen: Some(m.chosen) }], ..Dialog::default() });
         }
@@ -1072,7 +1100,7 @@ impl App {
         let chosen = self.sidebar.chosen_in(rows);
         let mut lists = vec![List { label: t("sidebar.title").to_string(), chooser: Chooser::Sidebar, items, chosen }];
         if let Some(m) = &self.sidebar.menu {
-            let items = m.items.iter().enumerate().map(|(k, &item)| Item { label: tab_sidebar::words(item, &self.groups, m.many), rect: self.rect_of(Hit::SidebarMenuItem(k)), ..Item::default() }).collect();
+            let items = m.items.iter().enumerate().map(|(k, &item)| Item { label: self.menu_words(m, item), rect: self.rect_of(Hit::SidebarMenuItem(k)), ..Item::default() }).collect();
             lists.push(List { label: t("sidebar.more").to_string(), chooser: Chooser::SidebarMenu, items, chosen: Some(m.chosen) });
         }
         let buttons = vec![Button::new(t("menu.new_tab"), self.rect_of(Hit::SidebarNewTab)), Button::new(t("menu.new_group"), self.rect_of(Hit::SidebarNewGroup))];

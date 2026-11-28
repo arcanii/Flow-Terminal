@@ -38,6 +38,9 @@ pub struct Group {
     pub color: usize,
     /// Folded shut in the sidebar, its tabs' rows hidden.
     pub folded: bool,
+    /// The theme its tabs wear where they have none of their own (a
+    /// `looks::ids` id); none, Settings' theme.
+    pub theme: Option<String>,
 }
 
 impl Group {
@@ -90,7 +93,7 @@ impl TabGroups {
     pub fn add(&mut self, name: String, color: Option<usize>) -> u64 {
         self.ids += 1;
         let color = color.filter(|c| *c < COLORS.len()).unwrap_or_else(|| self.next_color());
-        self.groups.push(Group { id: self.ids, name, color, folded: false });
+        self.groups.push(Group { id: self.ids, name, color, folded: false, theme: None });
         self.ids
     }
 
@@ -105,6 +108,13 @@ impl TabGroups {
     pub fn recolor(&mut self, id: u64, color: usize) {
         if let Some(g) = self.groups.iter_mut().find(|g| g.id == id).filter(|_| color < COLORS.len()) {
             g.color = color;
+        }
+    }
+
+    /// Group `id` wearing theme `theme` for its tabs, or none again.
+    pub fn set_theme(&mut self, id: u64, theme: Option<String>) {
+        if let Some(g) = self.groups.iter_mut().find(|g| g.id == id) {
+            g.theme = theme;
         }
     }
 
@@ -764,6 +774,10 @@ mod tests {
         g.recolor(id, 5);
         g.recolor(id, 99);
         assert_eq!(g.get(id).map(|g| (g.folded, g.name.as_str(), g.color)), Some((true, "Web", 5)));
+        g.set_theme(id, Some("green".into()));
+        assert_eq!(g.get(id).and_then(|g| g.theme.as_deref()), Some("green"));
+        g.set_theme(id, None);
+        assert_eq!(g.get(id).and_then(|g| g.theme.as_deref()), None);
         // Ungrouped, its tabs stay where they are.
         g.ungroup(&mut t, id);
         assert_eq!((letters(&t), t.iter().all(|t| t.1.is_none()), g.all().len()), ("acb".into(), true, 0));

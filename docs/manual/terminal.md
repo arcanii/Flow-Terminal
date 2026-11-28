@@ -92,9 +92,18 @@ group may stand before, between or after the groups.
   from a tab in no group goes at the end. Restart Tab keeps its tab's
   group.
 - A group goes once no tab is in it: its last tab closed or moved out.
+- A group may wear a theme (its menu's **Theme…** in the
+  [tab sidebar](#the-tab-sidebar)): its tabs wear it unless one has a
+  theme of its own, given it in the new-tab picker or changed in Settings
+  on that tab, which it keeps. A tab moved into the group puts it on, one
+  moved out takes it off, and tabs opened from the group start in it. A
+  tab already open takes the theme's colors, font and screen at once, and
+  its prompt and start screen with its next shell (**Restart Tab**). The
+  title bar's ` · <theme>` names only a tab's own theme; the group's color
+  mark stands for the group's.
 - Flow keeps the groups with the tabs it opens again at the next start, as
-  it keeps their names, in `tabs.json`. An older Flow opens them in no
-  group.
+  it keeps their names and their themes, in `tabs.json`. An older Flow
+  opens them in no group.
 
 The [tab sidebar](#the-tab-sidebar) shows the groups too, and names,
 folds, colors, moves and closes them.
@@ -147,8 +156,9 @@ and on the row the keys are on, a row shows its **…**, which opens its
 menu (a right click does too), and its **×**, which closes its tab or its
 group. A tab's menu holds **Rename**, **Move to** each other group and to
 a new one, **Remove from Group**, **Restart Tab** and **Close**; a group's
-**Rename**, its eight colors, **Ungroup** (its tabs stay where they are)
-and **Close Group**. A double click on a tab's or a group's name names it
+**Rename**, its eight colors, **Theme…** (the themes the new-tab picker
+lists, Settings' theme first, the one it wears ticked), **Ungroup** (its
+tabs stay where they are) and **Close Group**. A double click on a tab's or a group's name names it
 too, and **New Tab** and **New Group** wait at the sidebar's foot, New
 Group's name ready to be typed.
 

@@ -1738,8 +1738,18 @@ impl App {
         // it made (`shell::start_folder`), never where Flow was run from.
         let cwd = self.session().and_then(|s| Self::folder_of(s, profile));
         let (count, front) = (self.tabs.len(), self.tabs.get(self.active).and_then(|t| t.group));
-        self.open_tab_at(idx, look, None, cwd);
+        // Joining a group with a theme and given none of its own, it starts
+        // in the group's (its start screen, its prompt) and goes on
+        // following the group.
+        let follows = look.is_none();
+        let group_theme = self.tabs.get(self.active).and_then(|t| self.group_theme(t)).map(str::to_string);
+        self.open_tab_at(idx, look.or(group_theme), None, cwd);
         if self.tabs.len() > count {
+            if follows {
+                if let Some(t) = self.tabs.last_mut() {
+                    t.look = None;
+                }
+            }
             self.join_front_group(front);
         }
     }
@@ -1958,7 +1968,8 @@ impl App {
     /// taken out of the tab bar, the tab in front as it was. None where it
     /// can't start.
     fn open_pane(&mut self, i: usize, profile: usize, cwd: Option<std::path::PathBuf>, (look, own): (Option<String>, Option<serde_json::Value>), grid: Option<GridSize>) -> Option<Pane> {
-        self.tabs.get(i)?;
+        // With no theme of its own, its tab's group's (`look_with_group`).
+        let (look, own) = look_with_group(look, own, self.group_theme(self.tabs.get(i)?));
         let (count, front) = (self.tabs.len(), self.active);
         self.open_tab_sized(profile, look, own, cwd, grid);
         if self.tabs.len() <= count {
@@ -2101,7 +2112,7 @@ impl App {
                 })
             })
             .collect();
-        let groups = groups.iter().map(|g| crate::config::OpenGroup { name: g.name.clone(), color: g.color_name().to_string(), folded: g.folded }).collect();
+        let groups = groups.iter().map(|g| crate::config::OpenGroup { name: g.name.clone(), color: g.color_name().to_string(), folded: g.folded, theme: g.theme.clone() }).collect();
         crate::config::OpenTabs { tabs, groups, active: self.active, restart: false }
     }
 
@@ -2128,8 +2139,15 @@ impl App {
             // As `folder_of` keeps them, a tabs.json of an older Flow too.
             let folder = tab.folder.clone().filter(|f| crate::link::on_this_computer(f) && f.is_dir());
             let count = self.tabs.len();
-            self.open_tab_at(profile, look.clone(), tab.own.clone(), folder);
+            // One that follows its group's theme starts in it (its start
+            // screen, its prompt), and goes on following the group.
+            let group_theme = in_group.and_then(|k| kept.groups[k].theme.clone()).filter(|id| looks.contains(id));
+            let (start, _) = look_with_group(look.clone(), tab.own.clone(), group_theme.as_deref());
+            self.open_tab_at(profile, start, tab.own.clone(), folder);
             if self.tabs.len() > count {
+                if look.is_none() && tab.own.is_none() {
+                    self.tabs[count].look = None;
+                }
                 // As typed in Flow; one written by hand is held to the same.
                 self.tabs[count].name = tab.name.as_deref().and_then(tab_name);
                 let group = in_group.map(|k| *made[k].get_or_insert_with(|| self.kept_group(&kept.groups[k], k)));
@@ -8525,6 +8543,11 @@ impl App {
                 (pane.look, pane.own) = (None, None);
             }
         }
+        // A group that wore it wears Settings' theme again.
+        let groups: Vec<u64> = self.groups.all().iter().filter(|g| g.theme.as_deref() == Some(id.as_str())).map(|g| g.id).collect();
+        for g in groups {
+            self.groups.set_theme(g, None);
+        }
         self.pane_looks.clear();
         self.show_toast(tf("toast.theme_deleted", &[("name", &name)]));
     }
@@ -8825,18 +8848,55 @@ impl App {
     }
 
     /// The config tab `i` wears (its pane in front's): the user's with its
-    /// own look on, or its theme's, or the user's as it is.
+    /// own look on, or its theme's, or its group's theme's, or the user's as
+    /// it is.
     fn tab_config(&self, i: usize) -> Config {
-        let user = self.base.as_ref().unwrap_or(&self.config);
-        let tab = &self.tabs[i];
-        tab_wearing(user, tab.look.as_deref(), tab.own.as_ref()).unwrap_or_else(|| user.clone())
+        self.pane_config(i, self.tabs[i].focus)
     }
 
     /// The config pane `p` of tab `i` wears, in front of its tab or behind.
     fn pane_config(&self, i: usize, p: usize) -> Config {
         let user = self.base.as_ref().unwrap_or(&self.config);
-        let (look, own) = self.tabs[i].look_of(p);
+        let (look, own) = self.worn_look(i, p);
         tab_wearing(user, look.as_deref(), own.as_ref()).unwrap_or_else(|| user.clone())
+    }
+
+    /// The theme tab `tab`'s group wears for its tabs, where it's in a
+    /// group that has one.
+    fn group_theme(&self, tab: &Tab) -> Option<&str> {
+        self.groups.of(tab).and_then(|g| g.theme.as_deref())
+    }
+
+    /// Pane `p` of tab `i`'s theme and whole look: its own, else its tab's
+    /// group's theme (`look_with_group`).
+    fn worn_look(&self, i: usize, p: usize) -> (Option<String>, Option<serde_json::Value>) {
+        let tab = &self.tabs[i];
+        let (look, own) = tab.look_of(p);
+        look_with_group(look, own, self.group_theme(tab))
+    }
+
+    /// Each tab's look in front, as `worn_look` has it, to see whether a
+    /// change to the groups changed what any tab wears.
+    fn worn_looks(&self) -> Vec<(Option<String>, Option<serde_json::Value>)> {
+        (0..self.tabs.len()).map(|i| self.worn_look(i, self.tabs[i].focus)).collect()
+    }
+
+    /// After the groups changed (`was`, `worn_looks` before): where any
+    /// tab now wears another theme (moved into a group with one, or out,
+    /// or its group's theme changed), the window wears the tab in front's
+    /// afresh, the panes behind theirs, every tab's shells are sized to
+    /// their own theme's grid and its programs answered in its colors.
+    /// What the window wore was kept first (`keep_worn`, before the change).
+    fn follow_group_themes(&mut self, was: &[(Option<String>, Option<serde_json::Value>)]) {
+        if was == self.worn_looks().as_slice() {
+            return;
+        }
+        self.worn_for = None;
+        self.pane_looks.clear();
+        // Wears the tab in front's afresh and lays every tab out.
+        self.fit_look();
+        self.give_inks();
+        self.request_redraw();
     }
 
     /// Wears the look of the tab in front (its own, its theme's, or new
@@ -8856,8 +8916,8 @@ impl App {
         let user = self.base.take().unwrap_or_else(|| self.config.clone());
         match want.and_then(|(id, _)| self.tabs.iter().position(|t| t.id == id)) {
             Some(i) => {
-                let tab = &self.tabs[i];
-                let worn = tab_wearing(&user, tab.look.as_deref(), tab.own.as_ref()).unwrap_or_else(|| user.clone());
+                let (look, own) = self.worn_look(i, self.tabs[i].focus);
+                let worn = tab_wearing(&user, look.as_deref(), own.as_ref()).unwrap_or_else(|| user.clone());
                 self.wear_look(worn);
                 self.base = Some(user);
                 self.worn_for = want;
@@ -15180,6 +15240,18 @@ fn kind_of(value: &serde_json::Value) -> String {
     .to_string()
 }
 
+/// The theme and whole look a pane wears: its own (`look`, `own`), else,
+/// where it has neither, its group's theme (`group`), then Settings' as
+/// `tab_wearing` has it: the chain `docs/design/tab-groups.md` gives. So a
+/// tab given a theme of its own keeps it whatever its group wears, and one
+/// changed in Settings keeps that.
+fn look_with_group(look: Option<String>, own: Option<serde_json::Value>, group: Option<&str>) -> (Option<String>, Option<serde_json::Value>) {
+    match (look, own) {
+        (None, None) => (group.map(str::to_string), None),
+        kept => kept,
+    }
+}
+
 /// What a tab wears over the user's config `user`: its own whole look
 /// (`own`), else its theme (`look`, where it isn't the user's), else none,
 /// the user's config as it is.
@@ -15473,16 +15545,27 @@ mod tests {
     }
 
     #[test]
+    fn a_pane_wears_its_own_look_then_its_theme_then_its_groups_theme() {
+        let own = serde_json::json!({ "font": { "size": 20.0 } });
+        let wears = |look: Option<&str>, own: Option<&serde_json::Value>, group: Option<&str>| look_with_group(look.map(str::to_string), own.cloned(), group);
+        assert_eq!(wears(None, None, Some("green")), (Some("green".into()), None), "none of its own: its group's");
+        assert_eq!(wears(Some("amber"), None, Some("green")), (Some("amber".into()), None), "a theme of its own stays");
+        assert_eq!(wears(Some("amber"), Some(&own), Some("green")), (Some("amber".into()), Some(own.clone())), "changed in Settings: its own look");
+        assert_eq!(wears(None, Some(&own), Some("green")), (None, Some(own.clone())));
+        assert_eq!(wears(None, None, None), (None, None), "no group's theme: Settings'");
+    }
+
+    #[test]
     fn the_tabs_groups_are_kept_with_them_and_none_written_without() {
         use crate::config::{OpenGroup, OpenTab, OpenTabs};
         let tab = |group: Option<usize>| OpenTab { shell: "zsh".into(), label: "zsh".into(), group, ..OpenTab::default() };
         let kept = OpenTabs {
             tabs: vec![tab(None), tab(Some(0)), tab(Some(0)), tab(Some(1))],
-            groups: vec![OpenGroup { name: "Web".into(), color: "teal".into(), folded: true }, OpenGroup { name: "Group 2".into(), color: "blue".into(), folded: false }],
+            groups: vec![OpenGroup { name: "Web".into(), color: "teal".into(), folded: true, theme: Some("green".into()) }, OpenGroup { name: "Group 2".into(), color: "blue".into(), folded: false, theme: None }],
             ..OpenTabs::default()
         };
         let text = serde_json::to_string(&kept).unwrap();
-        assert!(text.contains(r#""groups":[{"name":"Web","color":"teal","folded":true},{"name":"Group 2","color":"blue"}]"#) && text.contains(r#""group":1"#), "{text}");
+        assert!(text.contains(r#""groups":[{"name":"Web","color":"teal","folded":true,"theme":"green"},{"name":"Group 2","color":"blue"}]"#) && text.contains(r#""group":1"#), "{text}");
         assert_eq!(serde_json::from_str::<OpenTabs>(&text).unwrap(), kept);
         // None, none written: a file as before groups.
         let loose = serde_json::to_string(&OpenTabs { tabs: vec![tab(None)], ..OpenTabs::default() }).unwrap();

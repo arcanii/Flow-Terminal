@@ -348,6 +348,11 @@ pub enum MenuItem {
     CloseTab,
     /// The group in this color, by its place in `tab_groups::COLORS`.
     Color(usize),
+    /// The themes the group may wear, in its menu's place ([`theme_menu`]).
+    Theme,
+    /// The group wearing the theme at this place among `looks::ids`; none,
+    /// Settings' theme again.
+    GroupTheme(Option<usize>),
     /// Every tab of the group out of it.
     UngroupAll,
     /// Every tab of the group closed.
@@ -393,17 +398,27 @@ pub fn picked_menu(tab: u64, many: usize, grouped: bool, groups: &TabGroups) -> 
     Menu { row: RowId::Tab(tab), items, chosen: 0, many, pill: false }
 }
 
-/// A group's menu: Rename, each color, Ungroup and Close Group.
+/// A group's menu: Rename, each color, Theme…, Ungroup and Close Group.
 pub fn group_menu(group: u64) -> Menu {
     let mut items = vec![MenuItem::Rename];
     items.extend((0..COLORS.len()).map(MenuItem::Color));
-    items.extend([MenuItem::UngroupAll, MenuItem::CloseGroup]);
+    items.extend([MenuItem::Theme, MenuItem::UngroupAll, MenuItem::CloseGroup]);
     Menu { row: RowId::Group(group), items, chosen: 0, many: 1, pill: false }
 }
 
+/// A group's themes, in its menu's place: Settings' theme (none of its
+/// own) first, then each of the `themes` the new-tab picker lists
+/// (`looks::ids`), the keys on the one it wears (`current`, its place
+/// among them).
+pub fn theme_menu(group: u64, themes: usize, current: Option<usize>) -> Menu {
+    let mut items = vec![MenuItem::GroupTheme(None)];
+    items.extend((0..themes).map(|k| MenuItem::GroupTheme(Some(k))));
+    Menu { row: RowId::Group(group), items, chosen: current.filter(|&k| k < themes).map_or(0, |k| k + 1), many: 1, pill: false }
+}
+
 /// An item's words, in the language in use, for `many` tabs where it acts
-/// on more than one.
-pub fn words(item: MenuItem, groups: &TabGroups, many: usize) -> String {
+/// on more than one; a theme's by its id among `themes` (`looks::ids`).
+pub fn words(item: MenuItem, groups: &TabGroups, many: usize, themes: &[String]) -> String {
     let group = |id: u64| groups.get(id).map(|g| g.name.clone()).unwrap_or_default();
     match item {
         MenuItem::MoveTo(id) if many > 1 => tf("sidebar.move_many_to", &[("n", &many), ("group", &group(id))]),
@@ -417,6 +432,9 @@ pub fn words(item: MenuItem, groups: &TabGroups, many: usize) -> String {
         MenuItem::RestartTab => t("menu.restart_tab").to_string(),
         MenuItem::CloseTab => t("menu.close_tab").to_string(),
         MenuItem::Color(c) => t(&format!("sidebar.color.{}", COLORS[c % COLORS.len()].0)).to_string(),
+        MenuItem::Theme => t("sidebar.theme").to_string(),
+        MenuItem::GroupTheme(None) => t("sidebar.theme_none").to_string(),
+        MenuItem::GroupTheme(Some(k)) => themes.get(k).map(|id| crate::looks::name(id)).unwrap_or_default(),
         MenuItem::UngroupAll => t("sidebar.ungroup").to_string(),
         MenuItem::CloseGroup => t("sidebar.close_group").to_string(),
     }
@@ -721,17 +739,26 @@ mod tests {
         assert_eq!(tab_menu(2, Some(one), &groups).items, [Rename, MoveTo(two), MoveToNew, Ungroup, RestartTab, CloseTab]);
         assert_eq!(tab_menu(1, None, &groups).items, [Rename, MoveTo(one), MoveTo(two), MoveToNew, RestartTab, CloseTab]);
         let menu = group_menu(one);
-        assert_eq!(menu.items.len(), 3 + COLORS.len());
+        assert_eq!(menu.items.len(), 4 + COLORS.len());
         assert_eq!((menu.items[1], *menu.items.last().unwrap()), (Color(0), CloseGroup));
+        assert!(menu.items.contains(&Theme));
         crate::i18n::set_language("en", &[]);
-        assert_eq!(words(MoveTo(two), &groups, 1), "Move to Group 2");
-        assert_eq!(words(Color(4), &groups, 1), "Teal");
+        let themes = ["flow".to_string(), "green".to_string()];
+        assert_eq!(words(MoveTo(two), &groups, 1, &themes), "Move to Group 2");
+        assert_eq!(words(Color(4), &groups, 1, &themes), "Teal");
+        // A group's themes: Settings' first, then each, the keys on its own.
+        let list = theme_menu(one, themes.len(), Some(1));
+        assert_eq!((list.items, list.chosen), (vec![GroupTheme(None), GroupTheme(Some(0)), GroupTheme(Some(1))], 2));
+        assert_eq!(theme_menu(one, themes.len(), None).chosen, 0);
+        assert_eq!(theme_menu(one, themes.len(), Some(9)).chosen, 0, "one no longer listed");
+        assert_eq!(words(GroupTheme(Some(1)), &groups, 1, &themes), crate::looks::name("green"));
+        assert_eq!(words(GroupTheme(None), &groups, 1, &themes), crate::i18n::t("sidebar.theme_none"));
         // Several picked: no Rename or Restart Tab, and their counts said.
         let many = picked_menu(1, 3, true, &groups);
         assert_eq!(many.items, [MoveToNew, MoveTo(one), MoveTo(two), Ungroup, CloseTab]);
-        assert_eq!(words(MoveTo(two), &groups, 3), "Move 3 Tabs to Group 2");
-        assert_eq!(words(MoveToNew, &groups, 3), "New Group of 3 Tabs");
-        assert_eq!(words(CloseTab, &groups, 3), "Close 3 Tabs");
+        assert_eq!(words(MoveTo(two), &groups, 3, &themes), "Move 3 Tabs to Group 2");
+        assert_eq!(words(MoveToNew, &groups, 3, &themes), "New Group of 3 Tabs");
+        assert_eq!(words(CloseTab, &groups, 3, &themes), "Close 3 Tabs");
         assert!(!picked_menu(1, 2, false, &groups).items.contains(&Ungroup), "none in a group");
     }
 

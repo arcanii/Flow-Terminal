@@ -19,15 +19,38 @@ impl App {
     }
 
     /// Does `change` to the tabs and their groups, the tab in front staying
-    /// in front wherever it moves to. Gives back what `change` does.
+    /// in front wherever it moves to. A tab moved into a group with a theme,
+    /// or out of one, wears what it now follows at once
+    /// (`follow_group_themes`). Gives back what `change` does.
     pub(super) fn regroup<R>(&mut self, change: impl FnOnce(&mut TabGroups, &mut Vec<Tab>) -> R) -> R {
         let front = self.tabs.get(self.active).map(|t| t.id);
+        // What's worn is kept where it belongs before the groups change
+        // what each tab follows, so it isn't taken for Settings' change.
+        self.keep_worn();
+        let was = self.worn_looks();
         let done = change(&mut self.groups, &mut self.tabs);
         if let Some(i) = front.and_then(|id| self.tabs.iter().position(|t| t.id == id)) {
             self.active = i;
         }
+        self.follow_group_themes(&was);
         self.request_redraw();
         done
+    }
+
+    /// Group `id` wears theme `theme` for its tabs (none, Settings' again):
+    /// each of them with no theme of its own puts it on at once, and a toast
+    /// says so. Kept with the tabs in `tabs.json`.
+    pub(super) fn set_group_theme(&mut self, id: u64, theme: Option<String>) {
+        let Some(name) = self.groups.get(id).map(|g| g.name.clone()) else { return };
+        self.keep_worn();
+        let was = self.worn_looks();
+        let words = match theme.as_deref() {
+            Some(look) => tf("toast.group_theme", &[("group", &name), ("theme", &crate::looks::name(look))]),
+            None => tf("toast.group_theme_none", &[("group", &name)]),
+        };
+        self.groups.set_theme(id, theme);
+        self.follow_group_themes(&was);
+        self.show_toast(words);
     }
 
     /// New Group: the tab in front goes into a group of its own, where it
@@ -117,11 +140,13 @@ impl App {
     /// A group kept in `tabs.json`, the `k`th, made again: its name held
     /// as a tab's is (a file written by hand may hold anything), else
     /// numbered by its place, its color by its name, else the next in
-    /// turn, and folded as it was.
+    /// turn, folded as it was, and its theme where that's still there.
     pub(super) fn kept_group(&mut self, kept: &crate::config::OpenGroup, k: usize) -> u64 {
         let name = tab_name(&kept.name).unwrap_or_else(|| Self::group_numbered(k + 1));
         let id = self.groups.add(name, crate::tab_groups::color_named(&kept.color));
         self.groups.fold(id, kept.folded);
+        let looks = crate::looks::ids(self.base.as_ref().unwrap_or(&self.config));
+        self.groups.set_theme(id, kept.theme.clone().filter(|t| looks.contains(t)));
         id
     }
 

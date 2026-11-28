@@ -230,7 +230,7 @@ pub struct OpenTab {
 }
 
 /// One of [`OpenTabs`]' groups: its name, its color, by the color's name
-/// (`tab_groups::COLORS`), and whether it's folded.
+/// (`tab_groups::COLORS`), whether it's folded, and its theme.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct OpenGroup {
@@ -239,6 +239,10 @@ pub struct OpenGroup {
     /// Folded shut in the sidebar.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub folded: bool,
+    /// The theme its tabs wear where they have none of their own
+    /// (`looks::ids`); none, Settings' theme.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub theme: Option<String>,
 }
 
 fn is_zero(n: &usize) -> bool {

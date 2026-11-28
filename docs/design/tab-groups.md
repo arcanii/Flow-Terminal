@@ -138,6 +138,39 @@ keeps it, whatever its group wears.
 - The group's menu picks the theme from the list the new-tab picker
   shows, and None takes it off.
 
+As built in step 6 (2026-11-28):
+
+- **The chain** is `App::worn_look` through `look_with_group` (tested
+  alone): a pane's own `look` or `own`, else its group's theme
+  (`Group::theme`, `TabGroups::set_theme`), which `tab_config`,
+  `pane_config` and `fit_look` hand `tab_wearing`, Settings' theme last.
+  A tab's own theme stays its own, and Settings on a tab wearing its
+  group's makes that tab's change its own look (`keep_worn`), as the
+  design says.
+- **Its start:** a tab or pane that follows its group starts its shell in
+  the group's theme (its start screen, its prompt), still following the
+  group: `open_tab_in` (⌘T and the rest, from a tab in the group),
+  `open_pane` (splits and Restart Tab), the flow command's tab and
+  `reopen`. A tab already open takes the theme's colors, font, CRT and
+  frame at once, and its prompt and start screen with its next shell,
+  since the shell's prompt is set as it starts.
+- **Moves:** `regroup` keeps what's worn where it belongs first
+  (`keep_worn`, so the change isn't taken for Settings'), and where any
+  tab now wears another theme (moved into a themed group or out, or a
+  group gone), the window wears afresh, every tab is laid out to its own
+  theme's grid and its programs answered in its colors
+  (`follow_group_themes`).
+- **The menu:** a group's has **Theme…** after its colors
+  (`MenuItem::Theme`), which opens its themes in the menu's place
+  (`tab_sidebar::theme_menu`, `MenuItem::GroupTheme`): Settings' theme,
+  then each of `looks::ids`, the one it wears ticked and the keys on it.
+  Choosing one is `App::set_group_theme`, with a toast saying so. A menu
+  longer than the window shows what fits around the item the keys are
+  on, with a bar (`ui::draw_row_menu`).
+- **Kept:** `OpenGroup::theme`, left out where none; read back only where
+  that theme is still there (`kept_group`). Deleting a saved theme takes
+  it off the groups that wore it too.
+
 ### Names
 
 A tab or a group is named in place, its name typed as Settings' text rows
@@ -655,7 +688,7 @@ Each step is a commit of its own, tested before the next:
    terminal, or pinned).
 5. **Dragging,** in the sidebar and the title bar. Built on 2026-11-28
    (see Dragging).
-6. **A group's theme.**
+6. **A group's theme.** Built on 2026-11-28 (see A group's theme).
 7. **The git branch on the line.**
 
 ## Tests

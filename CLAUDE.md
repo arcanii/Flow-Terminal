@@ -2342,7 +2342,14 @@ other place too (`App::drop_under`). On the Mac winit's view answers
 `mouseDownCanMoveWindow` no (`macos/src/window.rs`,
 `keep_still_under_presses`), since AppKit's title strip is Flow's whole
 title bar and moved the window under a pill's drag; the window moves
-only from the title bar's empty space, by Flow's `drag_window`.
+only from the title bar's empty space, by Flow's `drag_window`. A group
+may wear a theme (`Group::theme`, its menu's Theme…, `theme_menu`,
+`App::set_group_theme`, `OpenGroup::theme`), which a pane with no theme
+of its own wears (`App::worn_look`, `look_with_group`, in `tab_config`,
+`pane_config` and `fit_look`) and starts its shell in (`open_tab_in`,
+`open_pane`, `reopen`, the flow command's tab); `regroup` keeps what's
+worn first and `follow_group_themes` wears afresh where a move changed
+what a tab follows.
 
 **Recording the terminal.** `Command::Record` (⇧⌘R, and `keys.rs`'s
 `RECORD_ELSEWHERE`: Ctrl+Alt+Shift+R on Windows, Ctrl+Alt+Shift+V on

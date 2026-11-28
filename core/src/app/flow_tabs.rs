@@ -163,12 +163,18 @@ impl App {
     /// the keys. Its session; none where its shell couldn't start.
     fn tab_asked(&mut self, tab: usize, opening: &Opening) -> Option<SessionId> {
         let (count, front) = (self.tabs.len(), self.active);
-        let (look, own) = opening.theme.clone();
+        // Following the asking tab's group's theme, it starts in it (its
+        // start screen, its prompt) and goes on following it.
+        let follows = opening.theme == (None, None);
+        let (look, own) = super::look_with_group(opening.theme.0.clone(), opening.theme.1.clone(), self.tabs.get(tab).and_then(|t| self.group_theme(t)));
         self.open_tab_sized(opening.profile, look, own, opening.cwd.clone(), None);
         if self.tabs.len() <= count {
             return None;
         }
         let mut new = self.tabs.pop()?;
+        if follows {
+            new.look = None;
+        }
         let id = new.session().id;
         let at = (tab + 1).min(self.tabs.len());
         // Beside the asking tab, it's in that tab's group too.

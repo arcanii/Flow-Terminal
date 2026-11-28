@@ -4596,22 +4596,34 @@ fn draw_pin(c: &mut Canvas<'_>, (cx, cy): (f32, f32), pinned: bool, ink: Rgba, s
 /// A tab's or a group's menu (`tab_sidebar::Menu`), drawn by Flow: under
 /// `at` (a row's …, or with `left` a tab's pill, its left edges lined up),
 /// over it where there's no room below. A color item shows its swatch, and
-/// the item the keys are on is lit.
+/// the item the keys are on is lit. Where the window hasn't room for every
+/// item (a group's themes, many saved), it shows as many as fit, keeping
+/// the lit one in view, a bar at its edge saying where they are.
 fn draw_row_menu(c: &mut Canvas<'_>, v: &View<'_>, menu: &SidebarMenu, at: Rect, left: bool, hits: &mut Vec<(Rect, Hit)>) {
     let l = v.layout;
     let s = l.scale;
     let ch = c.cell.height;
     let item_h = (ch * 1.6).round();
     let mw = menu.items.iter().map(|(words, swatch)| c.text_width(words) + if swatch.is_some() { 18.0 * s } else { 0.0 }).fold(0.0, f32::max) + 28.0 * s;
-    let mh = item_h * menu.items.len() as f32 + 8.0 * s;
+    let n = menu.items.len();
+    let room = (l.height - l.title.h - 16.0 * s).max(item_h + 8.0 * s);
+    let fit = (((room - 8.0 * s) / item_h).floor() as usize).clamp(1, n.max(1));
+    let top = if menu.chosen >= fit { menu.chosen + 1 - fit } else { 0 };
+    let mh = item_h * fit as f32 + 8.0 * s;
     let mx = if left { at.x } else { at.x + at.w - mw }.max(4.0 * s).min(l.width - mw - 4.0 * s);
     let below = at.y + at.h + 4.0 * s;
-    let my = if below + mh <= l.height - 4.0 * s { below } else { (at.y - mh - 4.0 * s).max(l.title.h) };
+    let my = if below + mh <= l.height - 4.0 * s { below } else { (at.y - mh - 4.0 * s).max(l.title.h).min((l.height - mh - 4.0 * s).max(l.title.h)) };
     c.glow(mx, my, mw, mh, rgba(ACCENT, 0.18), 10.0 * s, 18.0 * s);
     c.glass(mx, my, mw, mh, rgba(PANEL_TINT, 1.0), 10.0 * s);
     hits.push((Rect::new(mx, my, mw, mh), Hit::SidebarCard));
-    for (k, (words, swatch)) in menu.items.iter().enumerate() {
-        let r = Rect::new(mx + 4.0 * s, my + 4.0 * s + k as f32 * item_h, mw - 8.0 * s, item_h);
+    if fit < n {
+        let track = mh - 12.0 * s;
+        let thumb = (track * fit as f32 / n as f32).max(12.0 * s);
+        let ty = my + 6.0 * s + (track - thumb) * top as f32 / (n - fit) as f32;
+        c.rect(mx + mw - 4.0 * s, ty, 2.0 * s, thumb, rgba(FOREGROUND, 0.3), 1.0 * s);
+    }
+    for (k, (words, swatch)) in menu.items.iter().enumerate().skip(top).take(fit) {
+        let r = Rect::new(mx + 4.0 * s, my + 4.0 * s + (k - top) as f32 * item_h, mw - 8.0 * s, item_h);
         let lit = k == menu.chosen || r.contains(v.hover);
         if lit {
             c.rect(r.x, r.y, r.w, r.h, rgba(ACCENT, if k == menu.chosen { 0.18 } else { 0.08 }), 6.0 * s);
