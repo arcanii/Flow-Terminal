@@ -3812,7 +3812,12 @@ each of Flow's sounds to a WAV file, to listen to them away from Flow; `make_ico
 - A patch release adds a fourth number to what people see: `patch` under
   `[workspace.metadata.flow]` (`build_number::shown_version`: 0.1.25 with
   `patch = 1` was `version::VERSION` `0.1.25.1`), back to 0 when `version`
-  goes up. It was 0 for 0.1.48, on every system, which brought `/model`
+  goes up. It was 0 for 0.1.49, on every system, which brought tabs in
+  groups (`docs/design/tab-groups.md`: tab names typed in place, groups
+  marked in the title bar, the tab sidebar popped out or pinned, tabs and
+  groups dragged in it and along the title bar, a group's theme and the
+  git branch on a tab's line; decided 2026-11-28), the Mac's first. It
+  was 0 for 0.1.48, on every system, which brought `/model`
   listing each provider's own models (`docs/design/live-models.md`), a
   phosphor's glow kept in its color without the tube, your own and saved
   themes wearing the notanAmiga's frame, and more of glTF (anisotropy,
