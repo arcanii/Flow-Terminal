@@ -26,6 +26,28 @@ pub const WIDTH: f32 = 260.0;
 /// How long it takes to slide out (at once in efficient mode).
 pub const SLIDE: Duration = Duration::from_millis(150);
 
+/// The least it's dragged to, in points, where the window has room.
+pub const LEAST_WIDTH: f32 = 160.0;
+
+/// Its gap from the window's left edge, in points.
+pub const MARGIN: f32 = 8.0;
+
+/// `window.tab_sidebar`'s two ways: over the terminal, or beside it.
+pub const POPS_OUT: &str = "pops_out";
+pub const PINNED: &str = "pinned";
+pub const MODES: [&str; 2] = [POPS_OUT, PINNED];
+
+/// The fewest columns a pinned sidebar leaves the terminal: in a window
+/// narrower than that, it pops out over the terminal instead.
+pub const PIN_LEAST_COLS: usize = 20;
+
+/// Whether a sidebar taking `left` pixels at the left of a window `window`
+/// pixels wide leaves the terminal [`PIN_LEAST_COLS`] columns of
+/// `cell_w`, besides its margins (`Layout::compute`'s, 14 points a side).
+pub fn pin_fits(window: f32, left: f32, cell_w: f32, scale: f32) -> bool {
+    (window - left - 28.0 * scale) / cell_w.max(1.0) >= PIN_LEAST_COLS as f32
+}
+
 /// A row, by what it's of, so the row the keys are on stays that one as
 /// tabs open, close and move.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -314,6 +336,13 @@ pub struct Sidebar {
     /// arrows), by their ids, and the row the pick began at.
     pub picked: Vec<u64>,
     pub anchor: Option<RowId>,
+    /// Pinned, whether it has the keys (popped out, it always has); its
+    /// key moves them in and out.
+    pub keys: bool,
+    /// It was opened pinned, so taking the pin away puts it away.
+    pub pinned: bool,
+    /// Its edge is being dragged.
+    pub dragging: bool,
 }
 
 impl Sidebar {
@@ -582,6 +611,15 @@ mod tests {
         assert!(!group_closes_now(false, false, false), "a tab busy");
         assert!(!group_closes_now(true, true, false), "Flow would quit");
         assert!(group_closes_now(false, true, true), "asked once already");
+    }
+
+    #[test]
+    fn a_pinned_sidebar_leaves_the_terminal_twenty_columns_or_pops_out() {
+        // 260 points and its margin at a scale of 1, cells 10 wide.
+        assert!(pin_fits(1100.0, 268.0, 10.0, 1.0));
+        assert!(pin_fits(496.0, 268.0, 10.0, 1.0), "just 20");
+        assert!(!pin_fits(495.0, 268.0, 10.0, 1.0));
+        assert!(!pin_fits(980.0, 536.0, 20.0, 2.0), "at twice the scale, twice the room");
     }
 
     #[test]

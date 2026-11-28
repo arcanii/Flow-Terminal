@@ -320,6 +320,41 @@ As built in step 3 (2026-11-28, `core/src/tab_sidebar.rs`,
     pops out over the terminal instead, until the window is wider. The
     config still says pinned.
 
+As built in step 4 (2026-11-28):
+
+- **The settings** are `window.tab_sidebar` (`tab_sidebar::POPS_OUT`,
+  `PINNED`) and `window.tab_sidebar_width` (points, `TAB_SIDEBAR_WIDTH`'s
+  160 to 600), in the Window part of Settings beside Always on top and
+  `window.on_top`, not `ui.*` as first written. Both are open to
+  `flow-settings`.
+- **The pin** is a pushpin at the foot, after New Tab and New Group
+  (`Hit::SidebarPin`, `App::toggle_sidebar_pin`, saved at once);
+  `App::follow_sidebar_pin` brings it out pinned at the start, as Settings
+  or a program changes it, and as the window grows back past room for it
+  (`tab_sidebar::pin_fits`, `PIN_LEAST_COLS`), and puts it away unpinned.
+- **The keys:** `Sidebar::keys`, true while it's popped out; pinned, its
+  key, a click on it (not a tab's or a pane's row) or a menu give it them,
+  and choosing a tab or a pane, Esc, a click elsewhere and anything that
+  takes them (the palette, Settings, the history, About:
+  `App::sidebar_aside`) give them back. `sidebar_has_keys` is what `on_key`
+  and help go by, and the row the keys are on is outlined only then.
+- **The pointer:** pinned, the sidebar takes only its own hits; the
+  terminal keeps the rest (`covered` is false), and a press there gives
+  the keys back to the pane.
+- **The layout:** `ui::Around` (the panel, a border, and `left`, the
+  pinned sidebar's room in pixels: its margin and width,
+  `App::sidebar_room`) is what `Layout::compute`, `size_for_part` and
+  `text_size_within_part` take, so the grid, `grid_wearing`, Fit window to
+  and Fit text to all count it. `record_crop` is the terminal's area:
+  below the title bar, above the panel (it read the panel as at the
+  right, which it hasn't been) and right of a pinned sidebar.
+- **The width's drag:** `Hit::SidebarEdge`, a strip along its right edge,
+  sets `window.tab_sidebar_width` as it moves (`drag_sidebar_edge`, the tab
+  in front's shells following at once) and lays every tab out and saves as
+  it's let go (`sidebar_edge_let_go`).
+- **Snapshots** show it pinned beside the split tab as
+  `tab-sidebar-pinned.png`, after `tab-sidebar.png`.
+
 ### The layout, pinned
 
 `Layout::compute` takes the sidebar's room on the left, `left`, in
@@ -535,7 +570,8 @@ Each step is a commit of its own, tested before the next:
    menus, Close Group, readers, help, and `tab-sidebar.png`. Built on
    2026-11-28 (see The sidebar).
 4. **Pinned:** `Layout::compute`'s `left`, the Settings row, the width's
-   drag, and `tab-sidebar-pinned.png`.
+   drag, and `tab-sidebar-pinned.png`. Built on 2026-11-28 (see Over the
+   terminal, or pinned).
 5. **Dragging,** in the sidebar and the title bar.
 6. **A group's theme.**
 7. **The git branch on the line.**

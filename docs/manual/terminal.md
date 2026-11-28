@@ -139,7 +139,7 @@ puts it away. Every other key of Flow's still works.
 | `⌘⌫` (`Ctrl+Delete`) | Close the row's tab, or its group |
 | `⇧↑` `⇧↓` | Pick every tab from where the pick began to the row the keys go to |
 | a letter | Go to the next row whose name starts with it |
-| `Esc` | Close a row's menu, or let go of the tabs picked, or put the sidebar away |
+| `Esc` | Close a row's menu, or let go of the tabs picked, or put the sidebar away (pinned, give the keys back to the pane) |
 | `F1` | Its help page |
 
 A click on a group's header folds it shut or open. Under the pointer,
@@ -170,6 +170,20 @@ pane's **✕** close it at once while it waits at its prompt. Where something
 runs in it, a toast says what, and the same again within a few seconds
 closes it. Closing the last tab from its row here quits Flow, so it says
 so first, and the same again quits.
+
+**Pinned**, it stays out beside the terminal, which narrows to make room
+for it: click the pin at its foot, or choose **Pinned** for **Tab
+sidebar** in [Settings](settings.md) (on the Mac, **View → Tab Sidebar**
+still brings it out and in). The keys then stay with the pane in front,
+and the sidebar's key moves them into it and back out; choosing a tab
+brings it to the front and gives it the keys, and Esc or a click on the
+terminal gives them back. Drag its right edge to make it wider or
+narrower, up to a third of the window. The pin again unpins it, which
+puts it away. In a window too narrow to leave the terminal 20 columns
+beside it, it pops out over the terminal instead, until the window is
+wider again.
+
+![The tab sidebar pinned beside a split tab](../screenshots/tab-sidebar-pinned.png)
 
 **Close Group** closes every tab in the group at once while each waits at
 its prompt. Where one is running something, it says which in a toast and

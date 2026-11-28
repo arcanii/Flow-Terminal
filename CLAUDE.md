@@ -145,7 +145,7 @@ cargo run --release --example make_movie -- <dir>/oil oil.webp
   The current pictures were made on Windows, except `style-rain.png` (a
   downpour, `SHOWCASE_RAIN`),
   `style-water-below.png`, `style-none.png`, `style-crt.png`, `key.png`, `new-tab.png`, `tab-card.png`, `resources.png`, `settings.png`,
-  `settings-font.png`, `settings-apps.png`, `settings-skills.png`, `theme-gallery.png`, `find.png`, `palette.png`, `split.png`, `history.png`, `help.png`, `model.png`, `theme-home.webp`, `theme-green.png`, `theme-instruments.png`, `theme-amiga.png`, `settings-mcp.png`, `mcp-ask.png`, `settings-mcp-servers.png`, `mcp-call.png`, `mcp-ask-form.png`, `mcp-ask-link.png`, `assistant-files.png`, `assistant-drop.png`, `assistant-input.png`, `assistant-models.png` and `tab-sidebar.png` (macOS, scaled to 1650 × 1050
+  `settings-font.png`, `settings-apps.png`, `settings-skills.png`, `theme-gallery.png`, `find.png`, `palette.png`, `split.png`, `history.png`, `help.png`, `model.png`, `theme-home.webp`, `theme-green.png`, `theme-instruments.png`, `theme-amiga.png`, `settings-mcp.png`, `mcp-ask.png`, `settings-mcp-servers.png`, `mcp-call.png`, `mcp-ask-form.png`, `mcp-ask-link.png`, `assistant-files.png`, `assistant-drop.png`, `assistant-input.png`, `assistant-models.png`, `tab-sidebar.png` and `tab-sidebar-pinned.png` (macOS, scaled to 1650 × 1050
   from a 2× screen, but `new-tab.png`, `tab-card.png` and `resources.png`,
   kept at 2200 × 1400). `theme-home.webp` is the
   snapshot's `theme-home.png` through `cwebp -q 90 -m 6`, since its tube's
@@ -2323,7 +2323,12 @@ are picked several at once in the sidebar (`Sidebar::picked`, ⌘-click,
 Shift-click, Shift and the arrows) for New Group and a picked row's menu
 (`picked_menu`, `TabGroups::group_picked`, `join_picked`, `leave_picked`),
 and a right click on a tab's pill opens its menu there (`Menu::pill`,
-`ui::draw_row_menu`).
+`ui::draw_row_menu`). Pinned (`window.tab_sidebar`, the pin at its foot,
+`App::follow_sidebar_pin`), it stays out beside the terminal: `ui::Around`'s
+`left` (`App::sidebar_room`) narrows the terminal in `Layout::compute`, the
+keys stay with the pane until its key gives them to it
+(`Sidebar::keys`, `sidebar_has_keys`), and its edge drags its width
+(`window.tab_sidebar_width`, `Hit::SidebarEdge`).
 
 **Recording the terminal.** `Command::Record` (⇧⌘R, and `keys.rs`'s
 `RECORD_ELSEWHERE`: Ctrl+Alt+Shift+R on Windows, Ctrl+Alt+Shift+V on
@@ -2362,7 +2367,7 @@ are what's shown: `Renderer::set_recording` adds `COPY_SRC` to the
 surface's usage (only while recording; `can_record` where the surface's
 caps allow it, else a toast says it can't), and `render`, handed a
 `render::capture::Crop` (`App::record_crop`: the window below the title
-bar, left of the panel) and the time, copies that rectangle into one of
+bar, above the panel and right of a pinned tab sidebar) and the time, copies that rectangle into one of
 `capture::Capture`'s three staging buffers before presenting, maps it
 after the submit and hands frames back from `take` without waiting
 (`App::keep_recorded`, each frame and from `about_to_wait`). Frames are

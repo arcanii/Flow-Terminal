@@ -63,6 +63,12 @@ pub enum SettingId {
     ScreenRefresh,
     /// Whether the window stays on top of every other (`window.on_top`).
     OnTop,
+    /// Whether the tab sidebar pops out over the terminal or is pinned
+    /// beside it (`window.tab_sidebar`).
+    TabSidebar,
+    /// How wide the tab sidebar is, while it's pinned
+    /// (`window.tab_sidebar_width`).
+    TabSidebarWidth,
     /// The key taken system-wide that brings Flow's window forward and
     /// puts it away (`window.hotkey`).
     Hotkey,
@@ -1255,6 +1261,8 @@ pub const RIBBONS: (f32, f32, f32) = (0.0, 2.0, 0.1);
 pub const TEXT_RIPPLE: (f32, f32, f32) = (0.0, 6.0, 0.5);
 pub const OPACITY: (f32, f32, f32) = (0.2, 1.0, 0.05);
 pub const FONT_SIZE: (f32, f32, f32) = (8.0, 40.0, 1.0);
+/// The tab sidebar's width, in points (`window.tab_sidebar_width`).
+pub const TAB_SIDEBAR_WIDTH: (f32, f32, f32) = (160.0, 600.0, 10.0);
 pub const GLOW: (f32, f32, f32) = (0.0, 2.0, 0.1);
 pub const CRT: (f32, f32, f32) = (0.0, 1.0, 0.05);
 pub const SCANLINES: (f32, f32, f32) = (0.0, 1.0, 0.05);
@@ -1435,6 +1443,8 @@ pub fn takes(cfg: &Config, key: &str) -> Option<serde_json::Value> {
         "ui.look" => json!({ "one_of": crate::looks::ids(cfg).into_iter().filter(|id| crate::looks::saved_name(id).is_none()).collect::<Vec<_>>() }),
         "window.hotkey" => one_of(crate::hotkey::CHOICES),
         "window.drop_down_height" => one_of(&crate::hotkey::HEIGHTS),
+        "window.tab_sidebar" => one_of(&crate::tab_sidebar::MODES),
+        "window.tab_sidebar_width" => range(TAB_SIDEBAR_WIDTH),
         "ui.notify_after" => json!({ "one_of": crate::notify::AFTER }),
         "window.refresh_rate" => {
             // The last 0 is vsync off, so the 0s aren't side by side.
@@ -2002,6 +2012,7 @@ pub fn entries(cfg: &Config, fonts: &FontChoices, grid: Option<TextGrid>, profil
         }),
     ];
     general.push(on_top_row(cfg, no_on_top));
+    general.extend(tab_sidebar_rows(cfg));
     general.extend(hotkey_rows(cfg, hotkey_failed, hotkey_pressing, no_hotkey));
     let mut look = vec![
         row(SettingId::Theme, "theme", words("theme", "hint"), {
@@ -2255,6 +2266,8 @@ pub fn config_key(id: SettingId) -> Option<String> {
         Language => "ui.language",
         ScreenRefresh => "window.refresh_rate",
         OnTop => "window.on_top",
+        TabSidebar => "window.tab_sidebar",
+        TabSidebarWidth => "window.tab_sidebar_width",
         Hotkey => "window.hotkey",
         DropDown => "window.drop_down",
         DropDownHeight => "window.drop_down_height",
@@ -2684,6 +2697,22 @@ fn on_top_row(cfg: &Config, none_here: bool) -> Entry {
         return row(SettingId::OnTop, "on_top", words("on_top", "hint_none_here"), Control::Item { text, actions: Vec::new() });
     }
     row(SettingId::OnTop, "on_top", words("on_top", "hint"), Control::Toggle(cfg.window.on_top))
+}
+
+/// Tab sidebar: popping out over the terminal or pinned beside it, and
+/// while it's pinned, how wide it is.
+fn tab_sidebar_rows(cfg: &Config) -> Vec<Entry> {
+    use crate::tab_sidebar::{MODES, PINNED};
+    let options: Vec<String> = MODES.iter().map(|m| words("tab_sidebar", m).to_string()).collect();
+    let index = MODES.iter().position(|m| *m == cfg.window.tab_sidebar).unwrap_or(0);
+    let hint = tf("settings.tab_sidebar.hint", &[("keys", &crate::keys::label(Command::TabSidebar))]);
+    let mut rows = vec![row(SettingId::TabSidebar, "tab_sidebar", hint, Control::Choice { options: options.into(), index })];
+    if cfg.window.tab_sidebar == PINNED {
+        let width = cfg.window.tab_sidebar_width;
+        let text = tf("settings.tab_sidebar_width.value", &[("n", &width)]);
+        rows.push(row(SettingId::TabSidebarWidth, "tab_sidebar_width", words("tab_sidebar_width", "hint"), slider(TAB_SIDEBAR_WIDTH, width, text)));
+    }
+    rows
 }
 
 /// Hotkey, and while one is set, Drop down: whether it drops the window

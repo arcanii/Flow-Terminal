@@ -25,7 +25,15 @@ impl App {
     /// Its key, the title bar's button, the palette and the View menu: out,
     /// or in again.
     pub(super) fn toggle_sidebar(&mut self) {
-        if self.sidebar.is_open() {
+        // Pinned, it stays out, and its key moves the keys into it and out.
+        if self.sidebar_pinned() {
+            self.sidebar.keys = !self.sidebar.keys;
+            self.sidebar.menu = None;
+            if self.sidebar.keys && self.sidebar.chosen_in(&self.sidebar_rows()).is_none() {
+                self.sidebar.chosen = self.tabs.get(self.active).map(|t| RowId::Tab(t.id));
+            }
+            self.request_redraw();
+        } else if self.sidebar.is_open() {
             self.close_sidebar();
         } else {
             self.open_sidebar();
@@ -45,6 +53,7 @@ impl App {
         let folded = front.and_then(|t| self.groups.of(t)).filter(|g| g.folded).map(|g| RowId::Group(g.id));
         self.sidebar.chosen = folded.or(front.map(|t| RowId::Tab(t.id)));
         self.sidebar.open = Some(Instant::now());
+        self.sidebar.keys = true;
         self.sidebar.rows = self.sidebar_rows();
         self.request_redraw();
     }
@@ -135,7 +144,107 @@ impl App {
         let closing = self.sidebar.closing.filter(|(_, at)| at.elapsed() < CONFIRM_WINDOW).and_then(|(g, _)| rows.iter().position(|r| r.id == RowId::Group(g)));
         let out = self.sidebar.out(Instant::now(), self.efficient());
         self.sidebar.rows = rows;
-        Some(ui::SidebarView { rows: shown, chosen, top: self.sidebar.top.get(), out, menu, naming, closing, picked: self.sidebar.picked.len() })
+        let (pinned, keys) = (self.sidebar_pinned(), self.sidebar_has_keys());
+        Some(ui::SidebarView { rows: shown, chosen, top: self.sidebar.top.get(), out: if pinned { 1.0 } else { out }, menu, naming, closing, picked: self.sidebar.picked.len(), width: self.sidebar_width(), pinned, keys })
+    }
+
+    /// Whether Settings has it pinned (`window.tab_sidebar`).
+    pub(super) fn sidebar_pin_set(&self) -> bool {
+        self.config.window.tab_sidebar == tab_sidebar::PINNED
+    }
+
+    /// How wide it's drawn, in pixels: `window.tab_sidebar_width` points,
+    /// at most a third of the window.
+    pub(super) fn sidebar_width(&self) -> f32 {
+        let window = self.renderer.as_ref().map_or(self.layout.width, |r| r.size().0 as f32);
+        let least = (tab_sidebar::LEAST_WIDTH * self.scale).min(window / 3.0);
+        (self.config.window.tab_sidebar_width * self.scale).min(window / 3.0).max(least)
+    }
+
+    /// Whether it's out and pinned beside the terminal: Settings has it so,
+    /// and the window leaves the terminal `PIN_LEAST_COLS` columns beside
+    /// it; in a narrower one it pops out over the terminal instead, until
+    /// the window is wider again.
+    pub(super) fn sidebar_pinned(&self) -> bool {
+        if !self.sidebar_pin_set() || !self.sidebar.is_open() {
+            return false;
+        }
+        self.sidebar_fits()
+    }
+
+    /// Whether the window has room for it pinned (`tab_sidebar::pin_fits`).
+    fn sidebar_fits(&self) -> bool {
+        let window = self.renderer.as_ref().map_or(self.layout.width, |r| r.size().0 as f32);
+        let left = tab_sidebar::MARGIN * self.scale + self.sidebar_width();
+        tab_sidebar::pin_fits(window, left, self.cell().0, self.scale)
+    }
+
+    /// Whether it has the keys: popped out, while it's out; pinned, while
+    /// its key, a click on it or a menu has given them to it.
+    pub(super) fn sidebar_has_keys(&self) -> bool {
+        self.sidebar.is_open() && (!self.sidebar_pinned() || self.sidebar.keys || self.sidebar.menu.is_some())
+    }
+
+    /// Follows `window.tab_sidebar`: pinned, it comes out (the keys staying
+    /// with the pane) where the window has room, and pinned no more, it
+    /// goes; the terminal's room follows either way. At the start, as
+    /// Settings or a program change it, and as the window's size changes.
+    pub(super) fn follow_sidebar_pin(&mut self) {
+        let pin = self.sidebar_pin_set();
+        if pin && !self.sidebar.is_open() && self.sidebar_fits() {
+            self.open_sidebar();
+            self.sidebar.keys = false;
+            self.sidebar.open = Instant::now().checked_sub(tab_sidebar::SLIDE);
+        } else if !pin && self.sidebar.pinned {
+            self.close_sidebar();
+        }
+        self.sidebar.pinned = pin && self.sidebar.is_open();
+    }
+
+    /// The sidebar's pin, at its foot: pinned, or popped out (and so put
+    /// away). Saved, as Settings saves a change.
+    pub(super) fn toggle_sidebar_pin(&mut self) {
+        let pinned = self.sidebar_pin_set();
+        self.config.window.tab_sidebar = (if pinned { tab_sidebar::POPS_OUT } else { tab_sidebar::PINNED }).to_string();
+        if pinned {
+            self.close_sidebar();
+        }
+        self.follow_sidebar_pin();
+        // Out still, it has the keys, which a click on its pin gave it.
+        self.sidebar.keys = !pinned;
+        self.relayout();
+        self.save_config();
+        self.request_redraw();
+    }
+
+    /// Something else takes the keys (the palette, Settings, the history,
+    /// About): popped out, the sidebar goes; pinned, it stays, and gives up
+    /// the keys and its menu.
+    pub(super) fn sidebar_aside(&mut self) {
+        if self.sidebar_pinned() {
+            self.sidebar.keys = false;
+            self.sidebar.menu = None;
+            self.finish_renaming(true);
+            self.request_redraw();
+        } else {
+            self.close_sidebar();
+        }
+    }
+
+    /// The room it takes at the window's left while it's pinned, in pixels
+    /// (its margin and its width); none otherwise.
+    pub(super) fn sidebar_room(&self) -> f32 {
+        if self.sidebar_pinned() {
+            tab_sidebar::MARGIN * self.scale + self.sidebar_width()
+        } else {
+            0.0
+        }
+    }
+
+    /// What the terminal shares the window with: the panel where it's open,
+    /// a border where the look has one, and the sidebar where it's pinned.
+    pub(super) fn around(&self, border: bool) -> ui::Around {
+        ui::Around { panel: self.ai.open, border, left: self.sidebar_room() }
     }
 
     /// Whether it's still sliding out, which keeps frames coming.
@@ -175,12 +284,15 @@ impl App {
                 if let Some(i) = self.tab_of(row) {
                     self.select_tab(i);
                 }
+                // Pinned, the tab chosen has the keys.
+                self.sidebar.keys = false;
             }
             RowId::Pane(_, p) => {
                 if let Some(i) = self.tab_of(row) {
                     self.select_tab(i);
                     self.focus_pane(p);
                 }
+                self.sidebar.keys = false;
             }
         }
         self.request_redraw();
@@ -506,6 +618,8 @@ impl App {
             }
             // Esc lets go of what's picked first.
             Key::Named(NamedKey::Escape) if !self.sidebar.picked.is_empty() => self.sidebar.unpick(),
+            // Pinned, it stays, the keys going back to the pane.
+            Key::Named(NamedKey::Escape) if self.sidebar_pinned() => self.sidebar.keys = false,
             Key::Named(NamedKey::Escape) => self.close_sidebar(),
             // Another of Flow's keys, as it's bound.
             _ if action.is_some() => {
@@ -631,10 +745,64 @@ impl App {
                 self.sidebar.menu = None;
                 self.new_group();
             }
+            Some(Hit::SidebarPin) => {
+                self.sidebar.menu = None;
+                self.toggle_sidebar_pin();
+                return;
+            }
+            Some(Hit::SidebarEdge) => {
+                self.sidebar.menu = None;
+                self.sidebar.dragging = true;
+            }
             // On the card, or its menu, where nothing else is: a menu shut.
             Some(Hit::SidebarCard) => self.sidebar.menu = None,
+            // Pinned, a press elsewhere shuts its menu and gives the keys
+            // back; popped out, it puts the sidebar away.
+            _ if self.sidebar_pinned() => {
+                self.sidebar.menu = None;
+                self.sidebar.keys = false;
+                self.request_redraw();
+                return;
+            }
             _ => self.close_sidebar(),
         }
+        // A press on it, but on a tab or a pane to choose, gives it the keys.
+        if self.sidebar_pinned() && !matches!(hit, Some(Hit::SidebarRow(_))) {
+            self.sidebar.keys = true;
+        }
+        self.request_redraw();
+    }
+
+    /// Its edge dragged to window x `x` (pixels): its width follows, in
+    /// points, within its least and a third of the window. Pinned, the tab
+    /// in front's shells follow it at once and the rest as it's let go.
+    pub(super) fn drag_sidebar_edge(&mut self, x: f32) {
+        let window = self.renderer.as_ref().map_or(self.layout.width, |r| r.size().0 as f32);
+        let points = (x - tab_sidebar::MARGIN * self.scale) / self.scale;
+        let most = window / 3.0 / self.scale;
+        let width = points.clamp(tab_sidebar::LEAST_WIDTH.min(most), most).round();
+        if width == self.config.window.tab_sidebar_width {
+            return;
+        }
+        self.config.window.tab_sidebar_width = width;
+        if self.sidebar_pinned() {
+            if let Some(r) = &self.renderer {
+                let (w, h) = r.size();
+                let cell = (r.atlas.metrics.width, r.atlas.metrics.height);
+                self.layout = Layout::compute(w as f32, h as f32, self.scale, cell, self.around(palette::ink().border.is_some()));
+            }
+            self.relayout_front();
+        }
+        self.request_redraw();
+    }
+
+    /// Its edge let go: every tab's shells sized to the room it leaves, and
+    /// its width saved, as Settings saves a change.
+    pub(super) fn sidebar_edge_let_go(&mut self) {
+        if self.sidebar_pinned() {
+            self.relayout();
+        }
+        self.save_config();
         self.request_redraw();
     }
 
@@ -795,8 +963,9 @@ impl App {
     /// For snapshots: the sidebar out over the split tab, folded open to its
     /// panes, and the tabs `show_sidebar_open` opened, made up as a group
     /// of a server running and its tests passed, and a folded group of two;
-    /// written as `tab-sidebar.png`, then everything as it was.
-    pub(super) fn show_sidebar(&mut self, path: &std::path::Path, first: usize, el: &ActiveEventLoop) {
+    /// written as `tab-sidebar.png`, then pinned beside the split tab as
+    /// `tab-sidebar-pinned.png`, then everything as it was.
+    pub(super) fn show_sidebar(&mut self, (path, pinned): (&std::path::Path, &std::path::Path), first: usize, el: &ActiveEventLoop) {
         let front = self.active;
         if self.tabs.len() < first + 4 {
             log::warn!("the sidebar's snapshot has no tabs to show");
@@ -829,6 +998,15 @@ impl App {
         self.sidebar.splits_open = vec![id];
         self.sidebar.chosen = Some(RowId::Tab(self.tabs[first + 1].id));
         self.capture(path, true);
+        // Pinned, the terminal narrowed for it and the keys with the pane.
+        self.config.window.tab_sidebar = tab_sidebar::PINNED.into();
+        self.follow_sidebar_pin();
+        self.sidebar.keys = false;
+        self.relayout();
+        self.capture(pinned, true);
+        self.config.window.tab_sidebar = tab_sidebar::POPS_OUT.into();
+        self.follow_sidebar_pin();
+        self.relayout();
         self.close_sidebar();
         for i in (first..first + 4).rev() {
             self.close_tab(i, el);

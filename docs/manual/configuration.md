@@ -124,6 +124,11 @@ Notable settings:
   - `window.on_top` (default false): the window stays in front of every
     other (Settings' **Always on top**, the title bar's **on-top**; not on
     Wayland)
+  - `window.tab_sidebar` (`pops_out`, the default, or `pinned`): the [tab
+    sidebar](terminal.md#the-tab-sidebar) over the terminal, or always out
+    beside it, the terminal narrowed for it; `window.tab_sidebar_width`
+    (points, 160 to 600, default 260, at most a third of the window): how
+    wide it is, which dragging its edge changes
   - `ui.notify_after` (seconds, default 30; 0 is off): a command that ran
     this long and finishes while Flow isn't in front tells you so through
     the system ([The glass reacts](liquid-styles.md#the-glass-reacts))

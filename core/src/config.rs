@@ -818,6 +818,12 @@ pub struct WindowConfig {
     /// The window stays on top of every other window (not on Wayland,
     /// which has no way for a program to ask it).
     pub on_top: bool,
+    /// The tab sidebar pops out over the terminal ("pops_out"), or stays
+    /// out beside it, the terminal narrowed for it ("pinned").
+    pub tab_sidebar: String,
+    /// How wide the tab sidebar is, in points (at most a third of the
+    /// window), which dragging its edge changes.
+    pub tab_sidebar_width: f32,
 }
 
 impl Default for Config {
@@ -1034,6 +1040,8 @@ impl Default for WindowConfig {
             drop_down_hides: false,
             drop_down_over_full_screen: false,
             on_top: false,
+            tab_sidebar: crate::tab_sidebar::POPS_OUT.into(),
+            tab_sidebar_width: crate::tab_sidebar::WIDTH,
         }
     }
 }

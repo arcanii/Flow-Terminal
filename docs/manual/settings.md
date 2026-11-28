@@ -77,6 +77,15 @@ Wayland lets no program keep its own window on top, so there the row
 says your desktop's window menu does it (a right click on Flow's title
 bar), and the title bar has no pill.
 
+**Tab sidebar**, under it, says how the [tab sidebar](terminal.md#the-tab-sidebar)
+comes out: **Pops out** (at first) over the terminal, leaving its size
+alone, until Esc, its key or a click outside it; or **Pinned** beside the
+terminal, which narrows for it, always out, its key moving the keys into
+it and out. **Sidebar width**, shown while it's pinned, says how wide it
+is, 160 to 600 points and at most a third of the window; dragging the
+sidebar's right edge changes it too. A window too narrow to leave the
+terminal 20 columns beside it has it pop out instead, until it's wider.
+
 **Hotkey**, under it, takes a key for the whole system that brings Flow
 forward from any app and puts it away again while it's in front: `` ⌃` ``,
 `⌥Space`, `F12` or `⌃Space` (`` Ctrl+` ``, `Alt+Space`, `F12` or `Ctrl+Space`

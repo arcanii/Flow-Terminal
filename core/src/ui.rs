@@ -82,6 +82,10 @@ pub enum Hit {
     SidebarNewGroup,
     /// An item of a row's menu, by its place.
     SidebarMenuItem(usize),
+    /// The pin at its foot: pinned beside the terminal, or popping out.
+    SidebarPin,
+    /// Its right edge, which a drag makes wider or narrower.
+    SidebarEdge,
     /// The + after the tabs: a tab at once, the default shell in Settings'
     /// theme.
     NewTab,
@@ -469,13 +473,36 @@ impl Frame {
     }
 }
 
+/// What the terminal shares the window with besides the title bar: the
+/// assistant's panel at its foot (`panel`), a wide margin round it, as on an
+/// 8-bit home computer's screen (`border`, an old machine's look,
+/// `looks.rs`), and the tab sidebar pinned at its left (`left`, the room it
+/// takes, in pixels).
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Around {
+    pub panel: bool,
+    pub border: bool,
+    pub left: f32,
+}
+
+impl Around {
+    #[cfg(test)]
+    pub fn new(panel: bool, border: bool) -> Self {
+        Around { panel, border, left: 0.0 }
+    }
+}
+
 impl Layout {
-    /// `border`: the text sits inside a wide margin, as on an 8-bit home
-    /// computer's screen (an old machine's look, `looks.rs`).
-    pub fn compute(width: f32, height: f32, scale: f32, cell: (f32, f32), panel_open: bool, border: bool) -> Self {
+    /// The window's layout, `around` as it says: the title bar along the
+    /// top, the whole width, and the rest laid out as a window `left`
+    /// narrower would be, moved right by it.
+    pub fn compute(width: f32, height: f32, scale: f32, cell: (f32, f32), around: Around) -> Self {
         let s = scale;
+        let (panel_open, border) = (around.panel, around.border);
+        let left = around.left.clamp(0.0, width * 0.5);
+        let inner = width - left;
         let title_h = TITLE_HEIGHT * s;
-        let pad = if border { (width * 0.06).max(14.0 * s) } else { 14.0 * s };
+        let pad = if border { (inner * 0.06).max(14.0 * s) } else { 14.0 * s };
         let title = Rect::new(0.0, 0.0, width, title_h);
         let top = title_h + if border { (height * 0.06).max(2.0 * s) } else { 2.0 * s };
         let panel = panel_open.then(|| {
@@ -483,14 +510,14 @@ impl Layout {
             // is less than the panel's least.
             let most = (height - title_h - 140.0 * s).max(120.0 * s);
             let h = (height * 0.42).clamp((190.0 * s).min(most), most);
-            Rect::new(pad * 0.7, height - h - pad * 0.7, width - pad * 1.4, h)
+            Rect::new(left + pad * 0.7, height - h - pad * 0.7, inner - pad * 1.4, h)
         });
         let bottom = match panel {
             Some(p) => p.y - 8.0 * s,
             None if border => height - (height * 0.06).max(pad),
             None => height - pad,
         };
-        let term = Rect::new(pad, top, (width - 2.0 * pad).max(cell.0), (bottom - top).max(cell.1));
+        let term = Rect::new(left + pad, top, (inner - 2.0 * pad).max(cell.0), (bottom - top).max(cell.1));
         let cols = ((term.w / cell.0).floor() as usize).max(10);
         let rows = ((term.h / cell.1).floor() as usize).max(3);
         Self { width, height, scale, title, term, panel, cols, rows, cell_w: cell.0, cell_h: cell.1, frame: None }
@@ -542,15 +569,15 @@ impl Layout {
     ///
     /// [`compute`]: Layout::compute
     #[cfg(test)]
-    pub fn size_for(cols: usize, rows: usize, scale: f32, cell: (f32, f32), panel_open: bool, border: bool) -> (u32, u32) {
-        Self::size_for_part(|l| (l.cols, l.rows), cols, rows, scale, cell, panel_open, border)
+    pub fn size_for(cols: usize, rows: usize, scale: f32, cell: (f32, f32), around: Around) -> (u32, u32) {
+        Self::size_for_part(|l| (l.cols, l.rows), cols, rows, scale, cell, around)
     }
 
     /// As [`Layout::size_for`], for a part of the terminal: `part` gives the
     /// grid it has in a window's layout (a split tab's pane in front), which
     /// grows with the window as the whole does.
-    pub fn size_for_part(part: impl Fn(&Layout) -> (usize, usize), cols: usize, rows: usize, scale: f32, cell: (f32, f32), panel_open: bool, border: bool) -> (u32, u32) {
-        let at = |w: u32, h: u32| part(&Layout::compute(w as f32, h as f32, scale, cell, panel_open, border));
+    pub fn size_for_part(part: impl Fn(&Layout) -> (usize, usize), cols: usize, rows: usize, scale: f32, cell: (f32, f32), around: Around) -> (u32, u32) {
+        let at = |w: u32, h: u32| part(&Layout::compute(w as f32, h as f32, scale, cell, around));
         let width = smallest(|w| at(w, Self::LARGEST).0 >= cols);
         (width, smallest(|h| at(width, h).1 >= rows))
     }
@@ -566,15 +593,14 @@ impl Layout {
     /// enough (its metrics are the font's, scaled), and the terminal's room
     /// in a given window doesn't change with it.
     #[cfg(test)]
-    pub fn text_size_within((cols, rows): (usize, usize), window: (u32, u32), scale: f32, cell: (f32, f32), panel_open: bool, border: bool, size: f32) -> f32 {
-        Self::text_size_within_part(|l| l.term, (cols, rows), window, scale, cell, panel_open, border, size)
+    pub fn text_size_within((cols, rows): (usize, usize), window: (u32, u32), scale: f32, cell: (f32, f32), around: Around, size: f32) -> f32 {
+        Self::text_size_within_part(|l| l.term, (cols, rows), window, scale, cell, around, size)
     }
 
     /// As [`Layout::text_size_within`], for a part of the terminal: `part`
     /// gives its room in a window's layout.
-    #[allow(clippy::too_many_arguments)]
-    pub fn text_size_within_part(part: impl Fn(&Layout) -> Rect, (cols, rows): (usize, usize), window: (u32, u32), scale: f32, cell: (f32, f32), panel_open: bool, border: bool, size: f32) -> f32 {
-        let term = part(&Layout::compute(window.0 as f32, window.1 as f32, scale, cell, panel_open, border));
+    pub fn text_size_within_part(part: impl Fn(&Layout) -> Rect, (cols, rows): (usize, usize), window: (u32, u32), scale: f32, cell: (f32, f32), around: Around, size: f32) -> f32 {
+        let term = part(&Layout::compute(window.0 as f32, window.1 as f32, scale, cell, around));
         // Cells wider than the room shared among one column more, and taller
         // than among one row more.
         let wide = size * term.w / ((cols + 1) as f32 * cell.0);
@@ -1132,6 +1158,12 @@ pub struct SidebarView {
     /// How many tabs are picked together, where more than one is: New
     /// Group at the foot says so.
     pub picked: usize,
+    /// How wide it is, in pixels (`window.tab_sidebar_width`).
+    pub width: f32,
+    /// Pinned beside the terminal, which then has the pointer outside it,
+    /// and whether it has the keys (popped out, it always has).
+    pub pinned: bool,
+    pub keys: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -1390,9 +1422,15 @@ pub fn draw(c: &mut Canvas<'_>, v: &View<'_>) -> Drawn {
     let mut sidebar_top = 0;
     let mut beside = None;
     if let Some(sb) = &v.sidebar {
-        hits.clear();
+        // Pinned, it's beside the terminal, which keeps the pointer.
+        if !sb.pinned {
+            hits.clear();
+        }
         let (at, top, card) = draw_sidebar(c, v, sb, &mut hits);
-        (caret, sidebar_top, beside) = (at, top, card);
+        (sidebar_top, beside) = (top, card);
+        if at.is_some() || !sb.pinned {
+            caret = at;
+        }
     }
     if let Some(t) = v.toast.filter(|_| v.settings.is_none()) {
         draw_toast(c, v, t);
@@ -4192,8 +4230,8 @@ fn draw_sidebar(c: &mut Canvas<'_>, v: &View<'_>, sb: &SidebarView, hits: &mut V
     let l = v.layout;
     let s = l.scale;
     let ch = c.cell.height;
-    let w = (crate::tab_sidebar::WIDTH * s).min(l.width / 3.0);
-    let margin = 8.0 * s;
+    let w = sb.width;
+    let margin = crate::tab_sidebar::MARGIN * s;
     let top_y = l.title.h + 4.0 * s;
     let h = (l.height - top_y - margin).max(ch * 4.0);
     let x = margin - (w + margin * 2.0) * (1.0 - sb.out);
@@ -4202,22 +4240,50 @@ fn draw_sidebar(c: &mut Canvas<'_>, v: &View<'_>, sb: &SidebarView, hits: &mut V
     hits.push((Rect::new(x, top_y, w, h), Hit::SidebarCard));
     let pad = 8.0 * s;
 
-    // At its foot, New Tab and New Group, sharing the width.
+    // At its foot, New Tab and New Group, sharing the width, then its pin.
     let foot_h = ch + 12.0 * s;
     let foot_y = top_y + h - pad - foot_h;
-    let each = (w - pad * 2.0 - 6.0 * s) * 0.5;
-    for (k, (key, hit)) in [("menu.new_tab", Hit::SidebarNewTab), ("menu.new_group", Hit::SidebarNewGroup)].into_iter().enumerate() {
-        let r = Rect::new(x + pad + k as f32 * (each + 6.0 * s), foot_y, each, foot_h);
+    let pin = Rect::new(x + w - pad - foot_h, foot_y, foot_h, foot_h);
+    // Each button as wide as its words and a little more, sharing what's
+    // short where they don't both fit.
+    let labels: Vec<(String, Hit)> = [("menu.new_tab", Hit::SidebarNewTab), ("menu.new_group", Hit::SidebarNewGroup)]
+        .into_iter()
+        .map(|(key, hit)| {
+            let label = match hit {
+                Hit::SidebarNewGroup if sb.picked > 1 => format!("{} · {}", t(key), sb.picked),
+                _ => t(key).to_string(),
+            };
+            (label, hit)
+        })
+        .collect();
+    let room = (pin.x - 6.0 * s - (x + pad) - 6.0 * s).max(0.0);
+    let natural: Vec<f32> = labels.iter().map(|(l, _)| c.text_width(l) + 14.0 * s).collect();
+    let share = (room / natural.iter().sum::<f32>()).min(1.0);
+    let spare = room - natural.iter().sum::<f32>() * share;
+    let mut bx = x + pad;
+    for ((label, hit), want) in labels.into_iter().zip(natural) {
+        let r = Rect::new(bx, foot_y, want * share + spare * 0.5, foot_h);
+        bx += r.w + 6.0 * s;
         let over = r.contains(v.hover);
         c.rect(r.x, r.y, r.w, r.h, rgba([255, 255, 255], if over { 0.12 } else { 0.06 }), 8.0 * s);
-        let label = match hit {
-            Hit::SidebarNewGroup if sb.picked > 1 => format!("+ {} · {}", t(key), sb.picked),
-            _ => format!("+ {}", t(key)),
-        };
-        let label = fit(c, &label, r.w - 16.0 * s);
+        let label = fit(c, &label, r.w - 10.0 * s);
         c.text(r.x + (r.w - c.text_width(&label)) * 0.5, r.y + (foot_h - ch) * 0.5, &label, rgba(FOREGROUND, if over { 1.0 } else { 0.8 }), false);
         hits.push((r, hit));
     }
+    // The pin: a pushpin, lit while it's pinned.
+    let over = pin.contains(v.hover);
+    if sb.pinned {
+        c.rect(pin.x, pin.y, pin.w, pin.h, rgba(ACCENT, 0.22), 8.0 * s);
+        c.outline(pin.x, pin.y, pin.w, pin.h, rgba(ACCENT, 0.6), 8.0 * s, 1.0);
+    } else {
+        c.rect(pin.x, pin.y, pin.w, pin.h, rgba([255, 255, 255], if over { 0.12 } else { 0.06 }), 8.0 * s);
+    }
+    let ink = if sb.pinned { rgba(ACCENT, 1.0) } else { rgba(FOREGROUND, if over { 1.0 } else { 0.75 }) };
+    let (cx, cy) = (pin.x + pin.w * 0.5, pin.y + pin.h * 0.5);
+    c.rect((cx - 3.5 * s).round(), (cy - 7.0 * s).round(), (7.0 * s).round(), (6.0 * s).round(), ink, 2.0 * s);
+    c.rect((cx - 5.5 * s).round(), (cy - 1.5 * s).round(), (11.0 * s).round(), (2.0 * s).round().max(1.0), ink, 1.0 * s);
+    c.rect((cx - 0.75 * s).round(), (cy + 0.5 * s).round(), (1.5 * s).round().max(1.0), (6.5 * s).round(), ink, 0.75 * s);
+    hits.push((pin, Hit::SidebarPin));
 
     // The rows, from the first shown, the chosen one kept in view.
     let list_y = top_y + pad;
@@ -4267,7 +4333,8 @@ fn draw_sidebar(c: &mut Canvas<'_>, v: &View<'_>, sb: &SidebarView, hits: &mut V
         } else if over {
             c.rect(r.x, r.y, r.w, r.h, rgba([255, 255, 255], 0.05), 8.0 * s);
         }
-        if chosen {
+        // The row the keys are on, while it has them.
+        if chosen && sb.keys {
             c.outline(r.x, r.y, r.w, r.h, rgba(ACCENT, 0.6), 8.0 * s, 1.0);
         }
         // Picked with others: lit, with a bar at its left.
@@ -4285,7 +4352,7 @@ fn draw_sidebar(c: &mut Canvas<'_>, v: &View<'_>, sb: &SidebarView, hits: &mut V
         // Its × and …, on the right, where it's chosen or under the pointer.
         let mut right = r.x + r.w - 4.0 * s;
         let b = (ch * 1.25).round();
-        let buttons = (over || chosen) && !matches!(row.kind, SidebarKind::Pane { .. });
+        let buttons = (over || (chosen && sb.keys)) && !matches!(row.kind, SidebarKind::Pane { .. });
         let name_y = match row.kind {
             SidebarKind::Group { .. } => r.y + (r.h - ch) * 0.5,
             _ => r.y + 5.0 * s,
@@ -4386,6 +4453,8 @@ fn draw_sidebar(c: &mut Canvas<'_>, v: &View<'_>, sb: &SidebarView, hits: &mut V
         let thumb_y = list_y + (track_h - thumb_h) * top as f32 / (n - shown).max(1) as f32;
         c.rect(x + w - 4.0 * s, thumb_y, 2.0 * s, thumb_h, rgba(FOREGROUND, 0.3), 1.0 * s);
     }
+    // Its right edge, which a drag makes wider or narrower.
+    hits.push((Rect::new(x + w - 3.0 * s, top_y + 10.0 * s, 6.0 * s, h - 20.0 * s), Hit::SidebarEdge));
     // A row's menu, under its … (over it where there's no room below).
     if let (Some(menu), Some(at)) = (&sb.menu, menu_at) {
         draw_row_menu(c, v, menu, at, false, hits);
@@ -6181,6 +6250,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_pinned_sidebars_room_moves_the_terminal_and_the_panel_right_the_title_bar_staying_whole() {
+        let cell = (10.0, 20.0);
+        let plain = Layout::compute(1200.0, 800.0, 1.0, cell, Around::new(true, false));
+        let beside = Layout::compute(1200.0, 800.0, 1.0, cell, Around { left: 268.0, ..Around::new(true, false) });
+        assert_eq!(beside.title, plain.title, "the title bar stays the window's whole width");
+        assert_eq!((beside.term.x, beside.term.w), (plain.term.x + 268.0, plain.term.w - 268.0));
+        assert_eq!((beside.cols, plain.cols), (90, 117));
+        let (p, q) = (beside.panel.unwrap(), plain.panel.unwrap());
+        assert_eq!((p.x, p.w), (q.x + 268.0, q.w - 268.0), "the panel beside it too");
+        // Fit window to's window is wider by its room.
+        let (w, h) = Layout::size_for(80, 24, 1.0, cell, Around::default());
+        assert_eq!(Layout::size_for(80, 24, 1.0, cell, Around { left: 268.0, ..Around::default() }), (w + 268, h));
+    }
+
+    #[test]
     fn abouts_version_says_the_window_system_where_there_is_a_choice() {
         let version = crate::version::display();
         crate::i18n::set_language("en", &[]);
@@ -6204,7 +6288,7 @@ mod tests {
             assert!(room.x + room.w < f.outer.x + f.outer.w - f.line && room.y + room.h < f.outer.y + f.outer.h - f.line);
             assert!([room.x, room.y].iter().all(|v| *v == v.round()));
             // A pane laid out in it holds what that room holds.
-            let l = Layout::compute(900.0, 700.0, scale, cell, false, false);
+            let l = Layout::compute(900.0, 700.0, scale, cell, Around::default());
             let framed = Layout { frame: Some(f), ..l.within_cell(room, cell) };
             assert_eq!(framed.cols, (room.w / cell.0) as usize);
             assert!(framed.cols < l.cols && framed.rows < l.rows);
@@ -6506,7 +6590,7 @@ mod tests {
 
     #[test]
     fn a_pane_in_a_font_of_its_own_has_a_grid_of_its_cells() {
-        let l = Layout::compute(1000.0, 700.0, 1.0, (10.0, 20.0), false, false);
+        let l = Layout::compute(1000.0, 700.0, 1.0, (10.0, 20.0), Around::default());
         let r = Rect::new(l.term.x, l.term.y, 400.0, 300.0);
         let mine = l.within(r);
         assert_eq!((mine.cols, mine.rows), (40, 15));
@@ -6523,13 +6607,13 @@ mod tests {
             let w = ((l.term.w - 6.0) / 2.0).floor();
             ((w / l.cell_w) as usize, l.rows)
         };
-        let whole = Layout::size_for(80, 24, scale, cell, false, false);
-        let (w, h) = Layout::size_for_part(left, 80, 24, scale, cell, false, false);
+        let whole = Layout::size_for(80, 24, scale, cell, Around::default());
+        let (w, h) = Layout::size_for_part(left, 80, 24, scale, cell, Around::default());
         assert!(w > whole.0 + 80 * 18 - 10, "about twice as wide: {w} for {}", whole.0);
         assert_eq!(h, whole.1, "as tall");
-        let at = Layout::compute(w as f32, h as f32, scale, cell, false, false);
+        let at = Layout::compute(w as f32, h as f32, scale, cell, Around::default());
         assert_eq!(left(&at), (80, 24));
-        let narrower = Layout::compute(w as f32 - 1.0, h as f32, scale, cell, false, false);
+        let narrower = Layout::compute(w as f32 - 1.0, h as f32, scale, cell, Around::default());
         assert!(left(&narrower).0 < 80, "the least that does");
     }
 
@@ -6540,14 +6624,14 @@ mod tests {
         let (scale, window) = (2.0, (1040, 640));
         let cell_at = |size: f32| (18.06 * size / 15.0, 38.0 * size / 15.0);
         let grid = |size| {
-            let l = Layout::compute(window.0 as f32, window.1 as f32, scale, cell_at(size), false, false);
+            let l = Layout::compute(window.0 as f32, window.1 as f32, scale, cell_at(size), Around::default());
             (l.cols, l.rows)
         };
         assert_eq!(grid(15.0).0, 54);
-        let size = Layout::text_size_within((40, 25), window, scale, cell_at(15.0), false, false, 15.0);
+        let size = Layout::text_size_within((40, 25), window, scale, cell_at(15.0), Around::default(), 15.0);
         assert!(grid(size).0 <= 40 && grid(size - 1.0).0 > 40, "{size}: {:?} {:?}", grid(size), grid(size - 1.0));
         // A grid it holds already needs no larger letters.
-        assert!(Layout::text_size_within((80, 24), window, scale, cell_at(15.0), false, false, 15.0) <= 15.0);
+        assert!(Layout::text_size_within((80, 24), window, scale, cell_at(15.0), Around::default(), 15.0) <= 15.0);
     }
 
     #[test]
@@ -6557,9 +6641,9 @@ mod tests {
         let cell = (16.8125, 34.0);
         for (panel, border) in [(false, false), (true, false), (false, true), (true, true)] {
             for (cols, rows) in [(40, 25), (80, 24), (80, 25), (80, 34), (132, 43)] {
-                let (w, h) = Layout::size_for(cols, rows, 2.0, cell, panel, border);
+                let (w, h) = Layout::size_for(cols, rows, 2.0, cell, Around::new(panel, border));
                 let at = |w: u32, h: u32| {
-                    let l = Layout::compute(w as f32, h as f32, 2.0, cell, panel, border);
+                    let l = Layout::compute(w as f32, h as f32, 2.0, cell, Around::new(panel, border));
                     (l.cols, l.rows)
                 };
                 assert_eq!(at(w, h), (cols, rows), "{cols} × {rows}, panel {panel}, border {border}");
@@ -6572,14 +6656,14 @@ mod tests {
     #[test]
     fn a_short_window_with_the_panel_open_gives_the_terminal_what_room_there_is() {
         // Shorter than the panel's least and the terminal's room together.
-        let l = Layout::compute(1040.0, 660.0, 2.0, (16.8, 34.0), true, false);
+        let l = Layout::compute(1040.0, 660.0, 2.0, (16.8, 34.0), Around::new(true, false));
         let panel = l.panel.unwrap();
         assert!(panel.h >= 240.0 && l.term.y + l.term.h <= panel.y, "{panel:?} {:?}", l.term);
     }
 
     #[test]
     fn the_pointer_on_a_double_line_falls_in_its_cells_twice_as_wide() {
-        let l = Layout::compute(1000.0, 600.0, 1.0, (10.0, 20.0), false, false);
+        let l = Layout::compute(1000.0, 600.0, 1.0, (10.0, 20.0), Around::default());
         let at = |col: f32, row: f32| (l.term.x + col * 10.0, l.term.y + row * 20.0 + 5.0);
         assert_eq!(l.cell_on_line(at(7.7, 2.0), LineSize::Single), (7, 2, true));
         assert_eq!(l.cell_on_line(at(7.7, 2.0), LineSize::Wide), (3, 2, true), "columns 6 and 7 are the fourth cell");

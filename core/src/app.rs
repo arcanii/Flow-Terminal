@@ -1359,6 +1359,8 @@ impl App {
             self.install_menus();
             self.follow_hotkey();
             self.follow_on_top();
+            self.follow_sidebar_pin();
+            self.relayout();
             self.follow_outside();
             self.read_servers();
         }
@@ -1409,7 +1411,7 @@ impl App {
         let Some(r) = &self.renderer else { return };
         let (w, h) = r.size();
         let cell = (r.atlas.metrics.width, r.atlas.metrics.height);
-        self.layout = Layout::compute(w as f32, h as f32, self.scale, cell, self.ai.open, palette::ink().border.is_some());
+        self.layout = Layout::compute(w as f32, h as f32, self.scale, cell, self.around(palette::ink().border.is_some()));
         // The conversation's rows are laid out afresh, so a selection would
         // name others.
         self.ai.selection = None;
@@ -1544,11 +1546,11 @@ impl App {
 
     /// The window's layout while a tab wears these fonts and a border.
     fn layout_wearing(&mut self, (families, size, line_height, border): (Vec<String>, f32, f32, bool)) -> Option<Layout> {
-        let (scale, ai_open) = (self.scale, self.ai.open);
+        let (scale, around) = (self.scale, self.around(border));
         let r = self.renderer.as_mut()?;
         let (w, h) = r.size();
         let m = r.atlas.metrics_for(&families, size.clamp(8.0, 40.0) * scale, line_height);
-        Some(Layout::compute(w as f32, h as f32, scale, (m.width, m.height), ai_open, border))
+        Some(Layout::compute(w as f32, h as f32, scale, (m.width, m.height), around))
     }
 
     /// Splits the pane in front of the tab in front in two, side by side
@@ -1708,6 +1710,8 @@ impl App {
         if let Some(r) = self.renderer.as_mut() {
             r.resize(width, height);
         }
+        // Pinned, the sidebar comes out again once the window has room.
+        self.follow_sidebar_pin();
         self.relayout();
         if let Some(w) = &self.window {
             self.platform.place_window_controls(w, ui::TITLE_HEIGHT as f64);
@@ -2234,6 +2238,8 @@ impl App {
         }
         self.follow_hotkey();
         self.follow_on_top();
+        self.follow_sidebar_pin();
+        self.relayout();
         self.follow_outside();
         self.follow_servers();
     }
@@ -2787,13 +2793,13 @@ impl App {
     /// it's sized, or, where the system says at once what size it took
     /// (Wayland's, which keeps a tiled or maximized window's), as it is.
     fn size_window(&mut self, window: &Window, (cols, rows): (usize, usize)) {
-        let (cell, border, panel) = (self.cell(), palette::ink().border.is_some(), self.ai.open);
+        let (cell, around) = (self.cell(), self.around(palette::ink().border.is_some()));
         // On a split tab, the window in which the pane in front holds it.
         let part = |l: &Layout| {
             let p = self.front_part(l);
             (p.cols, p.rows)
         };
-        let (w, h) = Layout::size_for_part(part, cols, rows, self.scale, cell, panel, border);
+        let (w, h) = Layout::size_for_part(part, cols, rows, self.scale, cell, around);
         let least = |side: u32| (side as f32 * self.scale).ceil() as u32;
         let least = (least(MIN_WINDOW.0), least(MIN_WINDOW.1));
         let room = self.window_room(window);
@@ -2820,7 +2826,7 @@ impl App {
         let slack = self.scale.ceil() as u32 + 1;
         let kept = took.is_some_and(|(tw, th)| tw.abs_diff(asked.0) > slack || th.abs_diff(asked.1) > slack);
         let (sw, sh) = took.unwrap_or(asked);
-        let held = self.front_part(&Layout::compute(sw as f32, sh as f32, self.scale, cell, panel, border));
+        let held = self.front_part(&Layout::compute(sw as f32, sh as f32, self.scale, cell, around));
         let args = |key: &str| tf(key, &[("cols", &held.cols), ("rows", &held.rows)]);
         let toast = if kept {
             args("toast.fit_kept")
@@ -2831,7 +2837,7 @@ impl App {
         } else {
             // Too many at the least window: from what size it would hold
             // the grid, where the slider reaches.
-            let size = Layout::text_size_within_part(|l| self.front_part(l).term, (cols, rows), least, self.scale, cell, panel, border, self.config.font.size);
+            let size = Layout::text_size_within_part(|l| self.front_part(l).term, (cols, rows), least, self.scale, cell, around, self.config.font.size);
             if size <= settings::FONT_SIZE.1 {
                 let want = format!("{cols} × {rows}");
                 tf("toast.fit_small_at", &[("cols", &held.cols), ("rows", &held.rows), ("size", &size), ("want", &want)])
@@ -3183,7 +3189,7 @@ impl App {
         // The tab sidebar, while it's out, takes the keys: its own, and
         // Flow's shortcuts as they're bound; a tab's menu from its pill,
         // ↑ ↓, Enter and Esc.
-        if self.sidebar.is_open() {
+        if self.sidebar_has_keys() {
             return self.sidebar_key(&event, action, el);
         }
         if self.pill_menu_open() {
@@ -5918,7 +5924,7 @@ impl App {
                 None => match hit {
                     Some(Hit::SettingsCard | Hit::AboutCard | Hit::PickerCard | Hit::NameCard | Hit::GalleryCard | Hit::HistoryCard | Hit::HelpCard | Hit::ModelCard) => CursorIcon::Default,
                     Some(Hit::PickerField | Hit::PickerHue) => CursorIcon::Crosshair,
-                    Some(Hit::Divider(_, true)) => CursorIcon::EwResize,
+                    Some(Hit::Divider(_, true) | Hit::SidebarEdge) => CursorIcon::EwResize,
                     Some(Hit::Divider(_, false)) => CursorIcon::NsResize,
                     Some(Hit::Scrollbar(_)) => CursorIcon::Default,
                     Some(Hit::FrameSize) if self.sizes_by_frame() => CursorIcon::NwseResize,
@@ -5974,6 +5980,9 @@ impl App {
             if self.tabs.get_mut(self.active).is_some_and(|t| t.split.drag(&path, p, area, cell, gap)) {
                 self.relayout_front();
             }
+        }
+        if self.sidebar.dragging {
+            self.drag_sidebar_edge(p.0);
         }
         if self.selecting {
             let (point, side) = self.grid_point(p);
@@ -6111,7 +6120,7 @@ impl App {
             || !self.servers.asks.is_empty()
             || self.update_ask
             || self.restart_ask.is_some()
-            || self.sidebar.is_open()
+            || (self.sidebar.is_open() && !self.sidebar_pinned())
             || self.pill_menu_open()
     }
 
@@ -6522,6 +6531,9 @@ impl App {
             }
             self.dragging_divider = None;
             self.sizing_window = None;
+            if std::mem::take(&mut self.sidebar.dragging) {
+                self.sidebar_edge_let_go();
+            }
             if self.dragging_scrollbar.take().is_some() {
                 self.request_redraw();
             }
@@ -6647,9 +6659,15 @@ impl App {
         let hit = self.hits.iter().rev().find(|(r, _)| r.contains(p)).map(|(_, h)| *h);
         // The tab sidebar takes the pointer while it's out, and a tab's menu
         // from its pill while that's open.
-        if self.sidebar.is_open() {
+        // Pinned, it takes only its own; a press elsewhere gives the keys
+        // back to the pane and goes on.
+        let on_sidebar = matches!(hit, Some(Hit::SidebarCard | Hit::SidebarRow(_) | Hit::SidebarFold(_) | Hit::SidebarClose(_) | Hit::SidebarMore(_) | Hit::SidebarNewTab | Hit::SidebarNewGroup | Hit::SidebarMenuItem(_) | Hit::SidebarPin | Hit::SidebarEdge));
+        if self.sidebar.is_open() && (on_sidebar || !self.sidebar_pinned() || self.sidebar.menu.is_some()) {
             self.sidebar_click(hit, el);
             return;
+        }
+        if self.sidebar_pinned() {
+            self.sidebar.keys = false;
         }
         if self.pill_menu_open() {
             self.pill_menu_click(hit, el);
@@ -6820,7 +6838,7 @@ impl App {
             Hit::NewTab => self.new_tab(),
             Hit::TabSidebar => self.toggle_sidebar(),
             // The sidebar's own, which `sidebar_click` takes while it's out.
-            Hit::SidebarCard | Hit::SidebarRow(_) | Hit::SidebarFold(_) | Hit::SidebarClose(_) | Hit::SidebarMore(_) | Hit::SidebarNewTab | Hit::SidebarNewGroup | Hit::SidebarMenuItem(_) => self.sidebar_click(Some(hit), el),
+            Hit::SidebarCard | Hit::SidebarRow(_) | Hit::SidebarFold(_) | Hit::SidebarClose(_) | Hit::SidebarMore(_) | Hit::SidebarNewTab | Hit::SidebarNewGroup | Hit::SidebarMenuItem(_) | Hit::SidebarPin | Hit::SidebarEdge => self.sidebar_click(Some(hit), el),
             Hit::NewTabChoose => {
                 self.tab_picker = match self.tab_picker {
                     Some(_) => None,
@@ -7002,7 +7020,7 @@ impl App {
             find: self.find.as_ref().is_some_and(|f| f.focus) && !self.ai.focus,
             palette: self.palette.is_some(),
             assistant: self.ai.focus && self.layout.panel.is_some(),
-            sidebar: self.sidebar.is_open() || self.pill_menu_open(),
+            sidebar: self.sidebar_has_keys() || self.pill_menu_open(),
             renaming: self.naming(),
         }
     }
@@ -7048,7 +7066,7 @@ impl App {
     }
 
     fn open_about(&mut self) {
-        self.close_sidebar();
+        self.sidebar_aside();
         self.close_settings();
         self.resources.open = false;
         self.about = Some(Instant::now());
@@ -8039,7 +8057,7 @@ impl App {
         if self.menu.is_some() {
             self.close_settings();
         } else if self.key_dialog.is_none() {
-            self.close_sidebar();
+            self.sidebar_aside();
             self.see_apps();
             self.see_memory();
             self.menu = Some(SettingsMenu::default());
@@ -9499,6 +9517,17 @@ impl App {
                     self.redrop();
                 }
             }
+            SettingId::TabSidebar => {
+                if let Some(mode) = crate::tab_sidebar::MODES.get(pick) {
+                    self.config.window.tab_sidebar = mode.to_string();
+                    self.follow_sidebar_pin();
+                    self.relayout();
+                }
+            }
+            SettingId::TabSidebarWidth => {
+                self.config.window.tab_sidebar_width = settings::slider_value(self.config.window.tab_sidebar_width, change, settings::TAB_SIDEBAR_WIDTH);
+                self.relayout();
+            }
             SettingId::OnTop => {
                 if self.platform.on_top_possible() {
                     self.config.window.on_top = flip(self.config.window.on_top);
@@ -9919,7 +9948,7 @@ impl App {
         if self.palette.take().is_some() || self.key_dialog.is_some() {
             return;
         }
-        self.close_sidebar();
+        self.sidebar_aside();
         self.close_settings();
         self.about = None;
         self.tab_picker = None;
@@ -10149,7 +10178,7 @@ impl App {
         if self.history_panel.take().is_some() || self.key_dialog.is_some() {
             return;
         }
-        self.close_sidebar();
+        self.sidebar_aside();
         self.close_settings();
         self.about = None;
         self.tab_picker = None;
@@ -11122,9 +11151,12 @@ impl App {
     /// notanAmiga's frames in it.
     fn record_crop(&self) -> Crop {
         let l = &self.layout;
-        let right = l.panel.map_or(l.width, |p| p.x).max(0.0);
-        let top = l.title.h.max(0.0);
-        Crop { x: 0, y: top.round() as u32, w: right.round() as u32, h: (l.height - top).max(0.0).round() as u32 }
+        // Below the title bar, above the assistant's panel (at the
+        // window's foot), right of a pinned tab sidebar.
+        let left = self.sidebar_room().round().max(0.0);
+        let top = l.title.h.max(0.0).round();
+        let bottom = l.panel.map_or(l.height, |p| p.y).max(top).round();
+        Crop { x: left as u32, y: top as u32, w: (l.width - left).max(0.0).round() as u32, h: (bottom - top) as u32 }
     }
 
     /// Starts taking frames; false where it can't.
@@ -12778,7 +12810,7 @@ impl App {
                 }
                 if waited > 2.5 {
                     if let Some(first) = self.snapshot.as_mut().unwrap().sidebar_from.take() {
-                        self.show_sidebar(&dir.join("tab-sidebar.png"), first, el);
+                        self.show_sidebar((&dir.join("tab-sidebar.png"), &dir.join("tab-sidebar-pinned.png")), first, el);
                     }
                     let plan = self.snapshot.as_mut().unwrap();
                     plan.stage = HELPERS_STAGE;
@@ -15473,7 +15505,7 @@ mod tests {
 
     #[test]
     fn a_panes_layout_is_the_windows_with_its_rectangle_and_the_cells_it_holds() {
-        let window = Layout::compute(1200.0, 800.0, 1.0, (10.0, 20.0), false, false);
+        let window = Layout::compute(1200.0, 800.0, 1.0, (10.0, 20.0), ui::Around::default());
         let mut split = crate::panes::Split::default();
         split.split(0, 1, true);
         let laid: Vec<Layout> = split.rects(window.term, 6.0).into_iter().map(|(_, r)| window.within(r)).collect();

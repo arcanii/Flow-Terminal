@@ -57,7 +57,7 @@ impl App {
     fn panel_room(&self) -> Option<ui::Rect> {
         let border = self.config.colors.ink().border.is_some();
         let (l, scale) = (&self.layout, self.scale);
-        Layout::compute(l.width, l.height, scale, (l.cell_w, l.cell_h), true, border).panel
+        Layout::compute(l.width, l.height, scale, (l.cell_w, l.cell_h), ui::Around { panel: true, ..self.around(border) }).panel
     }
 
     /// Where a file dropped now would land: by the pointer, else (it can't
