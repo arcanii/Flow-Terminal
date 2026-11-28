@@ -1705,7 +1705,50 @@ is built.
   6. a group's theme (built);
   7. the git branch on each tab's line (built).
 - **Left for a design of its own:** a server's address on the line,
-  which needs each OS to read the ports a tab's programs listen on.
+  which needs each OS to read the ports a tab's programs listen on: its
+  own entry, next.
+
+## A server's address on a tab's line
+
+In the picture of another app's sidebar the tab sidebar was asked for
+with (2026-11-27), a tab running a server showed its address
+(`localhost:8765`) on its line. The design left it out
+(`docs/design/tab-groups.md`'s Left out), since it needs the ports a
+tab's programs listen on, which Flow doesn't read; backlogged on its own
+on 2026-11-28, once every step of the sidebar was built. Nothing is
+started.
+
+- **What it'd do:** where a program in a tab (its shell or anything
+  under it) listens on a TCP port, the tab's line in the sidebar says
+  where, `localhost:<port>`, beside the command running, and the tab card
+  (the pointer resting on a pill or a row) could too.
+- **What it needs:** the listening sockets of each tab's programs, read
+  where `Platform::processes` already reads them (a tab's shell and every
+  process under it, `resources.rs`), on the `flow-usage` thread, and only
+  while the sidebar or a card shows, as the usage is. Each OS has its own
+  way:
+  - the Mac: `proc_pidinfo`'s `PROC_PIDLISTFDS`, then `proc_pidfdinfo`'s
+    `PROC_PIDFDSOCKETINFO` for each socket, taking TCP ones in `LISTEN`
+    (`macos/src/processes.rs` beside the usage it reads);
+  - Linux: each program's `/proc/<pid>/fd` links (`socket:[inode]`)
+    matched to `/proc/net/tcp` and `tcp6` rows in state `0A` (LISTEN),
+    read in core as `resources::linux` is, so the parsing is tested
+    anywhere;
+  - Windows: `GetExtendedTcpTable` with `TCP_TABLE_OWNER_PID_LISTENER`,
+    each row's owning process matched to the tab's.
+- **To decide:**
+  - where it goes on the line: after the command running
+    (`• npm run dev · localhost:5173`), or in the folder's or branch's
+    place once nothing runs;
+  - several ports at once (a dev server and its live reload): the first,
+    the lowest, or a count;
+  - what an address bound to every interface (`0.0.0.0`, `::`) or to
+    another one shows;
+  - whether a click on it opens it in the browser (`http://localhost:<port>`
+    through `App::open_url`, which `link::openable` already takes).
+- **Tests:** the Linux parser on made-up `/proc/net/tcp` text, the
+  Mac's and Windows' readers against a listener a test opens on a free
+  port, and the line's choice as `tab_sidebar::line`'s tests choose it.
 
 ## A Homebrew tap
 

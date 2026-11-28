@@ -753,7 +753,8 @@ Each step is a commit of its own, tested before the next:
   - Linux's `/proc/net/tcp` matched to each program's descriptors;
   - Windows' `GetExtendedTcpTable`.
 
-  It's a design of its own once the rest is in.
+  It's a design of its own once the rest is in: BACKLOG.md's A server's
+  address on a tab's line (2026-11-28).
 - **The count of a checkout's changed files:** it would run `git status`
   in the user's folders each time a command ends, which on a large
   checkout takes seconds. The branch alone reads one file.
